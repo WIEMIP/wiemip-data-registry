@@ -8,7 +8,6 @@ in the filename prefix. Which runs/variables resolve is decided by file existenc
 """
 from __future__ import annotations
 
-import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
@@ -47,8 +46,9 @@ class LPX_Bern(core.WIEAdapter):
                            f"(have {[s.name for s in _PREFIX]})")
         return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
 
-    def _years(self, ds: xr.Dataset):
-        return np.floor(ds["time"].values).astype(int)
+    def _time(self, ds: xr.Dataset):
+        # numeric calendar years (fractional for monthly) -> datetime64
+        return core.years_to_datetime(ds["time"].values)
 
     def read(self, experiment, simulation, forcing, factorial, variable) -> xr.DataArray:
         ds = xr.open_dataset(
@@ -56,7 +56,7 @@ class LPX_Bern(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
-        return core.standardize(da, self.LAT, self.LON, self._years(ds))
+        return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
         """Provided land-only grid-cell area raster [m²] (LPX-Bern README)."""

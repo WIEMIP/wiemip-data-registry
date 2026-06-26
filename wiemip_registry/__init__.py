@@ -5,38 +5,26 @@ The headline access pattern is a dotted namespace resolving to a `WIEFile`:
 
     import wiemip_registry as wr
 
-    # experiment . simulation . model . forcing . factorial . variable
-    f  = wr.one_percent_co2.bgc.LPX_Bern.ukesm.baseline.cVeg
-    ts = f.global_sum()     # Pg C time series
-    da = f.read()           # standardized, lazy xr.DataArray
+    # experiment . model . forcing . simulation . factorial . variable
+    f  = wr.one_percent_co2.LPX_Bern.ukesm.bgc.baseline.cVeg
+    ts = f.latitudinal_sum()   # Pg C series (native cadence)
+    da = f.read()              # standardized, lazy xr.DataArray
 
-The namespace is **sparse**: only existing combinations resolve. A miss raises a
-clear error listing what *is* available at that level (see `_Node.__getattr__`).
-
-How it's built:
-  * Discover each populated model subpackage's `convert.py`, find the single
-    `WIEAdapter` subclass it defines, and instantiate it.
-  * Ask each adapter to enumerate the (experiment, simulation, forcing, factorial,
-    variable) tuples it resolves (Enums + a variable string).
-  * Key the tree by the Python-safe identifiers (`Enum.name` for the four Enum
-    levels, the subpackage name for `model`, the CMIP string for `variable`) and
-    expose it through `_Node` proxies; the leaf builds a `WIEFile` holding the
-    Enum members themselves.
+Resolution is **lazy and name-based** — no pre-enumerated tree, no existence scan
+at import:
+  * The four Enum axes (experiment / forcing / simulation / factorial) and the
+    `model` axis are validated by *name* as you select them; an unknown name raises
+    `AttributeError` listing the valid options (and drives tab-completion).
+  * The `variable` axis is free-form: selecting it always returns a `WIEFile` and
+    never touches s3. If that variable's file wasn't uploaded, the error surfaces
+    only when you call `.read()` (xarray can't open it).
 """
 from __future__ import annotations
 
 import importlib
 
 from .core import WIEAdapter, WIEFile
-
-# Populated models only (the other ~20 bucket dirs are empty placeholders).
-# Each name is BOTH the subpackage dir and the Python-safe namespace alias.
-_MODEL_PACKAGES = [
-    "BiomeE", "CLASSIC", "DLEM", "JSBACH", "JULES", "LPX_Bern", "VISIT_UT",
-]
-
-# Experiment dir on disk  <->  Python-safe namespace alias (leading digit fix).
-EXPERIMENT_ALIASES = {"1pctCO2": "one_percent_co2", "overshoot": "overshoot"}
+from .const import Experiment, GCMPattern, Simulation, Factorial, MODEL_PACKAGES, VARIABLES
 
 
 def _find_adapter_class(module) -> type[WIEAdapter] | None:
@@ -50,7 +38,7 @@ def _find_adapter_class(module) -> type[WIEAdapter] | None:
 def _load_adapters() -> dict[str, WIEAdapter]:
     """Import each `<MODEL>/convert.py`, instantiate its adapter class, key by alias."""
     adapters: dict[str, WIEAdapter] = {}
-    for name in _MODEL_PACKAGES:
+    for name in MODEL_PACKAGES:
         try:
             module = importlib.import_module(f"{__name__}.{name}.convert")
         except ModuleNotFoundError:
@@ -61,90 +49,99 @@ def _load_adapters() -> dict[str, WIEAdapter]:
     return adapters
 
 
-def _build_tree(adapters: dict[str, WIEAdapter]) -> dict:
-    """Nested dict: exp -> sim -> model_alias -> forcing -> factorial -> var -> leaf,
-    keyed by `Enum.name`/alias/str. A leaf is `(adapter, model_alias, coords)`
-    where `coords` holds the Enum members, enough to lazily build a `WIEFile`."""
-    tree: dict = {}
-    for model_alias, adapter in adapters.items():
-        for exp, sim, forcing, factorial, variable in adapter.available():
-            coords = (exp, sim, forcing, factorial, variable)
-            (tree
-                .setdefault(exp.name, {})
-                .setdefault(sim.name, {})
-                .setdefault(model_alias, {})
-                .setdefault(forcing.name, {})
-                .setdefault(factorial.name, {})
-                [variable]) = (adapter, model_alias, coords)
-    return tree
+_ADAPTERS = _load_adapters()
 
+# Iterable axis vocabularies — the valid attribute names at each level. Feed any of
+# these back into the namespace with `getattr(node, name)`. (`variables` is the
+# common-CMIP convenience list; the variable axis itself accepts any name.)
+models: tuple[str, ...] = tuple(_ADAPTERS)
+gcm_patterns: tuple[str, ...] = tuple(m.name for m in GCMPattern)
+simulations: tuple[str, ...] = tuple(m.name for m in Simulation)
+variables: tuple[str, ...] = tuple(VARIABLES)
 
-_LEVELS = ("experiment", "simulation", "model", "forcing", "factorial", "variable")
+# Axis order of the dotted namespace, and the Enum backing each Enum axis.
+_LEVELS = ("experiment", "model", "forcing", "simulation", "factorial", "variable")
+_ENUM_BY_LEVEL = {
+    "experiment": Experiment,
+    "forcing": GCMPattern,
+    "simulation": Simulation,
+    "factorial": Factorial,
+}
 
 
 class _Node:
-    """Attribute proxy for one level of the sparse namespace."""
+    """Lazy attribute proxy. Carries the selections made so far and resolves the
+    next axis (per `_LEVELS`) by name. Building a node never touches s3."""
 
-    def __init__(self, children: dict, depth: int, path: tuple[str, ...]):
-        self._children = children
-        self._depth = depth          # index into _LEVELS of THIS node's children
-        self._path = path            # aliases consumed so far (for error messages)
+    def __init__(self, depth: int, selections: dict, adapter: WIEAdapter | None,
+                 path: tuple[str, ...]):
+        self._depth = depth          # index into _LEVELS of the NEXT axis to pick
+        self._sel = selections       # {level: Enum member} chosen so far
+        self._adapter = adapter      # set once the model axis is chosen
+        self._path = path            # attribute names chosen so far (for errors/repr)
 
     def __getattr__(self, name: str):
         if name.startswith("_"):
             raise AttributeError(name)
-        try:
-            child = self._children[name]
-        except KeyError:
-            level = _LEVELS[self._depth]
-            here = ".".join(self._path) or "<root>"
-            avail = ", ".join(sorted(self._children)) or "(none)"
-            raise AttributeError(
-                f"no {level} '{name}' at {here}. Available {level}s: {avail}"
-            ) from None
+        level = _LEVELS[self._depth]
 
-        # Leaf reached: child is the (adapter, alias, coords) tuple -> WIEFile.
-        if isinstance(child, tuple):
-            adapter, _model_alias, coords = child
-            experiment, simulation, forcing, factorial, variable = coords
-            return WIEFile(
-                model=adapter.model,
-                experiment=experiment,
-                simulation=simulation,
-                forcing=forcing,
-                factorial=factorial,
-                variable=variable,
-                _adapter=adapter,
-            )
-        return _Node(child, self._depth + 1, self._path + (name,))
+        # Leaf: any variable name is accepted; a missing file errors at read() time.
+        if level == "variable":
+            return WIEFile(model=self._adapter.model, variable=name,
+                           _adapter=self._adapter, **self._sel)
+
+        if level == "model":
+            adapter = _ADAPTERS.get(name)
+            if adapter is None:
+                raise AttributeError(
+                    f"no model '{name}' at {'.'.join(self._path) or '<root>'}. "
+                    f"Available models: {', '.join(sorted(_ADAPTERS))}"
+                )
+            return _Node(self._depth + 1, dict(self._sel), adapter, self._path + (name,))
+
+        enum = _ENUM_BY_LEVEL[level]
+        try:
+            member = enum[name]
+        except KeyError:
+            raise AttributeError(
+                f"no {level} '{name}' at {'.'.join(self._path) or '<root>'}. "
+                f"Available {level}s: {', '.join(m.name for m in enum)}"
+            ) from None
+        return _Node(self._depth + 1, {**self._sel, level: member},
+                     self._adapter, self._path + (name,))
 
     def __dir__(self):
-        # Enables tab-completion of the next level in REPLs / notebooks.
-        return list(self._children)
+        # Drives tab-completion of the next axis in REPLs / notebooks.
+        level = _LEVELS[self._depth]
+        if level == "model":
+            return sorted(_ADAPTERS)
+        if level == "variable":
+            return []                # free-form; no enum to enumerate
+        return [m.name for m in _ENUM_BY_LEVEL[level]]
 
     def __repr__(self) -> str:
-        level = _LEVELS[self._depth]
-        return f"<wiemip_registry node {'.'.join(self._path) or 'root'} -> {level}s {sorted(self._children)}>"
+        return (f"<wiemip_registry node {'.'.join(self._path) or 'root'} "
+                f"-> next: {_LEVELS[self._depth]}>")
 
 
-# --------------------------------------------------------------------------- #
-# Build the namespace at import and expose experiments as module attributes.
-# --------------------------------------------------------------------------- #
-_ADAPTERS = _load_adapters()
-_TREE = _build_tree(_ADAPTERS)
-_ROOT = _Node(_TREE, depth=0, path=())
+def __getattr__(name: str):  # PEP 562 — the top level is the `experiment` axis
+    if name.startswith("_"):
+        raise AttributeError(name)
+    try:
+        experiment = Experiment[name]
+    except KeyError:
+        raise AttributeError(
+            f"no experiment '{name}'. "
+            f"Available experiments: {', '.join(m.name for m in Experiment)}"
+        ) from None
+    return _Node(depth=1, selections={"experiment": experiment}, adapter=None, path=(name,))
 
 
-def __getattr__(name: str):  # PEP 562 — lazy module-level experiment lookup
-    if name in _TREE:
-        return _Node(_TREE[name], depth=1, path=(name,))
-    raise AttributeError(
-        f"no experiment '{name}'. Available experiments: {', '.join(sorted(_TREE)) or '(none)'}"
-    )
+_PUBLIC = ["WIEFile", "models", "variables", "gcm_patterns", "simulations"]
 
 
 def __dir__():
-    return sorted(list(_TREE) + ["WIEFile"])
+    return sorted(_PUBLIC + [m.name for m in Experiment])
 
 
-__all__ = ["WIEFile"] + list(EXPERIMENT_ALIASES.values())
+__all__ = _PUBLIC + [m.name for m in Experiment]

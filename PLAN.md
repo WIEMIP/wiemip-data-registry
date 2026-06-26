@@ -14,19 +14,20 @@ The headline access pattern is a dotted namespace resolving to a single file wra
 ```python
 import wiemip_registry as wr
 
-# Order: experiment . simulation . model . forcing . factorial . variable  -> WIEFile
-f = wr.one_percent_co2.bgc.LPX_Bern.ukesm.baseline.cVeg
-ts = f.global_sum()                    # global total time series (Pg C)
+# Order: experiment . model . forcing . simulation . factorial . variable  -> WIEFile
+f = wr.one_percent_co2.LPX_Bern.ukesm.bgc.baseline.cVeg
+ts = f.latitudinal_sum()               # global total time series (Pg C), native cadence
 da = f.read()                          # standardized xr.DataArray, but does NOT load into memory, stays lazy
 ```
 
-- Order: **`experiment.simulation.model.forcing.factorial.variable`** (e.g. `one_percent_co2.cou.CLASSIC.ukesm.noNitrogen.gpp`).
+- Order: **`experiment.model.forcing.simulation.factorial.variable`** (e.g. `one_percent_co2.CLASSIC.ukesm.cou.noNitrogen.gpp`).
 - `experiment` is `one_percent_co2` or `overshoot` (the data dirs `1pctCO2`/`overshoot`; the leading
   digit forces the Python-safe alias `one_percent_co2`).
 - `forcing` is a **required** level (no default) — use `ukesm` for cross-model comparability.
 - `factorial == baseline` selects the comparable, unperturbed run (per the AGENTS.md rule).
-- The namespace is **sparse** — only existing combinations resolve. A miss means that *file* does
-  not exist; raise a clear error listing what *is* available at that level for the model.
+- Resolution is **lazy and name-based**: the Enum axes (experiment/forcing/simulation/factorial) and
+  `model` are validated by name as you select them; `variable` is free-form and a non-existent file
+  only errors when you call `.read()` (no eager existence scan).
 
 ## Core object: `WIEFile`
 

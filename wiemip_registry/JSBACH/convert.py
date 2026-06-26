@@ -44,8 +44,8 @@ class JSBACH(core.WIEAdapter):
                            f"(have {[s.name for s in _PREFIX]})")
         return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
 
-    def _years(self, ds: xr.Dataset):
-        return ds["time"].dt.year.values
+    def _time(self, ds: xr.Dataset):
+        return ds["time"].values        # already datetime64 (decode_times=True)
 
     def read(self, experiment, simulation, forcing, factorial, variable) -> xr.DataArray:
         ds = xr.open_dataset(
@@ -53,7 +53,7 @@ class JSBACH(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
-        return core.standardize(da, self.LAT, self.LON, self._years(ds))
+        return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²] (ocean -> NaN on the data)."""

@@ -1,0 +1,60 @@
+name: sync-variables
+
+# Keeps wiemip_registry's VARIABLES (const.py) + the __init__.pyi stub in sync with
+# the WIE-MIP data request (colligant/wiemip-data-request), so nobody has to run
+# `python wiemip_registry/_sync_variables.py` by hand.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"        # daily ~06:17 UTC (adjust cadence to taste)
+  workflow_dispatch: {}         # manual "Run workflow" button in the Actions tab
+  # Want it to fire the INSTANT the data request changes instead of daily? Uncomment
+  # below, then add a step in colligant/wiemip-data-request that POSTs a
+  # repository_dispatch (type: data-request-updated) to this repo using a PAT.
+  # repository_dispatch:
+  #   types: [data-request-updated]
+
+permissions:
+  contents: write               # allow the job to push the synced files
+
+concurrency:                    # never run two syncs at once
+  group: sync-variables
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+
+      - name: Check out the data request
+        uses: actions/checkout@v4
+        with:
+          repository: colligant/wiemip-data-request
+          path: _data_request
+          # If wiemip-data-request is PRIVATE, the default token can't read it —
+          # create a read-scoped PAT or deploy key, store it as a secret, and set:
+          # token: ${{ secrets.DATA_REQUEST_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sync variables (stdlib only — no install needed)
+        env:
+          WIEMIP_DATA_REQUEST: ${{ github.workspace }}/_data_request
+        run: python wiemip_registry/_sync_variables.py
+
+      - name: Commit & push if anything changed
+        run: |
+          changed="$(git status --porcelain wiemip_registry/const.py wiemip_registry/__init__.pyi)"
+          if [ -z "$changed" ]; then
+            echo "No variable changes — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wiemip_registry/const.py wiemip_registry/__init__.pyi
+          git commit -m "chore: sync variables from wiemip-data-request"
+          git push origin HEAD:${{ github.ref_name }}

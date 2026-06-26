@@ -29,26 +29,16 @@ class WIEAdapter(ABC):
     Python.
 
     Subclasses implement the three abstract hooks (`path`, `read`,
-    `_compute_weights`) and may override the candidate-space class attributes. The
-    namespace is enumerated by `available()`, which takes the cartesian product of
-    those candidate lists and KEEPS ONLY the combinations whose file actually
-    exists on the bucket — no hardcoded per-model "which files exist" schema.
+    `_compute_weights`). There is no per-model "what exists" schema: the namespace
+    lets a user select any (experiment, model, forcing, simulation, factorial,
+    variable) by name, and a combination that wasn't uploaded simply fails when
+    `read()` tries to open the file.
     """
 
     model: str
 
-    # Candidate space that EXISTENCE then filters (see `available()`). Generous
-    # defaults — override only if a model's candidate space genuinely differs.
-    # `variable` is never an Enum (CMIP names).
-    experiments = [const.Experiment.one_percent_co2]
-    simulations = [const.Simulation.bgc, const.Simulation.cou, const.Simulation.ctrl]
-    available_gcm_patterns = [const.GCMPattern.ukesm]
-    factorials = [const.Factorial.baseline]
-    variables = ["cVeg", "cSoil", "cLitter", "gpp", "npp", "rh", "nbp", "fFire"]
-
     _weights_cache: xr.DataArray | None = None
 
-    # --- abstract, model-specific hooks ------------------------------------ #
     @abc.abstractmethod
     def path(self, experiment: const.Experiment, simulation: const.Simulation,
               forcing: const.GCMPattern, factorial: const.Factorial, variable: str) -> str:
@@ -60,7 +50,7 @@ class WIEAdapter(ABC):
              forcing: const.GCMPattern, factorial: const.Factorial, variable: str) -> xr.DataArray:
         """
         Open one variable and STANDARDIZE its layout: canonical dims
-        ('time', 'lat', 'lon'[, level]), integer-year `time` coord, sentinel fills
+        ('time', 'lat', 'lon'[, level]), pd.DateTime `time` coord, sentinel fills
         masked to NaN. Units stay NATIVE — unit conversion happens in `WIEFile`,
         not here. Returns an unweighted DataArray.
         """
@@ -83,33 +73,13 @@ class WIEAdapter(ABC):
         so `.sum()`/`.mean()` over (lat, lon) are one call."""
         return da.weighted(self.weights())
 
-    def available(self) -> list[tuple]:
-        """Resolvable (experiment, simulation, forcing, factorial, variable)
-        tuples: the cartesian product of the candidate lists, KEPT ONLY where the
-        file actually exists on the bucket. No hardcoded per-model schema — upload
-        more files and they show up automatically. Enums for every level except
-        `variable`."""
-        out = []
-        for e in self.experiments:
-            for s in self.simulations:
-                for g in self.available_gcm_patterns:
-                    for f in self.factorials:
-                        for v in self.variables:
-                            try:
-                                p = self.path(e, s, g, f, v)
-                            except (KeyError, NotImplementedError):
-                                continue          # model can't construct that combo
-                            if Path(p).exists():
-                                out.append((e, s, g, f, v))
-        return out
-
-    def to_annual_pgc(self, total: xr.DataArray, variable: str) -> pd.Series:
-        """Collapse a per-timestep weighted (lat, lon) sum to an annual Pg C
-        series. MODEL-SPECIFIC: override when a model's upload cadence/units make
-        the default wrong (e.g. it didn't upload a monthly rate that SPY applies
-        to). Default: monthly rate × SPY for fluxes, annual mean for stocks."""
+    def to_pgc(self, total: xr.DataArray, variable: str) -> pd.Series:
+        """Convert a per-timestep weighted (lat, lon) sum to a Pg C series,
+        PRESERVING the file's native cadence (monthly stays monthly — no annual
+        collapse). MODEL-SPECIFIC: override when a model's upload units make the
+        default wrong (e.g. its flux is not a per-second rate that SPY applies to).
+        Default: stock `/PG`; flux rate `×SPY/PG` (a per-timestep annualized rate)."""
         s = total.to_series()
-        s = s.groupby(s.index).mean()            # monthly -> annual (mean rate / mean stock)
         s = s / const.PG if kind_of(variable) == "stock" else s * const.SPY / const.PG
         s.name = variable
         return s
@@ -154,18 +124,32 @@ def rename_latlon(da: xr.DataArray, latn: str, lonn: str) -> xr.DataArray:
     return da.rename(ren) if ren else da
 
 
-def standardize(da: xr.DataArray, latn: str, lonn: str, years: np.ndarray) -> xr.DataArray:
+def standardize(da: xr.DataArray, latn: str, lonn: str, time: np.ndarray) -> xr.DataArray:
     """
     Map a model's raw DataArray onto the canonical standardized form: lat/lon
-    renamed to ('lat', 'lon'), an integer-year `time` coord attached, and
-    ('time', 'lat', 'lon') moved to the front while PRESERVING any extra dims
-    (e.g. PFT / soil levels). `da` is expected to be fill-masked already.
+    renamed to ('lat', 'lon'), a pandas-`datetime64` `time` coord attached
+    (PRESERVING the file's native cadence — monthly stays monthly), and
+    ('time', 'lat', 'lon') moved to the front while keeping any extra dims
+    (e.g. PFT / soil levels). `da` is fill-masked already; `time` is the decoded
+    datetime axis from the adapter's `_time(ds)` hook.
     """
     da = rename_latlon(da, latn, lonn)
-    da = da.assign_coords(time=("time", np.asarray(years).astype(int)))
+    da = da.assign_coords(time=("time", np.asarray(time, dtype="datetime64[ns]")))
     front = [d for d in ("time", "lat", "lon") if d in da.dims]
     rest = [d for d in da.dims if d not in front]
     return da.transpose(*front, *rest)
+
+
+def years_to_datetime(values) -> np.ndarray:
+    """Numeric (possibly fractional) *calendar* years -> `datetime64[M]`, keeping
+    sub-annual resolution: year = floor(v), month = round(frac * 12) clamped 0..11.
+    Annual data (frac == 0) maps to January of each year. Used by the models whose
+    time axis is a bare numeric year (LPX-Bern, VISIT-UT)."""
+    v = np.asarray(values, dtype="float64")
+    years = np.floor(v).astype("int64")
+    months = np.clip(np.rint((v - years) * 12).astype("int64"), 0, 11)
+    total_months = (years - 1970) * 12 + months          # months since the 1970 epoch
+    return np.datetime64("1970-01", "M") + total_months.astype("timedelta64[M]")
 
 
 @dataclass
@@ -200,7 +184,7 @@ class WIEFile:
 
     def read(self) -> xr.DataArray:
         """Standardized, *lazy* DataArray for this variable (canonical dims,
-        integer-year time coord, NaN fills, native units).
+        pandas-datetime time coord at native cadence, NaN fills, native units).
 
         TODO(virtualizarr): when a reference sidecar exists in `references/`, open
         through the committed virtual-zarr store instead of re-opening raw netCDF.
@@ -216,9 +200,10 @@ class WIEFile:
         return self._adapter.weight_dataarray(da)
 
     def latitudinal_sum(self, start: float | None = None, end: float | None = None) -> pd.Series:
-        """Area-weighted total as an annual Pg C series. With no band, sums the
-        whole globe; pass (start, end) degrees to restrict to a latitude band. The
-        annual/unit conversion is delegated to the model's adapter (`to_annual_pgc`).
+        """Area-weighted total as a Pg C series at the file's native cadence
+        (monthly stays monthly). With no band, sums the whole globe; pass
+        (start, end) degrees to restrict to a latitude band. The unit conversion is
+        delegated to the model's adapter (`to_pgc`).
 
         TODO(cache): look up the precomputed series in the `wiemip-csv` mirror
         bucket first, and write computed results back.
@@ -230,7 +215,7 @@ class WIEFile:
                 band = da.sel(lat=slice(end, start))
             da = band
         total = self.weighted_dataarray(da).sum(("lat", "lon"))
-        return self._adapter.to_annual_pgc(total, self.variable)
+        return self._adapter.to_pgc(total, self.variable)
 
     def __repr__(self) -> str:
         return (f"WIEFile({self.experiment.name}.{self.simulation.name}.{self.model}."
