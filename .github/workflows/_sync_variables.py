@@ -11,10 +11,12 @@ short/CMIP name. This collects those names across all categories and overwrites
     python .github/workflows/_sync_variables.py /path/to/wiemip-data-request
     WIEMIP_DATA_REQUEST=/path/to/wiemip-data-request python .github/workflows/_sync_variables.py
 
-Stdlib only (json + pathlib). The synced `variables.py` is COMMITTED, so using the
-package needs no data-request checkout — only re-syncing does. If the data request is
-ever added as a git submodule at the repo root it's picked up automatically (it's one
-of the search candidates), no code change needed.
+The sync itself is stdlib (json + pathlib), but it chains `_gen_stubs.py`, which now
+imports `wiemip_registry` (to read each adapter's per-model FACTORIALS), so the stub
+step needs the package's deps installed. The synced `variables.py` is COMMITTED, so
+using the package needs no data-request checkout — only re-syncing does. If the data
+request is ever added as a git submodule at the repo root it's picked up automatically
+(it's one of the search candidates), no code change needed.
 """
 from __future__ import annotations
 

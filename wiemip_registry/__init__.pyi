@@ -169,33 +169,144 @@ class _Variable:
     wetfrac: WIEFile
     wind: WIEFile
     wtd: WIEFile
+    nSoil: WIEFile
+    nSoilpft: WIEFile
     def __getattr__(self, name: str) -> WIEFile: ...
 
-class _Factorial:
+class _BiomeE_Factorial:
     baseline: _Variable
 
-class _Simulation:
-    bgc: _Factorial
-    cou: _Factorial
-    rad: _Factorial
-    ctrl: _Factorial
-    bgc_ndep: _Factorial
-    cou_ndep: _Factorial
-    rad_ndep: _Factorial
+class _BiomeE_Simulation:
+    bgc: _BiomeE_Factorial
+    cou: _BiomeE_Factorial
+    rad: _BiomeE_Factorial
+    ctrl: _BiomeE_Factorial
 
-class _Forcing:
-    ukesm: _Simulation
-    ipsl: _Simulation
-    gfdl: _Simulation
+class _BiomeE_Forcing:
+    ukesm: _BiomeE_Simulation
+    ipsl: _BiomeE_Simulation
+    gfdl: _BiomeE_Simulation
+
+class _CLASSIC_Factorial:
+    baseline: _Variable
+    ndep: _Variable
+    noFire: _Variable
+    noNitrogen: _Variable
+    ndep_noFire: _Variable
+    noFire_noNitrogen: _Variable
+
+class _CLASSIC_Simulation:
+    bgc: _CLASSIC_Factorial
+    cou: _CLASSIC_Factorial
+    rad: _CLASSIC_Factorial
+    ctrl: _CLASSIC_Factorial
+
+class _CLASSIC_Forcing:
+    ukesm: _CLASSIC_Simulation
+    ipsl: _CLASSIC_Simulation
+    gfdl: _CLASSIC_Simulation
+
+class _DLEM_Factorial:
+    baseline: _Variable
+    noNdep: _Variable
+
+class _DLEM_Simulation:
+    bgc: _DLEM_Factorial
+    cou: _DLEM_Factorial
+    rad: _DLEM_Factorial
+    ctrl: _DLEM_Factorial
+
+class _DLEM_Forcing:
+    ukesm: _DLEM_Simulation
+    ipsl: _DLEM_Simulation
+    gfdl: _DLEM_Simulation
+
+class _JSBACH_Factorial:
+    baseline: _Variable
+    ndep: _Variable
+    noNitrogen: _Variable
+
+class _JSBACH_Simulation:
+    bgc: _JSBACH_Factorial
+    cou: _JSBACH_Factorial
+    rad: _JSBACH_Factorial
+    ctrl: _JSBACH_Factorial
+
+class _JSBACH_Forcing:
+    ukesm: _JSBACH_Simulation
+    ipsl: _JSBACH_Simulation
+    gfdl: _JSBACH_Simulation
+
+class _JULES_Factorial:
+    baseline: _Variable
+    noNitrogen: _Variable
+    noDynVeg: _Variable
+    noPermafrostC: _Variable
+    noPermafrostCN: _Variable
+    noPermafrostCNNinorg: _Variable
+    addPermafrostC: _Variable
+    addPermafrostCN: _Variable
+    addPermafrostCNNinorg: _Variable
+    noNitrogen_addPermafrostC: _Variable
+    noNitrogen_noPermafrostC: _Variable
+    Fire0005: _Variable
+    Fire0249: _Variable
+    Fire0304: _Variable
+    Fire0336: _Variable
+
+class _JULES_Simulation:
+    bgc: _JULES_Factorial
+    cou: _JULES_Factorial
+    rad: _JULES_Factorial
+    ctrl: _JULES_Factorial
+
+class _JULES_Forcing:
+    ukesm: _JULES_Simulation
+    ipsl: _JULES_Simulation
+    gfdl: _JULES_Simulation
+
+class _LPX_Bern_Factorial:
+    baseline: _Variable
+    nofire: _Variable
+    nopermafrost: _Variable
+    nopermafrost_nofire: _Variable
+    ndep: _Variable
+
+class _LPX_Bern_Simulation:
+    bgc: _LPX_Bern_Factorial
+    cou: _LPX_Bern_Factorial
+    rad: _LPX_Bern_Factorial
+    ctrl: _LPX_Bern_Factorial
+
+class _LPX_Bern_Forcing:
+    ukesm: _LPX_Bern_Simulation
+    ipsl: _LPX_Bern_Simulation
+    gfdl: _LPX_Bern_Simulation
+
+class _VISIT_UT_Factorial:
+    baseline: _Variable
+    noBVOC: _Variable
+    noFire: _Variable
+
+class _VISIT_UT_Simulation:
+    bgc: _VISIT_UT_Factorial
+    cou: _VISIT_UT_Factorial
+    rad: _VISIT_UT_Factorial
+    ctrl: _VISIT_UT_Factorial
+
+class _VISIT_UT_Forcing:
+    ukesm: _VISIT_UT_Simulation
+    ipsl: _VISIT_UT_Simulation
+    gfdl: _VISIT_UT_Simulation
 
 class _Model:
-    BiomeE: _Forcing
-    CLASSIC: _Forcing
-    DLEM: _Forcing
-    JSBACH: _Forcing
-    JULES: _Forcing
-    LPX_Bern: _Forcing
-    VISIT_UT: _Forcing
+    BiomeE: _BiomeE_Forcing
+    CLASSIC: _CLASSIC_Forcing
+    DLEM: _DLEM_Forcing
+    JSBACH: _JSBACH_Forcing
+    JULES: _JULES_Forcing
+    LPX_Bern: _LPX_Bern_Forcing
+    VISIT_UT: _VISIT_UT_Forcing
 
 # top-level iterables over the axis vocabularies
 models: tuple[str, ...]

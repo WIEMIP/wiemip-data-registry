@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -38,6 +38,9 @@ class WIEAdapter(ABC):
     model: str
 
     _weights_cache: xr.DataArray | None = None
+    # Path of the most recent file opened via this adapter — stamped by WIEFile.read()
+    # for provenance ("which file did this actually read").
+    filename: str | None = None
 
     # Per-model factorial vocabulary: canonical name -> however THIS model spells
     # that sensitivity run in its path (a suffix, a config string, a prefix the
@@ -193,6 +196,7 @@ class WIEFile:
     factorial: str                 # per-model factorial name, e.g. "baseline", "ndep"
     variable: str                  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
+    filename: str | None = field(default=None, init=False)   # path of the file read; set by read()
 
     @property
     def kind(self) -> str:
@@ -220,6 +224,8 @@ class WIEFile:
         TODO(virtualizarr): when a reference sidecar exists in `references/`, open
         through the committed virtual-zarr store instead of re-opening raw netCDF.
         """
+        self.filename = self.path                  # record the file we resolve to / read
+        self._adapter.filename = self.filename     # mirror onto the shared adapter
         return self._adapter.read(self.experiment, self.simulation, self.forcing,
                                   self.factorial, self.variable)
 
