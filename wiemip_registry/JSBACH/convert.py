@@ -18,14 +18,17 @@ from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 
-_FACTORIALS = {"baseline": "", "ndep": "_ndep", "noNitrogen": "_noNitrogen"}
+# JSBACH factorial -> (run_suffix, post_cadence). Like CLASSIC: `_ndep` is a run
+# token (dir + file prefix), but `_noNitrogen` suffixes the dir while trailing the
+# cadence in the file: JSBACH_stable_bgc_noNitrogen/JSBACH_stable_bgc_<var>_mon_noNitrogen_1.nc
+_FACTORIALS = {"baseline": ("", ""), "ndep": ("_ndep", ""), "noNitrogen": ("", "_noNitrogen")}
 
 
-def _run(simulation, forcing, suf: str) -> str:
-    """The JSBACH run token = dir name = file prefix."""
+def _stem(simulation, forcing, run_suf: str) -> str:
+    """The JSBACH run token (file prefix); the dir additionally carries `post`."""
     if simulation in (Simulation.cou, Simulation.rad):
-        return f"JSBACH_{forcing.value}_{simulation.name}{suf}"
-    return f"JSBACH_stable_{simulation.name}{suf}"          # bgc, ctrl
+        return f"JSBACH_{forcing.value}_{simulation.name}{run_suf}"
+    return f"JSBACH_stable_{simulation.name}{run_suf}"      # bgc, ctrl
 
 
 class JSBACH(core.WIEAdapter):
@@ -35,9 +38,10 @@ class JSBACH(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        run = _run(simulation, forcing, self.FACTORIALS[factorial])
-        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
-        return str(_OUTPUT / "JSBACH" / run / f"{run}_{variable}_{cad}_1.nc")
+        run_suf, post = self.FACTORIALS[factorial]
+        stem = _stem(simulation, forcing, run_suf)
+        cad = "yr" if core.is_annual(variable) else "mon"
+        return str(_OUTPUT / "JSBACH" / f"{stem}{post}" / f"{stem}_{variable}_{cad}{post}_1.nc")
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values        # already datetime64 (decode_times=True)

@@ -110,6 +110,13 @@ def kind_of(variable: str) -> str:
     return "stock" if variable in const.STOCKS else "flux"
 
 
+def is_annual(variable: str) -> bool:
+    """Whether the variable is written at annual cadence (vs monthly) — selects
+    the `yr`/`ann` vs `mon` filename token. Independent of stock/flux units (see
+    const.ANNUAL): pools are annual, fluxes/states monthly."""
+    return variable in const.ANNUAL
+
+
 def spherical_area(obj: xr.Dataset | xr.DataArray, latn: str, lonn: str) -> xr.DataArray:
     """
     Grid-cell area [m2] from lat/lon centres, assuming a regular spherical grid.

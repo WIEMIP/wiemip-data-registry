@@ -21,6 +21,21 @@ FILL_FLOOR = -1e3        # no physical stock/flux is below this; sentinel fills
 # (kg C m-2 s-1). Drives unit conversion in WIEFile.global_sum().
 STOCKS = {"cVeg", "cSoil", "cLitter", "cWood", "cLeaf", "cRoot", "cCwd"}
 
+# Variables written at ANNUAL cadence (the `yr`/`ann` filename token); everything
+# else is monthly (`mon`). Cadence is INDEPENDENT of stock/flux units: the
+# nitrogen pools and per-PFT carbon are annual but are not carbon STOCKS. Derived
+# from the bucket filenames. Per-model overrides win — VISIT-UT writes everything
+# monthly and JULES everything annual, so their adapters ignore this set.
+ANNUAL = {
+    "cVeg", "cSoil", "cLitter", "cWood", "cLeaf", "cRoot", "cCwd", "cProduct",
+    "cVegpft", "cSoilpft", "cLitterpft", "cSoilPools", "cSoilLayers",
+    "cSoilAbove1m", "cSoilBelow1m",
+    "nVeg", "nSoil", "nLitter", "nOrgSoil", "nInorgSoil", "nProduct",
+    "nVegpft", "nSoilpft", "nLitterpft", "nOrgSoilpft", "nInOrgSoilpft",
+    "nInorgSoilLayer", "nOrgSoilLayer",
+    "landCoverFrac", "oceanCoverFrac", "wetfrac",
+}
+
 # The requested variable list lives in variables.py (auto-generated from the
 # WIE-MIP data request). Regenerate: python .github/workflows/_sync_variables.py
 

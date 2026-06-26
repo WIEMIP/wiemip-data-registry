@@ -26,6 +26,7 @@ import importlib
 from .core import WIEAdapter, WIEFile
 from .const import Experiment, GCMPattern, Simulation, MODEL_PACKAGES
 from .variables import VARIABLES
+from .variable_overrides import EXTRA_VARIABLES
 
 
 def _find_adapter_class(module) -> type[WIEAdapter] | None:
@@ -58,7 +59,9 @@ _ADAPTERS = _load_adapters()
 models: tuple[str, ...] = tuple(_ADAPTERS)
 gcm_patterns: tuple[str, ...] = tuple(m.name for m in GCMPattern)
 simulations: tuple[str, ...] = tuple(m.name for m in Simulation)
-variables: tuple[str, ...] = tuple(VARIABLES)
+# Data-request list + hand-maintained overrides (superseded-but-uploaded names),
+# de-duplicated, order preserved.
+variables: tuple[str, ...] = tuple(dict.fromkeys([*VARIABLES, *EXTRA_VARIABLES]))
 
 # Axis order of the dotted namespace, and the Enum backing each Enum axis.
 # (`factorial` is NOT here — it's validated per-model against the adapter's

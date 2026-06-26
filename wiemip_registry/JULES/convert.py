@@ -34,6 +34,8 @@ _FACTORIALS = {
     "addPermafrostC":       "Nitrogen_DynVeg_addPermafrostC_noFire",
     "addPermafrostCN":      "Nitrogen_DynVeg_addPermafrostCN_noFire",
     "addPermafrostCNNinorg": "Nitrogen_DynVeg_addPermafrostCNNinorg_noFire",
+    "noNitrogen_addPermafrostC": "noNitrogen_DynVeg_addPermafrostC_noFire",
+    "noNitrogen_noPermafrostC":  "noNitrogen_DynVeg_noPermafrostC_noFire",
     "Fire0005":             "Nitrogen_DynVeg_Permafrost_Fire0005",
     "Fire0249":             "Nitrogen_DynVeg_Permafrost_Fire0249",
     "Fire0304":             "Nitrogen_DynVeg_Permafrost_Fire0304",

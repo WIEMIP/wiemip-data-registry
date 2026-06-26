@@ -195,3 +195,8 @@ Folded into the body above; kept here for rationale/traceability.
 - **"Normalize to the dot notation" for `s3_uri`/`units`.** Renamed the attr `s3_uri` → `s3_path` (to
   match the adapter). Left `units` as "native units from the file." Unclear what "dot notation" meant
   for units — confirm if you wanted units normalized to something specific.
+
+
+## Still to do
+- We need to build a registry of existing files so that s3 lookups are fast
+    - this may be easily done with a lambda function

@@ -26,11 +26,12 @@ _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 _FACTORIALS = {"baseline": "", "noBVOC": "_noBVOC", "noFire": "_noFire"}
 
 
-def _run(simulation, forcing, suf: str) -> str:
-    """The VISIT-UT run token = dir name = file prefix."""
+def _bare_run(simulation, forcing) -> str:
+    """The factorial-free run token (file prefix). The factorial is NOT here —
+    it suffixes the dir and trails the cadence in the filename (see path())."""
     if simulation in (Simulation.cou, Simulation.rad):
-        return f"VISIT-UT_{forcing.value}_{simulation.name.upper()}{suf}"
-    return f"VISIT-UT_{simulation.name.upper()}{suf}"      # BGC, CTRL
+        return f"VISIT-UT_{forcing.value}_{simulation.name.upper()}"
+    return f"VISIT-UT_{simulation.name.upper()}"          # BGC, CTRL
 
 
 class VISIT_UT(core.WIEAdapter):
@@ -40,8 +41,11 @@ class VISIT_UT(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        run = _run(simulation, forcing, self.FACTORIALS[factorial])
-        return str(_OUTPUT / "VISIT-UT" / run / f"{run}_{variable}_mon_05.nc")
+        suf = self.FACTORIALS[factorial]            # "" | "_noBVOC" | "_noFire"
+        bare = _bare_run(simulation, forcing)
+        run = f"{bare}{suf}"                         # dir carries the factorial
+        fname = f"{bare}_{variable}_mon{suf}_05.nc"  # file: factorial AFTER cadence
+        return str(_OUTPUT / "VISIT-UT" / run / fname)
 
     def _time(self, ds: xr.Dataset):
         # "years since AD 0" (fractional for monthly) -> datetime64

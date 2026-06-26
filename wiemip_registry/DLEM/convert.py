@@ -12,6 +12,7 @@ ndep-vs-not split is genuinely model-specific, so `baseline` reproduces that
 curated mapping and other DLEM factorials are left for later. path() is a pure
 transform — what exists is decided by read().
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,19 +28,42 @@ _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 class DLEM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
-    DECODE = False                      # numeric "years/months since 1850"
-    FACTORIALS = {"baseline": ""}       # ndep is baked into the baseline dirs (see module docstring)
+    DECODE = False  # numeric "years/months since 1850"
+    # baseline = the reference `_ndep` dirs (AGENTS.md §2); noNdep = the plain
+    # `1pctCO2_<SIM>` dirs whose files carry a `_noNdep` token.
+    FACTORIALS = {"baseline": "", "noNdep": ""}
+
+    wiemip_to_dlem_variable_mapping = {
+        "fFireLitter": "fFireCLitter",
+        "nOrgSoilpft": "nSoilpft",
+    }
+
+    def _get_variable(self, wiemip_variable: str) -> str:
+        if wiemip_variable in self.wiemip_to_dlem_variable_mapping:
+            return self.wiemip_to_dlem_variable_mapping[wiemip_variable]
+        return wiemip_variable
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        sim = simulation.name                                   # bgc/cou/rad/ctrl
-        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
+        sim = simulation.name  # bgc/cou/rad/ctrl
+        cad = "yr" if core.is_annual(variable) else "mon"
+        gcm_dir = (
+            f"_{forcing.value.upper()}"
+            if simulation in (Simulation.cou, Simulation.rad)
+            else ""
+        )
+        gcm_f = (
+            f"{forcing.value}_"
+            if simulation in (Simulation.cou, Simulation.rad)
+            else ""
+        )
         if simulation is Simulation.ctrl:
-            run, fpref = "1pctCO2_CTRL", "DLEM_ctrl"
-        elif simulation is Simulation.bgc:
-            run, fpref = "1pctCO2_BGC_ndep", "DLEM_bgc"
-        else:                                                   # cou, rad — GCM-forced ndep dirs
-            run = f"1pctCO2_{sim.upper()}_{forcing.value.upper()}_ndep"
-            fpref = f"DLEM_{forcing.value}_{sim}"
+            run, fpref = "1pctCO2_CTRL", "DLEM_ctrl"  # ctrl has no ndep variant
+        elif factorial == "noNdep":
+            run = f"1pctCO2_{sim.upper()}{gcm_dir}"
+            fpref = f"DLEM_{gcm_f}{sim}_noNdep"
+        else:  # baseline -> the ndep dirs
+            run = f"1pctCO2_{sim.upper()}{gcm_dir}_ndep"
+            fpref = f"DLEM_{gcm_f}{sim}"
         return str(_OUTPUT / "DLEM" / run / f"{fpref}_{variable}_{cad}_05.nc")
 
     def _time(self, ds: xr.Dataset):
@@ -49,9 +73,11 @@ class DLEM(core.WIEAdapter):
         base = np.datetime64("1850-01", "M")
         if "months since" in tu:
             return base + tv.astype("timedelta64[M]")
-        return base + (tv * 12).astype("timedelta64[M]")        # years since 1850
+        return base + (tv * 12).astype("timedelta64[M]")  # years since 1850
 
-    def read(self, experiment, simulation, forcing, factorial, variable) -> xr.DataArray:
+    def read(
+        self, experiment, simulation, forcing, factorial, variable
+    ) -> xr.DataArray:
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
@@ -62,8 +88,13 @@ class DLEM(core.WIEAdapter):
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²] (ocean cells masked via fills on the data)."""
         ref = xr.open_dataset(
-            self.path(Experiment.one_percent_co2, Simulation.bgc,
-                      GCMPattern.ukesm, "baseline", "cVeg"),
+            self.path(
+                Experiment.one_percent_co2,
+                Simulation.bgc,
+                GCMPattern.ukesm,
+                "baseline",
+                "cVeg",
+            ),
             decode_times=self.DECODE,
         )
         a = core.spherical_area(ref, self.LAT, self.LON)

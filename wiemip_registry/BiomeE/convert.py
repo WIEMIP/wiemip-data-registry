@@ -26,7 +26,7 @@ class BiomeE(core.WIEAdapter):
     FACTORIALS = {"baseline": ""}       # only the bare run was submitted
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
+        cad = "yr" if core.is_annual(variable) else "mon"
         fname = f"BiomeE_{forcing.value}_{simulation.name}_{variable}_{cad}_05.nc"
         return str(_OUTPUT / "BiomeE" / fname)
 
