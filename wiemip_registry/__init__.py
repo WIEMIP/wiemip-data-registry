@@ -24,7 +24,8 @@ from __future__ import annotations
 import importlib
 
 from .core import WIEAdapter, WIEFile
-from .const import Experiment, GCMPattern, Simulation, Factorial, MODEL_PACKAGES, VARIABLES
+from .const import Experiment, GCMPattern, Simulation, Factorial, MODEL_PACKAGES
+from .variables import VARIABLES
 
 
 def _find_adapter_class(module) -> type[WIEAdapter] | None:
