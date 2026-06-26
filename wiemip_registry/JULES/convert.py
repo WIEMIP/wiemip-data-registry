@@ -2,52 +2,67 @@
 
 Quirks (AGENTS.md §3): n96 grid, latitude/longitude, datetime + a `year` coord.
 Area = `landfrac_n96.nc` `land` × spherical cell; `land` carries ~1e37 ocean
-fill so mask values >1 -> 0. Only `cVeg` & `cSoil` were submitted (the others
-are simply never found by the existence check, not hardcoded out). ctrl is `ctl`.
-Every JULES config carries `Nitrogen_DynVeg_Permafrost_noFire` — their README
-designates that as the reference run, so we treat it as JULES's `baseline`.
+fill so mask values >1 -> 0. Only `cVeg` & `cSoil` were submitted. ctrl is `ctl`.
+
+Naming (verified on the bucket): nested run dirs
+`JULESwiemipV2_<sim>_<config>/` holding files
+`JULESwiemipV2_<sim>_<var>_yr_<config>_n96.nc` (always annual). `<sim>` is bgc /
+ctl / `<forcing>_cou`. The `<config>` string IS the factorial — every run carries
+a Nitrogen/DynVeg/Permafrost/Fire combination; the README reference run
+`Nitrogen_DynVeg_Permafrost_noFire` is our `baseline`. path() is a pure transform
+— what exists is decided by read().
 """
 from __future__ import annotations
 
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern, Factorial
+from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "JULES"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
-
-# The reference-config suffix baked into every JULES filename / run dir.
-_CONFIG = "Nitrogen_DynVeg_Permafrost_noFire"
-_PREFIX = {
-    Simulation.bgc:  f"JULES/JULESwiemipV2_bgc_{_CONFIG}/JULESwiemipV2_bgc_",
-    Simulation.cou:  f"JULES/JULESwiemipV2_ukesm_cou_{_CONFIG}/JULESwiemipV2_ukesm_cou_",
-    Simulation.ctrl: f"JULES/JULESwiemipV2_ctl_{_CONFIG}/JULESwiemipV2_ctl_",
-}
 _LANDFRAC = _OUTPUT / "JULES" / "landfrac_n96.nc"
+
+# Factorial name -> the JULES config string baked into the run dir AND filename.
+_FACTORIALS = {
+    "baseline":             "Nitrogen_DynVeg_Permafrost_noFire",
+    "noNitrogen":           "noNitrogen_DynVeg_Permafrost_noFire",
+    "noDynVeg":             "Nitrogen_noDynVeg_Permafrost_noFire",
+    "noPermafrostC":        "Nitrogen_DynVeg_noPermafrostC_noFire",
+    "noPermafrostCN":       "Nitrogen_DynVeg_noPermafrostCN_noFire",
+    "noPermafrostCNNinorg": "Nitrogen_DynVeg_noPermafrostCNNinorg_noFire",
+    "addPermafrostC":       "Nitrogen_DynVeg_addPermafrostC_noFire",
+    "addPermafrostCN":      "Nitrogen_DynVeg_addPermafrostCN_noFire",
+    "addPermafrostCNNinorg": "Nitrogen_DynVeg_addPermafrostCNNinorg_noFire",
+    "Fire0005":             "Nitrogen_DynVeg_Permafrost_Fire0005",
+    "Fire0249":             "Nitrogen_DynVeg_Permafrost_Fire0249",
+    "Fire0304":             "Nitrogen_DynVeg_Permafrost_Fire0304",
+    "Fire0336":             "Nitrogen_DynVeg_Permafrost_Fire0336",
+}
+
+
+def _sim_tok(simulation, forcing) -> str:
+    if simulation is Simulation.cou:
+        return f"{forcing.value}_cou"
+    if simulation is Simulation.rad:
+        return f"{forcing.value}_rad"
+    if simulation is Simulation.ctrl:
+        return "ctl"
+    return "bgc"
 
 
 class JULES(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True
-
-    def _fname(self, variable: str) -> str:
-        return f"{variable}_yr_{_CONFIG}_n96.nc"     # always annual
+    FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        if (experiment is not Experiment.one_percent_co2
-                or forcing is not GCMPattern.ukesm
-                or factorial is not Factorial.baseline):
-            raise NotImplementedError(
-                f"{MODEL}: only (one_percent_co2, ukesm, baseline) paths are seeded; "
-                f"got ({experiment.name}, {forcing.name}, {factorial.name}). "
-                f"'baseline' maps to the {_CONFIG} reference config."
-            )
-        if simulation not in _PREFIX:
-            raise KeyError(f"{MODEL}: no '{simulation.name}' run "
-                           f"(have {[s.name for s in _PREFIX]})")
-        return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
+        config = self.FACTORIALS[factorial]
+        tok = _sim_tok(simulation, forcing)
+        run = f"JULESwiemipV2_{tok}_{config}"
+        fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"   # always annual
+        return str(_OUTPUT / "JULES" / run / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values        # datetime64 (decode_times=True); ignore the `year` coord
@@ -64,7 +79,7 @@ class JULES(core.WIEAdapter):
         """Spherical cell area × land fraction (ocean fill ~1e37 -> 0)."""
         ref = xr.open_dataset(
             self.path(Experiment.one_percent_co2, Simulation.bgc,
-                      GCMPattern.ukesm, Factorial.baseline, "cVeg"),
+                      GCMPattern.ukesm, "baseline", "cVeg"),
             decode_times=self.DECODE,
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)

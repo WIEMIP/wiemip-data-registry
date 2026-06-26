@@ -39,15 +39,32 @@ class WIEAdapter(ABC):
 
     _weights_cache: xr.DataArray | None = None
 
+    # Per-model factorial vocabulary: canonical name -> however THIS model spells
+    # that sensitivity run in its path (a suffix, a config string, a prefix the
+    # path() builder positions itself, …). The namespace validates the factorial
+    # axis against these keys, so an unknown factorial raises at *selection* time;
+    # a declared-but-not-uploaded combo still falls through and fails at read().
+    # Override per model. The default {"baseline": ""} = the one bare run, no token.
+    FACTORIALS: dict[str, str] = {"baseline": ""}
+
+    @property
+    def factorials(self) -> tuple[str, ...]:
+        """The factorial names this model accepts (drives namespace validation
+        and tab-completion of the factorial axis)."""
+        return tuple(self.FACTORIALS)
+
     @abc.abstractmethod
     def path(self, experiment: const.Experiment, simulation: const.Simulation,
-              forcing: const.GCMPattern, factorial: const.Factorial, variable: str) -> str:
-        """Path to the .nc file on a mounted S3 bucket. Assumes you're using s3fs."""
+              forcing: const.GCMPattern, factorial: str, variable: str) -> str:
+        """Build the .nc path on the mounted S3 bucket by transforming the axis
+        tokens into THIS model's upload naming convention. A pure string transform:
+        it never decides what exists — a combination that wasn't uploaded simply
+        fails when `read()` tries to open the constructed path."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def read(self, experiment: const.Experiment, simulation: const.Simulation,
-             forcing: const.GCMPattern, factorial: const.Factorial, variable: str) -> xr.DataArray:
+             forcing: const.GCMPattern, factorial: str, variable: str) -> xr.DataArray:
         """
         Open one variable and STANDARDIZE its layout: canonical dims
         ('time', 'lat', 'lon'[, level]), pd.DateTime `time` coord, sentinel fills
@@ -63,9 +80,12 @@ class WIEAdapter(ABC):
         raise NotImplementedError()
 
     def weights(self) -> xr.DataArray:
-        """Model weights [m2], materialized once and cached on the instance."""
+        """Model weights [m2], materialized once and cached on the instance.
+        Fills are zeroed: a land-only / ocean-masked area raster carries NaN over
+        the cells it excludes, and `xarray.weighted()` rejects NaN weights — a
+        zero weight drops the cell from the integral, which is what we want."""
         if self._weights_cache is None:
-            self._weights_cache = self._compute_weights()
+            self._weights_cache = self._compute_weights().fillna(0.0)
         return self._weights_cache
 
     def weight_dataarray(self, da: xr.DataArray) -> xr.core.weighted.DataArrayWeighted:
@@ -163,7 +183,7 @@ class WIEFile:
     experiment: const.Experiment
     simulation: const.Simulation
     forcing: const.GCMPattern
-    factorial: const.Factorial
+    factorial: str                 # per-model factorial name, e.g. "baseline", "ndep"
     variable: str                  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
 
@@ -186,11 +206,15 @@ class WIEFile:
         """Standardized, *lazy* DataArray for this variable (canonical dims,
         pandas-datetime time coord at native cadence, NaN fills, native units).
 
+        Raises whatever opening the file raises (FileNotFoundError for a combo
+        that wasn't uploaded): read() is the single source of truth for what
+        exists, so the caller can catch and report it. path() never pre-judges.
+
         TODO(virtualizarr): when a reference sidecar exists in `references/`, open
         through the committed virtual-zarr store instead of re-opening raw netCDF.
         """
-        return self._adapter.read(
-            self.experiment, self.simulation, self.forcing, self.factorial, self.variable)
+        return self._adapter.read(self.experiment, self.simulation, self.forcing,
+                                  self.factorial, self.variable)
 
     def weighted_dataarray(self, da: xr.DataArray | None = None) -> xr.core.weighted.DataArrayWeighted:
         """Wrap the data in this model's documented area weights, so a sum over
@@ -219,4 +243,4 @@ class WIEFile:
 
     def __repr__(self) -> str:
         return (f"WIEFile({self.experiment.name}.{self.simulation.name}.{self.model}."
-                f"{self.forcing.name}.{self.factorial.name}.{self.variable})")
+                f"{self.forcing.name}.{self.factorial}.{self.variable})")

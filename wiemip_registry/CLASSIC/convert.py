@@ -3,22 +3,33 @@
 Quirks (AGENTS.md §3): 1° grid, dims latitude/longitude, datetime time, units
 written `kg C m$^{-2}$`. Global integral needs land fraction (per V. Arora):
 area × sftlf × quantity. sftlf is static across runs — load once from BGC.
-Which runs/variables resolve is decided by file existence (WIEAdapter.available).
+
+Naming (verified on the bucket): nested run dirs
+`CLASSIC_<FORCING>_1pctCO2-<SIM><factorial>/` holding files
+`<dir>_<var>_<cad>_1deg.nc`; ctrl is special-cased to `CLASSIC_stable_piControl…`
+with a `CLASSIC_stable…` file prefix. Only UKESM was submitted, so the forcing
+token is honored (ipsl/gfdl simply won't resolve at read()). path() is a pure
+transform — what exists is decided by read() opening the file.
 """
 from __future__ import annotations
 
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern, Factorial
+from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "CLASSIC"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 
-_PREFIX = {
-    Simulation.bgc:  "CLASSIC/CLASSIC_UKESM_1pctCO2-BGC/CLASSIC_UKESM_1pctCO2-BGC_",
-    Simulation.cou:  "CLASSIC/CLASSIC_UKESM_1pctCO2-COU/CLASSIC_UKESM_1pctCO2-COU_",
-    Simulation.ctrl: "CLASSIC/CLASSIC_stable_piControl/CLASSIC_stable_",
+# How CLASSIC spells each simulation in the `1pctCO2-<SIM>` run token (ctrl is
+# special-cased in path()).
+_SIM = {Simulation.bgc: "BGC", Simulation.cou: "COU", Simulation.rad: "RAD"}
+
+# Per-model factorial vocabulary -> the exact suffix CLASSIC appends to the run
+# token (verified against the bucket dir names). baseline = no suffix.
+_FACTORIALS = {
+    "baseline": "", "ndep": "-Ndep", "noFire": "_noFire", "noNitrogen": "_noNitrogen",
+    "ndep_noFire": "-Ndep_noFire", "noFire_noNitrogen": "_noFire_noNitrogen",
 }
 _SFTLF = (_OUTPUT / "CLASSIC" / "CLASSIC_UKESM_1pctCO2-BGC"
           / "CLASSIC_UKESM_1pctCO2-BGC_land_fraction_ann_1deg.nc")
@@ -28,23 +39,18 @@ class CLASSIC(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True
-
-    def _fname(self, variable: str) -> str:
-        cad = "ann" if core.kind_of(variable) == "stock" else "mon"
-        return f"{variable}_{cad}_1deg.nc"
+    FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        if (experiment is not Experiment.one_percent_co2
-                or forcing is not GCMPattern.ukesm
-                or factorial is not Factorial.baseline):
-            raise NotImplementedError(
-                f"{MODEL}: only (one_percent_co2, ukesm, baseline) paths are seeded; "
-                f"got ({experiment.name}, {forcing.name}, {factorial.name})."
-            )
-        if simulation not in _PREFIX:
-            raise KeyError(f"{MODEL}: no '{simulation.name}' run "
-                           f"(have {[s.name for s in _PREFIX]})")
-        return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
+        suf = self.FACTORIALS[factorial]
+        cad = "ann" if core.kind_of(variable) == "stock" else "mon"
+        if simulation is Simulation.ctrl:
+            run = f"CLASSIC_stable_piControl{suf}"
+            base = f"CLASSIC_stable{suf}"
+        else:
+            run = f"CLASSIC_{forcing.value.upper()}_1pctCO2-{_SIM[simulation]}{suf}"
+            base = run
+        return str(_OUTPUT / "CLASSIC" / run / f"{base}_{variable}_{cad}_1deg.nc")
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values        # already datetime64 (decode_times=True)
@@ -61,7 +67,7 @@ class CLASSIC(core.WIEAdapter):
         """Spherical cell area × static land fraction (sftlf)."""
         ref = xr.open_dataset(
             self.path(Experiment.one_percent_co2, Simulation.bgc,
-                      GCMPattern.ukesm, Factorial.baseline, "cVeg"),
+                      GCMPattern.ukesm, "baseline", "cVeg"),
             decode_times=self.DECODE,
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)

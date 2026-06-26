@@ -3,23 +3,30 @@
 Quirks (AGENTS.md §3): 1° grid, latitude/longitude, numeric `years`/`year`
 time so decode_times=False and floor to integer year. Area = provided
 `gridcell_area.nc` (`area`, land-only). High-fire model (~15-23 Pg C/yr fire —
-real, via their own recipe), also ships `fFireCveg`. Flat layout: run encoded
-in the filename prefix. Which runs/variables resolve is decided by file existence.
+real, via their own recipe), also ships `fFireCveg`.
+
+Naming (verified on the bucket): flat layout, run encoded in the filename:
+`LPX-Bern_[<factprefix>_]<sim>[_ndep][_<FORCING>]_<var>_<cad>_1.nc`. The
+nofire / nopermafrost sensitivity runs sit as a PREFIX before the sim token;
+`ndep` is a SUFFIX after it; the GCM forcing (cou/rad only) trails, uppercase.
+path() is a pure transform — what exists is decided by read().
 """
 from __future__ import annotations
 
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern, Factorial
+from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 
-_PREFIX = {
-    Simulation.bgc:  "LPX-Bern/LPX-Bern_bgc_",
-    Simulation.cou:  "LPX-Bern/LPX-Bern_cou_UKESM_",
-    Simulation.ctrl: "LPX-Bern/LPX-Bern_ctrl_",
+# Factorials whose token is a PREFIX before the simulation (the value is unused;
+# the prefix string is the name itself). `ndep` is handled as a suffix below.
+_PREFIX_FACTORIALS = {"nofire", "nopermafrost", "nopermafrost_nofire"}
+_FACTORIALS = {
+    "baseline": "", "nofire": "", "nopermafrost": "",
+    "nopermafrost_nofire": "", "ndep": "_ndep",
 }
 _AREA = _OUTPUT / "LPX-Bern" / "gridcell_area.nc"
 
@@ -28,23 +35,17 @@ class LPX_Bern(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = False                      # numeric year axis -> floor
-
-    def _fname(self, variable: str) -> str:
-        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
-        return f"{variable}_{cad}_1.nc"
+    FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        if (experiment is not Experiment.one_percent_co2
-                or forcing is not GCMPattern.ukesm
-                or factorial is not Factorial.baseline):
-            raise NotImplementedError(
-                f"{MODEL}: only (one_percent_co2, ukesm, baseline) paths are seeded; "
-                f"got ({experiment.name}, {forcing.name}, {factorial.name})."
-            )
-        if simulation not in _PREFIX:
-            raise KeyError(f"{MODEL}: no '{simulation.name}' run "
-                           f"(have {[s.name for s in _PREFIX]})")
-        return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
+        sim = simulation.name                                   # bgc/cou/rad/ctrl
+        pre = f"{factorial}_" if factorial in _PREFIX_FACTORIALS else ""
+        ndep = "_ndep" if factorial == "ndep" else ""
+        gcm = (f"_{forcing.value.upper()}"
+               if simulation in (Simulation.cou, Simulation.rad) else "")
+        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
+        fname = f"LPX-Bern_{pre}{sim}{ndep}{gcm}_{variable}_{cad}_1.nc"
+        return str(_OUTPUT / "LPX-Bern" / fname)
 
     def _time(self, ds: xr.Dataset):
         # numeric calendar years (fractional for monthly) -> datetime64

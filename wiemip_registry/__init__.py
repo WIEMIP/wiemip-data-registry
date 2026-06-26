@@ -24,7 +24,7 @@ from __future__ import annotations
 import importlib
 
 from .core import WIEAdapter, WIEFile
-from .const import Experiment, GCMPattern, Simulation, Factorial, MODEL_PACKAGES
+from .const import Experiment, GCMPattern, Simulation, MODEL_PACKAGES
 from .variables import VARIABLES
 
 
@@ -61,12 +61,13 @@ simulations: tuple[str, ...] = tuple(m.name for m in Simulation)
 variables: tuple[str, ...] = tuple(VARIABLES)
 
 # Axis order of the dotted namespace, and the Enum backing each Enum axis.
+# (`factorial` is NOT here — it's validated per-model against the adapter's
+# FACTORIALS, since each model ships a different set of sensitivity runs.)
 _LEVELS = ("experiment", "model", "forcing", "simulation", "factorial", "variable")
 _ENUM_BY_LEVEL = {
     "experiment": Experiment,
     "forcing": GCMPattern,
     "simulation": Simulation,
-    "factorial": Factorial,
 }
 
 
@@ -100,6 +101,17 @@ class _Node:
                 )
             return _Node(self._depth + 1, dict(self._sel), adapter, self._path + (name,))
 
+        # Factorial: per-model vocabulary, validated against the chosen adapter.
+        if level == "factorial":
+            if name not in self._adapter.FACTORIALS:
+                raise AttributeError(
+                    f"no factorial '{name}' for {self._adapter.model} at "
+                    f"{'.'.join(self._path) or '<root>'}. Available factorials: "
+                    f"{', '.join(sorted(self._adapter.FACTORIALS))}"
+                )
+            return _Node(self._depth + 1, {**self._sel, "factorial": name},
+                         self._adapter, self._path + (name,))
+
         enum = _ENUM_BY_LEVEL[level]
         try:
             member = enum[name]
@@ -116,6 +128,8 @@ class _Node:
         level = _LEVELS[self._depth]
         if level == "model":
             return sorted(_ADAPTERS)
+        if level == "factorial":
+            return sorted(self._adapter.FACTORIALS)
         if level == "variable":
             return []                # free-form; no enum to enumerate
         return [m.name for m in _ENUM_BY_LEVEL[level]]

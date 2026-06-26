@@ -2,50 +2,33 @@
 
 Quirks (AGENTS.md §3): 0.5° grid, dims (lon, lat, time), datetime time, area =
 provided `veg_area.nc` (vegetated m²), cVeg/etc use a -1e5 fill that must be
-masked, first valid year 1851. UKESM-forced. Which simulations/variables resolve
-is decided by file existence (see WIEAdapter.available), not a hardcoded list.
+masked, first valid year 1851. UKESM-forced; bgc/cou submitted (no ctrl).
+
+Naming (verified on the bucket): flat layout
+`BiomeE_<forcing>_<sim>_<var>_<cad>_05.nc` (lowercase forcing + sim tokens).
+path() is a pure transform — what exists is decided by read() opening the file.
 """
 from __future__ import annotations
 
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern, Factorial
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
-
-# Baseline (no-factorial) run-path prefix per simulation; cou = UKESM-forced.
-_PREFIX = {
-    Simulation.bgc: "BiomeE/BiomeE_ukesm_bgc_",
-    Simulation.cou: "BiomeE/BiomeE_ukesm_cou_",
-    Simulation.ctrl: "BiomeE/BiomeE_ukesm_ctrl_",
-}
 
 
 class BiomeE(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = True                       # datetime time axis
-
-    def _fname(self, variable: str) -> str:
-        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
-        return f"{variable}_{cad}_05.nc"
+    FACTORIALS = {"baseline": ""}       # only the bare run was submitted
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        # TODO: only the one_percent_co2 / ukesm / baseline corner is constructible.
-        # gfdl/ipsl forcings and factorial runs need their own path patterns.
-        if (experiment is not Experiment.one_percent_co2
-                or forcing is not GCMPattern.ukesm
-                or factorial is not Factorial.baseline):
-            raise NotImplementedError(
-                f"{MODEL}: only (one_percent_co2, ukesm, baseline) paths are seeded; "
-                f"got ({experiment.name}, {forcing.name}, {factorial.name})."
-            )
-        if simulation not in _PREFIX:
-            raise KeyError(f"{MODEL}: no '{simulation.name}' run "
-                           f"(have {[s.name for s in _PREFIX]})")
-        return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
+        cad = "yr" if core.kind_of(variable) == "stock" else "mon"
+        fname = f"BiomeE_{forcing.value}_{simulation.name}_{variable}_{cad}_05.nc"
+        return str(_OUTPUT / "BiomeE" / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values        # already datetime64 (decode_times=True)

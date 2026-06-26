@@ -42,17 +42,14 @@ class Experiment(Enum):
     overshoot = "overshoot"
 
 class Simulation(Enum):
-    """
-    Enum for holding the different simulations.
-    Will add factorials here when they are more fully fleshed out.
-    """
+    """The four real run types. Forcing (cou/rad) is the GCMPattern axis; the
+    ndep / noFire / noNitrogen / … sensitivity runs are per-model FACTORIALS
+    (declared on each adapter), not simulations — they vary in name and meaning
+    by model, so each convert.py spells them itself."""
     bgc = 0
     cou = 1
     rad = 2
     ctrl = 3
-    bgc_ndep = 4
-    cou_ndep = 5
-    rad_ndep = 6
 
-class Factorial(Enum):
-    baseline = 0
+# NOTE: there is no global Factorial enum. The factorial axis is validated
+# per-model against each adapter's `FACTORIALS` dict (see core.WIEAdapter).

@@ -2,8 +2,12 @@
 
 Quirks (AGENTS.md §3): 0.5° grid, lat/lon, time `years since AD 0` (fractional)
 so decode_times=False and floor. All files are monthly (`_mon_`), even stocks.
-Computed spherical area (no land frac; README integral = Σ flux×area). Which
-runs/variables resolve is decided by file existence (WIEAdapter.available).
+Computed spherical area (no land frac; README integral = Σ flux×area).
+
+Naming (verified on the bucket): nested run dirs holding same-named files.
+bgc/ctrl are bare (`VISIT-UT_BGC`, `VISIT-UT_CTRL`); cou/rad carry the GCM
+(`VISIT-UT_<forcing>_COU`); the factorial is a trailing suffix. path() is a pure
+transform — what exists is decided by read() opening the file.
 
 DATA-QUALITY: `fFire` is mis-scaled (~600×) and unphysical — flagged for
 Akihiko Ito. Per the PLAN.md decision ("expect outputs to be perfect; it's up to
@@ -14,38 +18,30 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern, Factorial
+from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "VISIT-UT"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 
-_PREFIX = {
-    Simulation.bgc:  "VISIT-UT/VISIT-UT_BGC/VISIT-UT_BGC_",
-    Simulation.cou:  "VISIT-UT/VISIT-UT_ukesm_COU/VISIT-UT_ukesm_COU_",
-    Simulation.ctrl: "VISIT-UT/VISIT-UT_CTRL/VISIT-UT_CTRL_",
-}
+_FACTORIALS = {"baseline": "", "noBVOC": "_noBVOC", "noFire": "_noFire"}
+
+
+def _run(simulation, forcing, suf: str) -> str:
+    """The VISIT-UT run token = dir name = file prefix."""
+    if simulation in (Simulation.cou, Simulation.rad):
+        return f"VISIT-UT_{forcing.value}_{simulation.name.upper()}{suf}"
+    return f"VISIT-UT_{simulation.name.upper()}{suf}"      # BGC, CTRL
 
 
 class VISIT_UT(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False                      # "years since AD 0" fractional -> floor
-
-    def _fname(self, variable: str) -> str:
-        return f"{variable}_mon_05.nc"      # all VISIT-UT output is monthly
+    FACTORIALS = _FACTORIALS
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
-        if (experiment is not Experiment.one_percent_co2
-                or forcing is not GCMPattern.ukesm
-                or factorial is not Factorial.baseline):
-            raise NotImplementedError(
-                f"{MODEL}: only (one_percent_co2, ukesm, baseline) paths are seeded; "
-                f"got ({experiment.name}, {forcing.name}, {factorial.name})."
-            )
-        if simulation not in _PREFIX:
-            raise KeyError(f"{MODEL}: no '{simulation.name}' run "
-                           f"(have {[s.name for s in _PREFIX]})")
-        return str(_OUTPUT / (_PREFIX[simulation] + self._fname(variable)))
+        run = _run(simulation, forcing, self.FACTORIALS[factorial])
+        return str(_OUTPUT / "VISIT-UT" / run / f"{run}_{variable}_mon_05.nc")
 
     def _time(self, ds: xr.Dataset):
         # "years since AD 0" (fractional for monthly) -> datetime64
@@ -63,7 +59,7 @@ class VISIT_UT(core.WIEAdapter):
         """Computed spherical cell area [m²]."""
         ref = xr.open_dataset(
             self.path(Experiment.one_percent_co2, Simulation.bgc,
-                      GCMPattern.ukesm, Factorial.baseline, "cVeg"),
+                      GCMPattern.ukesm, "baseline", "cVeg"),
             decode_times=self.DECODE,
         )
         a = core.spherical_area(ref, self.LAT, self.LON)
