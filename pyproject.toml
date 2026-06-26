@@ -26,11 +26,6 @@ build-backend = "hatchling.build"
 # (build_registry.py, extract.py, plot_*.py) are run in place.
 packages = ["wiemip_registry"]
 
-[tool.hatch.build.targets.wheel.force-include]
-# Reference metadata committed alongside the code (PLAN.md: "thin code +
-# reference metadata"). Ship non-.py files under references/.
-"wiemip_registry/references" = "wiemip_registry/references"
-
 [tool.uv.workspace]
 members = [
     ".",
