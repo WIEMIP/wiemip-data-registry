@@ -8,11 +8,13 @@ each `<MODEL>/convert.py` as a `WIEAdapter` subclass. This module only holds the
 *generic* mechanics (spherical area, standardize, fill masking, weighted
 aggregation), all seeded from the proven `extract.py`.
 """
+
 from __future__ import annotations
 
 import abc
+import functools
 from abc import ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -38,9 +40,6 @@ class WIEAdapter(ABC):
     model: str
 
     _weights_cache: xr.DataArray | None = None
-    # Path of the most recent file opened via this adapter — stamped by WIEFile.read()
-    # for provenance ("which file did this actually read").
-    filename: str | None = None
 
     # Per-model factorial vocabulary: canonical name -> however THIS model spells
     # that sensitivity run in its path (a suffix, a config string, a prefix the
@@ -57,8 +56,14 @@ class WIEAdapter(ABC):
         return tuple(self.FACTORIALS)
 
     @abc.abstractmethod
-    def path(self, experiment: const.Experiment, simulation: const.Simulation,
-              forcing: const.GCMPattern, factorial: str, variable: str) -> str:
+    def path(
+        self,
+        experiment: const.Experiment,
+        simulation: const.Simulation,
+        forcing: const.GCMPattern,
+        factorial: str,
+        variable: str,
+    ) -> str:
         """Build the .nc path on the mounted S3 bucket by transforming the axis
         tokens into THIS model's upload naming convention. A pure string transform:
         it never decides what exists — a combination that wasn't uploaded simply
@@ -66,8 +71,14 @@ class WIEAdapter(ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def read(self, experiment: const.Experiment, simulation: const.Simulation,
-             forcing: const.GCMPattern, factorial: str, variable: str) -> xr.DataArray:
+    def read(
+        self,
+        experiment: const.Experiment,
+        simulation: const.Simulation,
+        forcing: const.GCMPattern,
+        factorial: str,
+        variable: str,
+    ) -> xr.DataArray:
         """
         Open one variable and STANDARDIZE its layout: canonical dims
         ('time', 'lat', 'lon'[, level]), pd.DateTime `time` coord, sentinel fills
@@ -120,7 +131,9 @@ def is_annual(variable: str) -> bool:
     return variable in const.ANNUAL
 
 
-def spherical_area(obj: xr.Dataset | xr.DataArray, latn: str, lonn: str) -> xr.DataArray:
+def spherical_area(
+    obj: xr.Dataset | xr.DataArray, latn: str, lonn: str
+) -> xr.DataArray:
     """
     Grid-cell area [m2] from lat/lon centres, assuming a regular spherical grid.
 
@@ -131,7 +144,9 @@ def spherical_area(obj: xr.Dataset | xr.DataArray, latn: str, lonn: str) -> xr.D
     lat, lon = obj[latn].values, obj[lonn].values
     R = 6.371e6
     dlat, dlon = np.abs(np.gradient(lat)), np.abs(np.gradient(lon))
-    band = R**2 * (np.sin(np.deg2rad(lat + dlat / 2)) - np.sin(np.deg2rad(lat - dlat / 2)))
+    band = R**2 * (
+        np.sin(np.deg2rad(lat + dlat / 2)) - np.sin(np.deg2rad(lat - dlat / 2))
+    )
     return xr.DataArray(
         band[:, None] * np.deg2rad(dlon)[None, :],
         dims=(latn, lonn),
@@ -154,7 +169,9 @@ def rename_latlon(da: xr.DataArray, latn: str, lonn: str) -> xr.DataArray:
     return da.rename(ren) if ren else da
 
 
-def standardize(da: xr.DataArray, latn: str, lonn: str, time: np.ndarray) -> xr.DataArray:
+def standardize(
+    da: xr.DataArray, latn: str, lonn: str, time: np.ndarray
+) -> xr.DataArray:
     """
     Map a model's raw DataArray onto the canonical standardized form: lat/lon
     renamed to ('lat', 'lon'), a pandas-`datetime64` `time` coord attached
@@ -178,8 +195,42 @@ def years_to_datetime(values) -> np.ndarray:
     v = np.asarray(values, dtype="float64")
     years = np.floor(v).astype("int64")
     months = np.clip(np.rint((v - years) * 12).astype("int64"), 0, 11)
-    total_months = (years - 1970) * 12 + months          # months since the 1970 epoch
+    total_months = (years - 1970) * 12 + months  # months since the 1970 epoch
     return np.datetime64("1970-01", "M") + total_months.astype("timedelta64[M]")
+
+
+def _csv_path(src: Path, start: float | None, end: float | None) -> Path:
+    """Cache path for a source .nc + latitude band: the source path mirrored under
+    `const.CSV_ROOT` (the `csv/` prefix), '.nc' -> '.csv', suffixed with the band
+    ('global' for whole-globe, else '<start>_<end>')."""
+    band = "global" if start is None or end is None else f"{start}_{end}"
+    rel = src.relative_to(const.DATA_ROOT)
+    return const.CSV_ROOT / rel.parent / f"{rel.stem}_{band}.csv"
+
+
+def cache_csv(method):
+    """Lazy CSV cache for a `WIEFile` (lat, lon)->time aggregation returning a
+    `pd.Series`. Mirrors the result to a CSV under `const.CSV_ROOT` and recomputes
+    only when that CSV is missing or older than the source variable file; on a hit
+    it reads the CSV straight back (two stats, zero netCDF reads).
+
+    Freshness keys on the *variable* file (`self.path`) only. The model's static
+    area rasters (veg_area / gridcell_area / landfrac / land-fraction) are NOT
+    tracked — uploaded once per experiment and never revised, so this is sound in
+    practice; delete the cache tree to force a rebuild if one ever changes."""
+
+    @functools.wraps(method)
+    def wrapper(self, start=None, end=None):
+        src = Path(self.path)  # pure transform == the file read() opens
+        out = _csv_path(src, start, end)
+        if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
+            return pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
+        series = method(self, start, end)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        series.to_csv(out)
+        return series
+
+    return wrapper
 
 
 @dataclass
@@ -189,14 +240,13 @@ class WIEFile:
     the model's adapter instance. No s3 access until a data method is called.
     """
 
-    model: str                     # canonical model name, e.g. "LPX-Bern"
+    model: str  # canonical model name, e.g. "LPX-Bern"
     experiment: const.Experiment
     simulation: const.Simulation
     forcing: const.GCMPattern
-    factorial: str                 # per-model factorial name, e.g. "baseline", "ndep"
-    variable: str                  # CMIP name, e.g. "cVeg"
+    factorial: str  # per-model factorial name, e.g. "baseline", "ndep"
+    variable: str  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
-    filename: str | None = field(default=None, init=False)   # path of the file read; set by read()
 
     @property
     def kind(self) -> str:
@@ -210,8 +260,15 @@ class WIEFile:
     @property
     def path(self) -> str:
         """Resolved bucket path, delegated to the model's adapter."""
-        return str(self._adapter.path(
-            self.experiment, self.simulation, self.forcing, self.factorial, self.variable))
+        return str(
+            self._adapter.path(
+                self.experiment,
+                self.simulation,
+                self.forcing,
+                self.factorial,
+                self.variable,
+            )
+        )
 
     def read(self) -> xr.DataArray:
         """Standardized, *lazy* DataArray for this variable (canonical dims,
@@ -224,36 +281,47 @@ class WIEFile:
         TODO(virtualizarr): when a reference sidecar exists in `references/`, open
         through the committed virtual-zarr store instead of re-opening raw netCDF.
         """
-        self.filename = self.path                  # record the file we resolve to / read
-        self._adapter.filename = self.filename     # mirror onto the shared adapter
-        return self._adapter.read(self.experiment, self.simulation, self.forcing,
-                                  self.factorial, self.variable)
 
-    def weighted_dataarray(self, da: xr.DataArray | None = None) -> xr.core.weighted.DataArrayWeighted:
+        return self._adapter.read(
+            self.experiment,
+            self.simulation,
+            self.forcing,
+            self.factorial,
+            self.variable,
+        )
+
+    def weighted_dataarray(
+        self, da: xr.DataArray | None = None
+    ) -> xr.core.weighted.DataArrayWeighted:
         """Wrap the data in this model's documented area weights, so a sum over
         (lat, lon) integrates the per-m2 quantity. Delegated to the adapter."""
         if da is None:
             da = self.read()
         return self._adapter.weight_dataarray(da)
 
-    def latitudinal_sum(self, start: float | None = None, end: float | None = None) -> pd.Series:
+    @cache_csv
+    def latitudinal_sum(
+        self, start: float | None = None, end: float | None = None
+    ) -> pd.Series:
         """Area-weighted total as a Pg C series at the file's native cadence
         (monthly stays monthly). With no band, sums the whole globe; pass
         (start, end) degrees to restrict to a latitude band. The unit conversion is
         delegated to the model's adapter (`to_pgc`).
 
-        TODO(cache): look up the precomputed series in the `wiemip-csv` mirror
-        bucket first, and write computed results back.
+        Wrapped by `@cache_csv`: the result is mirrored to a CSV under
+        `const.CSV_ROOT` and reused until the source .nc is newer (lazy reader).
         """
         da = self.read()
         if start is not None and end is not None:
             band = da.sel(lat=slice(start, end))
-            if band.sizes.get("lat", 0) == 0:        # handle descending-lat grids
+            if band.sizes.get("lat", 0) == 0:  # handle descending-lat grids
                 band = da.sel(lat=slice(end, start))
             da = band
         total = self.weighted_dataarray(da).sum(("lat", "lon"))
         return self._adapter.to_pgc(total, self.variable)
 
     def __repr__(self) -> str:
-        return (f"WIEFile({self.experiment.name}.{self.simulation.name}.{self.model}."
-                f"{self.forcing.name}.{self.factorial}.{self.variable})")
+        return (
+            f"WIEFile({self.experiment.name}.{self.simulation.name}.{self.model}."
+            f"{self.forcing.name}.{self.factorial}.{self.variable})"
+        )

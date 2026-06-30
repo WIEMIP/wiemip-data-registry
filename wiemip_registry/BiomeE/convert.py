@@ -8,6 +8,7 @@ Naming (verified on the bucket): flat layout
 `BiomeE_<forcing>_<sim>_<var>_<cad>_05.nc` (lowercase forcing + sim tokens).
 path() is a pure transform — what exists is decided by read() opening the file.
 """
+
 from __future__ import annotations
 
 import xarray as xr
@@ -22,8 +23,8 @@ _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 class BiomeE(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
-    DECODE = True                       # datetime time axis
-    FACTORIALS = {"baseline": ""}       # only the bare run was submitted
+    DECODE = True  # datetime time axis
+    FACTORIALS = {"baseline": ""}  # only the bare run was submitted
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
         cad = "yr" if core.is_annual(variable) else "mon"
@@ -31,9 +32,11 @@ class BiomeE(core.WIEAdapter):
         return str(_OUTPUT / "BiomeE" / fname)
 
     def _time(self, ds: xr.Dataset):
-        return ds["time"].values        # already datetime64 (decode_times=True)
+        return ds["time"].values  # already datetime64 (decode_times=True)
 
-    def read(self, experiment, simulation, forcing, factorial, variable) -> xr.DataArray:
+    def read(
+        self, experiment, simulation, forcing, factorial, variable
+    ) -> xr.DataArray:
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,

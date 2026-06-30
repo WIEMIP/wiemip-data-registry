@@ -8,6 +8,7 @@ bgc/ctrl carry a `stable_` tag (`JSBACH_stable_<sim>`), cou carries the GCM
 (`JSBACH_<forcing>_cou`); the factorial is a trailing suffix. path() is a pure
 transform — what exists is decided by read() opening the file.
 """
+
 from __future__ import annotations
 
 import xarray as xr
@@ -21,14 +22,18 @@ _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 # JSBACH factorial -> (run_suffix, post_cadence). Like CLASSIC: `_ndep` is a run
 # token (dir + file prefix), but `_noNitrogen` suffixes the dir while trailing the
 # cadence in the file: JSBACH_stable_bgc_noNitrogen/JSBACH_stable_bgc_<var>_mon_noNitrogen_1.nc
-_FACTORIALS = {"baseline": ("", ""), "ndep": ("_ndep", ""), "noNitrogen": ("", "_noNitrogen")}
+_FACTORIALS = {
+    "baseline": ("", ""),
+    "ndep": ("_ndep", ""),
+    "noNitrogen": ("", "_noNitrogen"),
+}
 
 
 def _stem(simulation, forcing, run_suf: str) -> str:
     """The JSBACH run token (file prefix); the dir additionally carries `post`."""
     if simulation in (Simulation.cou, Simulation.rad):
         return f"JSBACH_{forcing.value}_{simulation.name}{run_suf}"
-    return f"JSBACH_stable_{simulation.name}{run_suf}"      # bgc, ctrl
+    return f"JSBACH_stable_{simulation.name}{run_suf}"  # bgc, ctrl
 
 
 class JSBACH(core.WIEAdapter):
@@ -41,12 +46,16 @@ class JSBACH(core.WIEAdapter):
         run_suf, post = self.FACTORIALS[factorial]
         stem = _stem(simulation, forcing, run_suf)
         cad = "yr" if core.is_annual(variable) else "mon"
-        return str(_OUTPUT / "JSBACH" / f"{stem}{post}" / f"{stem}_{variable}_{cad}{post}_1.nc")
+        return str(
+            _OUTPUT / "JSBACH" / f"{stem}{post}" / f"{stem}_{variable}_{cad}{post}_1.nc"
+        )
 
     def _time(self, ds: xr.Dataset):
-        return ds["time"].values        # already datetime64 (decode_times=True)
+        return ds["time"].values  # already datetime64 (decode_times=True)
 
-    def read(self, experiment, simulation, forcing, factorial, variable) -> xr.DataArray:
+    def read(
+        self, experiment, simulation, forcing, factorial, variable
+    ) -> xr.DataArray:
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
@@ -57,8 +66,13 @@ class JSBACH(core.WIEAdapter):
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²] (ocean -> NaN on the data)."""
         ref = xr.open_dataset(
-            self.path(Experiment.one_percent_co2, Simulation.bgc,
-                      GCMPattern.ukesm, "baseline", "cVeg"),
+            self.path(
+                Experiment.one_percent_co2,
+                Simulation.bgc,
+                GCMPattern.ukesm,
+                "baseline",
+                "cVeg",
+            ),
             decode_times=self.DECODE,
         )
         a = core.spherical_area(ref, self.LAT, self.LON)

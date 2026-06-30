@@ -19,6 +19,7 @@ at import:
     never touches s3. If that variable's file wasn't uploaded, the error surfaces
     only when you call `.read()` (xarray can't open it).
 """
+
 from __future__ import annotations
 
 import importlib
@@ -32,7 +33,11 @@ from .variable_overrides import EXTRA_VARIABLES
 def _find_adapter_class(module) -> type[WIEAdapter] | None:
     """The single concrete `WIEAdapter` subclass defined in a model's convert.py."""
     for obj in vars(module).values():
-        if isinstance(obj, type) and issubclass(obj, WIEAdapter) and obj is not WIEAdapter:
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, WIEAdapter)
+            and obj is not WIEAdapter
+        ):
             return obj
     return None
 
@@ -44,7 +49,7 @@ def _load_adapters() -> dict[str, WIEAdapter]:
         try:
             module = importlib.import_module(f"{__name__}.{name}.convert")
         except ModuleNotFoundError:
-            continue                      # adapter not written yet — model won't resolve
+            continue  # adapter not written yet — model won't resolve
         cls = _find_adapter_class(module)
         if cls is not None:
             adapters[name] = cls()
@@ -78,12 +83,17 @@ class _Node:
     """Lazy attribute proxy. Carries the selections made so far and resolves the
     next axis (per `_LEVELS`) by name. Building a node never touches s3."""
 
-    def __init__(self, depth: int, selections: dict, adapter: WIEAdapter | None,
-                 path: tuple[str, ...]):
-        self._depth = depth          # index into _LEVELS of the NEXT axis to pick
-        self._sel = selections       # {level: Enum member} chosen so far
-        self._adapter = adapter      # set once the model axis is chosen
-        self._path = path            # attribute names chosen so far (for errors/repr)
+    def __init__(
+        self,
+        depth: int,
+        selections: dict,
+        adapter: WIEAdapter | None,
+        path: tuple[str, ...],
+    ):
+        self._depth = depth  # index into _LEVELS of the NEXT axis to pick
+        self._sel = selections  # {level: Enum member} chosen so far
+        self._adapter = adapter  # set once the model axis is chosen
+        self._path = path  # attribute names chosen so far (for errors/repr)
 
     def __getattr__(self, name: str):
         if name.startswith("_"):
@@ -92,8 +102,12 @@ class _Node:
 
         # Leaf: any variable name is accepted; a missing file errors at read() time.
         if level == "variable":
-            return WIEFile(model=self._adapter.model, variable=name,
-                           _adapter=self._adapter, **self._sel)
+            return WIEFile(
+                model=self._adapter.model,
+                variable=name,
+                _adapter=self._adapter,
+                **self._sel,
+            )
 
         if level == "model":
             adapter = _ADAPTERS.get(name)
@@ -102,7 +116,9 @@ class _Node:
                     f"no model '{name}' at {'.'.join(self._path) or '<root>'}. "
                     f"Available models: {', '.join(sorted(_ADAPTERS))}"
                 )
-            return _Node(self._depth + 1, dict(self._sel), adapter, self._path + (name,))
+            return _Node(
+                self._depth + 1, dict(self._sel), adapter, self._path + (name,)
+            )
 
         # Factorial: per-model vocabulary, validated against the chosen adapter.
         if level == "factorial":
@@ -112,8 +128,12 @@ class _Node:
                     f"{'.'.join(self._path) or '<root>'}. Available factorials: "
                     f"{', '.join(sorted(self._adapter.FACTORIALS))}"
                 )
-            return _Node(self._depth + 1, {**self._sel, "factorial": name},
-                         self._adapter, self._path + (name,))
+            return _Node(
+                self._depth + 1,
+                {**self._sel, "factorial": name},
+                self._adapter,
+                self._path + (name,),
+            )
 
         enum = _ENUM_BY_LEVEL[level]
         try:
@@ -123,8 +143,12 @@ class _Node:
                 f"no {level} '{name}' at {'.'.join(self._path) or '<root>'}. "
                 f"Available {level}s: {', '.join(m.name for m in enum)}"
             ) from None
-        return _Node(self._depth + 1, {**self._sel, level: member},
-                     self._adapter, self._path + (name,))
+        return _Node(
+            self._depth + 1,
+            {**self._sel, level: member},
+            self._adapter,
+            self._path + (name,),
+        )
 
     def __dir__(self):
         # Drives tab-completion of the next axis in REPLs / notebooks.
@@ -134,12 +158,14 @@ class _Node:
         if level == "factorial":
             return sorted(self._adapter.FACTORIALS)
         if level == "variable":
-            return []                # free-form; no enum to enumerate
+            return []  # free-form; no enum to enumerate
         return [m.name for m in _ENUM_BY_LEVEL[level]]
 
     def __repr__(self) -> str:
-        return (f"<wiemip_registry node {'.'.join(self._path) or 'root'} "
-                f"-> next: {_LEVELS[self._depth]}>")
+        return (
+            f"<wiemip_registry node {'.'.join(self._path) or 'root'} "
+            f"-> next: {_LEVELS[self._depth]}>"
+        )
 
 
 def __getattr__(name: str):  # PEP 562 — the top level is the `experiment` axis
@@ -152,7 +178,9 @@ def __getattr__(name: str):  # PEP 562 — the top level is the `experiment` axi
             f"no experiment '{name}'. "
             f"Available experiments: {', '.join(m.name for m in Experiment)}"
         ) from None
-    return _Node(depth=1, selections={"experiment": experiment}, adapter=None, path=(name,))
+    return _Node(
+        depth=1, selections={"experiment": experiment}, adapter=None, path=(name,)
+    )
 
 
 _PUBLIC = ["WIEFile", "models", "variables", "gcm_patterns", "simulations"]
