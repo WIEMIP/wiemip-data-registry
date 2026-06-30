@@ -19,32 +19,35 @@ sync script chains it):
 
     python .github/workflows/_gen_stubs.py
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent          # <repo>/.github/workflows
-_REPO = _HERE.parents[1]                           # <repo>
+_HERE = Path(__file__).resolve().parent  # <repo>/.github/workflows
+_REPO = _HERE.parents[1]  # <repo>
 _PKG = _REPO / "wiemip_registry"
 
 
-def _class(name: str, attrs: list[str], value_type: str, getattr_type: str | None = None) -> str:
+def _class(
+    name: str, attrs: list[str], value_type: str, getattr_type: str | None = None
+) -> str:
     lines = [f"class {name}:"]
     lines += [f"    {a}: {value_type}" for a in attrs]
     if getattr_type:
         lines.append(f"    def __getattr__(self, name: str) -> {getattr_type}: ...")
-    if len(lines) == 1:                       # no body emitted
+    if len(lines) == 1:  # no body emitted
         lines.append("    ...")
     return "\n".join(lines)
 
 
 def build_stub() -> str:
-    sys.path.insert(0, str(_REPO))            # make `wiemip_registry` importable in-place
+    sys.path.insert(0, str(_REPO))  # make `wiemip_registry` importable in-place
     import wiemip_registry as wr
     from wiemip_registry import const
 
-    variables = list(wr.variables)            # data-request list + variable_overrides
+    variables = list(wr.variables)  # data-request list + variable_overrides
     sims = [m.name for m in const.Simulation]
     forcings = [m.name for m in const.GCMPattern]
     experiments = [m.name for m in const.Experiment]

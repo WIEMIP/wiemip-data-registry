@@ -18,6 +18,7 @@ using the package needs no data-request checkout — only re-syncing does. If th
 request is ever added as a git submodule at the repo root it's picked up automatically
 (it's one of the search candidates), no code change needed.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -26,8 +27,8 @@ import os
 import sys
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent           # <repo>/.github/workflows
-_REPO = _HERE.parents[1]                            # <repo>
+_HERE = Path(__file__).resolve().parent  # <repo>/.github/workflows
+_REPO = _HERE.parents[1]  # <repo>
 _PKG = _REPO / "wiemip_registry"
 _VARIABLES_PY = _PKG / "variables.py"
 
@@ -40,8 +41,8 @@ def _candidate_roots(explicit: str | None) -> list[Path]:
     if explicit:
         return [Path(explicit).expanduser()]
     return [
-        _REPO / "wiemip-data-request",          # in-tree submodule
-        _REPO.parent / "wiemip-data-request",   # sibling clone
+        _REPO / "wiemip-data-request",  # in-tree submodule
+        _REPO.parent / "wiemip-data-request",  # sibling clone
     ]
 
 
@@ -90,7 +91,9 @@ def write_variables_py(names: list[str]) -> None:
 
 def _regenerate_stubs() -> None:
     """Re-run _gen_stubs.main() so __init__.pyi / wr.variables track the new list."""
-    spec = importlib.util.spec_from_file_location("_wr_gen_stubs", _HERE / "_gen_stubs.py")
+    spec = importlib.util.spec_from_file_location(
+        "_wr_gen_stubs", _HERE / "_gen_stubs.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.main()
@@ -101,7 +104,9 @@ def main() -> None:
     variables_dir = _find_variables_dir(explicit)
     names = collect_variables(variables_dir)
     write_variables_py(names)
-    print(f"synced {len(names)} variables from {variables_dir} -> {_VARIABLES_PY.relative_to(_REPO)}")
+    print(
+        f"synced {len(names)} variables from {variables_dir} -> {_VARIABLES_PY.relative_to(_REPO)}"
+    )
     _regenerate_stubs()
 
 
