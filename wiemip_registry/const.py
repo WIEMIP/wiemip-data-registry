@@ -278,8 +278,8 @@ class Simulation(Enum):
 
     bgc = 0
     cou = 1
-    rad = 2
-    ctrl = 3
+    ctrl = 2
+    rad = 3
 
 
 # NOTE: there is no global Factorial enum. The factorial axis is validated

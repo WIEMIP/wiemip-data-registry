@@ -22,7 +22,9 @@ at import:
 
 from __future__ import annotations
 
+import functools
 import importlib
+import sys
 
 from .core import WIEAdapter, WIEFile
 from .const import Experiment, GCMPattern, Simulation, MODEL_PACKAGES
@@ -183,7 +185,32 @@ def __getattr__(name: str):  # PEP 562 — the top level is the `experiment` axi
     )
 
 
-_PUBLIC = ["WIEFile", "models", "variables", "gcm_patterns", "simulations"]
+def retrieve(
+    experiment: str,
+    model: str,
+    forcing: str,
+    simulation: str,
+    factorial: str,
+    variable: str,
+) -> WIEFile:
+    """Resolve string axis names to a `WIEFile` — the functional twin of the dotted
+    namespace `wr.<experiment>.<model>.<forcing>.<simulation>.<factorial>.<variable>`.
+
+    Use this when the axes are held as strings (looping over `wr.models`, a config,
+    CLI args) rather than typed out as attributes. Each axis is validated by name
+    exactly as attribute access is: an unknown experiment/model/forcing/simulation/
+    factorial raises `AttributeError` listing the valid options. The variable axis is
+    free-form, so a combination that wasn't uploaded surfaces only when you call
+    `.read()` / `.latitudinal_sum()`. Building the WIEFile never touches s3.
+
+        f = wr.retrieve("one_percent_co2", "CLASSIC", "ukesm", "cou", "baseline", "cVeg")
+        f.latitudinal_sum()   # identical to the dotted form
+    """
+    axes = (experiment, model, forcing, simulation, factorial, variable)
+    return functools.reduce(getattr, axes, sys.modules[__name__])
+
+
+_PUBLIC = ["WIEFile", "retrieve", "models", "variables", "gcm_patterns", "simulations"]
 
 
 def __dir__():

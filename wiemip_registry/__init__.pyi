@@ -4,6 +4,15 @@
 
 from .core import WIEFile as WIEFile
 
+def retrieve(
+    experiment: str,
+    model: str,
+    forcing: str,
+    simulation: str,
+    factorial: str,
+    variable: str,
+) -> WIEFile: ...
+
 class _Variable:
     LWalbedo: WIEFile
     SWalbedo: WIEFile

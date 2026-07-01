@@ -60,6 +60,16 @@ def build_stub() -> str:
         "",
         "from .core import WIEFile as WIEFile",
         "",
+        # Functional twin of the dotted namespace (string axes -> WIEFile).
+        "def retrieve(",
+        "    experiment: str,",
+        "    model: str,",
+        "    forcing: str,",
+        "    simulation: str,",
+        "    factorial: str,",
+        "    variable: str,",
+        ") -> WIEFile: ...",
+        "",
         # Variable leaf is shared and free-form (any name resolves) -> __getattr__ fallback.
         _class("_Variable", variables, "WIEFile", getattr_type="WIEFile"),
         "",
