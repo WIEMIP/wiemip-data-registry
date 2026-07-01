@@ -8,7 +8,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "CLM-FATES"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 _FACTORIALS = {
     "baseline": ("", ""),
@@ -62,7 +62,7 @@ class CLM_FATES(core.WIEAdapter):
             vegtype = "u"
         return vegtype
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         cad = (
             "mon"
             if variable in self.MONTHLY
@@ -81,6 +81,8 @@ class CLM_FATES(core.WIEAdapter):
         vegtype = self._vegtype(variable)
         z = str(
             _OUTPUT
+            / Experiment.one_percent_co2.value
+            / "output"
             / MODEL
             / f"{_PREFIX}_{simulation.name}_land.{variable}.tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
         )
@@ -96,6 +98,9 @@ class CLM_FATES(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
+        if variable == "fN2O":
+            # clm fates reports in g, not kg
+            ds[self._get_variable(variable)] = ds[self._get_variable(variable)] / 1000
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 

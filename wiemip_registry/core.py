@@ -59,9 +59,8 @@ class WIEAdapter(ABC):
         return tuple(self.FACTORIALS)
 
     @abc.abstractmethod
-    def path(
+    def one_pct_path(
         self,
-        experiment: const.Experiment,
         simulation: const.Simulation,
         forcing: const.GCMPattern,
         factorial: str,
@@ -72,6 +71,27 @@ class WIEAdapter(ABC):
         it never decides what exists — a combination that wasn't uploaded simply
         fails when `read()` tries to open the constructed path."""
         raise NotImplementedError()
+
+    def overshoot_path(
+        self,
+        simulation: const.Simulation,
+        forcing: const.GCMPattern,
+        variable: str,
+    ) -> str:
+        """Overshoot-experiment path (no factorial axis). Overridden per model once
+        that model's overshoot upload naming is known; until then asking for an
+        overshoot path raises here rather than guessing a layout. Like `one_pct_path`
+        it's a pure string transform — what exists is decided by `read()`."""
+        raise NotImplementedError(f"overshoot paths not yet mapped for {self.model}")
+
+    def path(self, experiment, simulation, forcing, factorial, variable):
+        if experiment == const.Experiment.one_percent_co2:
+            pth = self.one_pct_path(simulation, forcing, factorial, variable)
+        elif experiment == const.Experiment.overshoot:
+            pth = self.overshoot_path(simulation, forcing, variable)
+        else:
+            raise ValueError("Must specify either overshoot or one_percent_co2!")
+        return pth
 
     @abc.abstractmethod
     def read(
@@ -247,9 +267,9 @@ class WIEFile:
     experiment: const.Experiment
     simulation: const.Simulation
     forcing: const.GCMPattern
-    factorial: str  # per-model factorial name, e.g. "baseline", "ndep"
     variable: str  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
+    factorial: str | None = None  # per-model factorial name, e.g. "baseline", "ndep"
 
     @property
     def kind(self) -> str:
@@ -324,7 +344,10 @@ class WIEFile:
         return self._adapter.to_pgc(total, self.variable)
 
     def __repr__(self) -> str:
+        # overshoot passes its simulation as a bare string (no enum yet), so don't
+        # assume a `.name`.
+        sim = getattr(self.simulation, "name", self.simulation)
         return (
-            f"WIEFile({self.experiment.name}.{self.simulation.name}.{self.model}."
+            f"WIEFile({self.experiment.name}.{sim}.{self.model}."
             f"{self.forcing.name}.{self.factorial}.{self.variable})"
         )

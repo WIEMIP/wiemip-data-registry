@@ -22,7 +22,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "LPX-Bern"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 # canonical bucket -> (prefix before sim, suffix after sim) in LPX's own spelling.
 _FACTORIALS = {
@@ -32,7 +32,7 @@ _FACTORIALS = {
     "noPermafrost_noFire": ("nopermafrost_nofire", ""),
     "ndep": ("", "ndep"),
 }
-_AREA = _OUTPUT / "LPX-Bern" / "gridcell_area.nc"
+_AREA = _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / "gridcell_area.nc"
 
 
 class LPX_Bern(core.WIEAdapter):
@@ -56,7 +56,7 @@ class LPX_Bern(core.WIEAdapter):
             return self.wiemip_to_lpx_bern_variable_mapping[wiemip_variable]
         return wiemip_variable
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         sim = simulation.name  # bgc/cou/rad/ctrl
         pre_tok, suf_tok = self.FACTORIALS[factorial]
         pre = f"{pre_tok}_" if pre_tok else ""
@@ -69,7 +69,22 @@ class LPX_Bern(core.WIEAdapter):
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
         fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
-        return str(_OUTPUT / "LPX-Bern" / fname)
+        return str(
+            _OUTPUT / Experiment.one_percent_co2.value / "output" / "LPX-Bern" / fname
+        )
+
+    def overshoot_path(self, simulation, forcing, variable) -> str:
+        """
+        Note: LPX-Bern uploaded files prefixed with "overshoot" which are bitwise
+        identical to the ones prefixed with "ukesm". These won't be coverered by this naming
+        convention but they're duplicates so it's OK.
+        """
+        sim = simulation.name  #
+        gcm = forcing.value.lower()
+        cad = "yr" if core.is_annual(variable) else "mon"
+        variable = self._get_variable(variable)
+        fname = f"LPX-Bern_{gcm}_{sim}_{variable}_{cad}_1.nc"
+        return str(_OUTPUT / Experiment.overshoot.value / "output" / "LPX-Bern" / fname)
 
     def _time(self, ds: xr.Dataset):
         # numeric calendar years (fractional for monthly) -> datetime64

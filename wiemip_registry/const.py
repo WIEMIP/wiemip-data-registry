@@ -19,8 +19,6 @@ MODEL_PACKAGES = [
     "CLM_FATES",
 ]
 
-# Experiment dir on disk  <->  Python-safe namespace alias (leading digit fix).
-EXPERIMENT_ALIASES = {"1pctCO2": "one_percent_co2", "overshoot": "overshoot"}
 
 SPY = 365.25 * 86400.0  # seconds per year: flux rate -> annual integral
 PG = 1e12  # 1 Pg = 1e12 kg
@@ -88,12 +86,14 @@ class GCMPattern(Enum):
 
 
 class Experiment(Enum):
-    one_percent_co2 = "onepctco2"
+    one_percent_co2 = "1pctCO2"
     overshoot = "overshoot"
 
 
 class Simulation(Enum):
-    """The four real run types. Forcing (cou/rad) is the GCMPattern axis; the
+    """Run types across both experiments. 1pctCO2 uses bgc/cou/ctrl/rad (forcing
+    cou/rad is the GCMPattern axis). Overshoot uses the scenario codes
+    vl/l/m/hl (+ `_cf` constant-fire variants), hist / hist_ctrl, and ctrl. The
     ndep / noFire / noNitrogen / … sensitivity runs are per-model FACTORIALS
     (declared on each adapter), not simulations — they vary in name and meaning
     by model, so each convert.py spells them itself."""
@@ -102,6 +102,14 @@ class Simulation(Enum):
     cou = 1
     ctrl = 2
     rad = 3
+    l = 4
+    hl = 5
+    hl_cf = 6
+    m = 7
+    hist = 8
+    hist_ctrl = 9
+    vl = 10
+    vl_cf = 11
 
 
 # Universal factorial buckets: the ONE canonical vocabulary every model maps into.

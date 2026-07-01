@@ -22,7 +22,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "DLEM"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 
 class DLEM(core.WIEAdapter):
@@ -43,7 +43,7 @@ class DLEM(core.WIEAdapter):
             return self.wiemip_to_dlem_variable_mapping[wiemip_variable]
         return wiemip_variable
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         sim = simulation.name  # bgc/cou/rad/ctrl
         cad = "yr" if core.is_annual(variable) else "mon"
         gcm_dir = (
@@ -64,7 +64,14 @@ class DLEM(core.WIEAdapter):
         else:  # baseline -> the ndep dirs
             run = f"1pctCO2_{sim.upper()}{gcm_dir}_ndep"
             fpref = f"DLEM_{gcm_f}{sim}"
-        return str(_OUTPUT / "DLEM" / run / f"{fpref}_{variable}_{cad}_05.nc")
+        return str(
+            _OUTPUT
+            / Experiment.one_percent_co2.value
+            / "output"
+            / "DLEM"
+            / run
+            / f"{fpref}_{variable}_{cad}_05.nc"
+        )
 
     def _time(self, ds: xr.Dataset):
         # "years/months since 1850" -> datetime64, preserving monthly cadence.

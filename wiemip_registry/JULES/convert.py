@@ -21,8 +21,8 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "JULES"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
-_LANDFRAC = _OUTPUT / "JULES" / "landfrac_n96.nc"
+_OUTPUT = DATA_ROOT
+_LANDFRAC = _OUTPUT / "1pctCO2" / "output" / "JULES" / "landfrac_n96.nc"
 
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
@@ -60,12 +60,19 @@ class JULES(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         config = self.FACTORIALS[factorial]
         tok = _sim_tok(simulation, forcing)
         run = f"JULESwiemipV2_{tok}_{config}"
         fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"  # always annual
-        return str(_OUTPUT / "JULES" / run / fname)
+        return str(
+            _OUTPUT
+            / Experiment.one_percent_co2.value
+            / "output"
+            / "JULES"
+            / run
+            / fname
+        )
 
     def _time(self, ds: xr.Dataset):
         return ds[

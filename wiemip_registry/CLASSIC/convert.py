@@ -20,7 +20,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "CLASSIC"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 # How CLASSIC spells each simulation in the `1pctCO2-<SIM>` run token (ctrl is
 # special-cased in path()).
@@ -42,6 +42,8 @@ _FACTORIALS = {
 }
 _SFTLF = (
     _OUTPUT
+    / "1pctCO2"
+    / "output"
     / "CLASSIC"
     / "CLASSIC_UKESM_1pctCO2-BGC"
     / "CLASSIC_UKESM_1pctCO2-BGC_land_fraction_ann_1deg.nc"
@@ -62,6 +64,7 @@ class CLASSIC(core.WIEAdapter):
         "fN2OFire": "fN2oFire",
         "soilR": "soilr",
         "wetCH4": "wetch4_spec",
+        # NOTE: Assumed that CH4 == wet CH4 here!!!
         "ch4": "wetch4_spec",
     }
 
@@ -70,7 +73,22 @@ class CLASSIC(core.WIEAdapter):
             return self.wiemip_to_classic_variable_mapping[wiemip_variable]
         return wiemip_variable
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable) -> str:
+        cad = (
+            "mon"
+            if variable in self.MONTHLY
+            else ("ann" if core.is_annual(variable) else "mon")
+        )
+        return str(
+            _OUTPUT
+            / "overshoot"
+            / "output"
+            / "CLASSIC"
+            / "test"
+            / f"testk_{variable}_{cad}_1deg.nc"
+        )
+
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         ndep, post = self.FACTORIALS[factorial]
         cad = (
             "mon"
@@ -86,7 +104,12 @@ class CLASSIC(core.WIEAdapter):
             prefix = stem  # file prefix carries ndep only
         variable = self._get_variable(wiemip_variable=variable)
         return str(
-            _OUTPUT / "CLASSIC" / run / f"{prefix}_{variable}_{cad}{post}_1deg.nc"
+            _OUTPUT
+            / Experiment.one_percent_co2.value
+            / "output"
+            / "CLASSIC"
+            / run
+            / f"{prefix}_{variable}_{cad}{post}_1deg.nc"
         )
 
     def _time(self, ds: xr.Dataset):

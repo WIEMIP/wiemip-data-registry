@@ -30,7 +30,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "VISIT-UT"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 _FACTORIALS = {"baseline": "", "noBVOC": "_noBVOC", "noFire": "_noFire"}
 
@@ -60,12 +60,31 @@ class VISIT_UT(core.WIEAdapter):
     DECODE = False  # "years since AD 0" fractional -> floor
     FACTORIALS = _FACTORIALS
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         suf = self.FACTORIALS[factorial]  # "" | "_noBVOC" | "_noFire"
         bare = _bare_run(simulation, forcing)
         run = f"{bare}{suf}"  # dir carries the factorial
         fname = f"{bare}_{variable}_mon{suf}_05.nc"  # file: factorial AFTER cadence
-        return str(_OUTPUT / "VISIT-UT" / run / fname)
+        return str(
+            _OUTPUT
+            / Experiment.one_percent_co2.value
+            / "output"
+            / "VISIT-UT"
+            / run
+            / fname
+        )
+
+    def overshoot_path(self, simulation, forcing, variable) -> str:
+        prefix = f"VISIT-UT_{forcing.name.lower()}_{simulation.name.lower()}"
+        fname = f"{prefix}_{variable}_mon_05.nc"
+        return str(
+            _OUTPUT
+            / Experiment.overshoot.value
+            / "output"
+            / "VISIT-UT"
+            / prefix
+            / fname
+        )
 
     def _time(self, ds: xr.Dataset):
         # "years since AD 0" (fractional for monthly) -> datetime64

@@ -17,7 +17,7 @@ from wiemip_registry import core
 from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 
 MODEL = "JSBACH"
-_OUTPUT = DATA_ROOT / "1pctCO2" / "output"
+_OUTPUT = DATA_ROOT
 
 # JSBACH factorial -> (run_suffix, post_cadence). Like CLASSIC: `_ndep` is a run
 # token (dir + file prefix), but `_noNitrogen` suffixes the dir while trailing the
@@ -42,12 +42,30 @@ class JSBACH(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
 
-    def path(self, experiment, simulation, forcing, factorial, variable) -> str:
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         run_suf, post = self.FACTORIALS[factorial]
         stem = _stem(simulation, forcing, run_suf)
         cad = "yr" if core.is_annual(variable) else "mon"
         return str(
-            _OUTPUT / "JSBACH" / f"{stem}{post}" / f"{stem}_{variable}_{cad}{post}_1.nc"
+            _OUTPUT
+            / "1pctCO2"
+            / "output"
+            / "JSBACH"
+            / f"{stem}{post}"
+            / f"{stem}_{variable}_{cad}{post}_1.nc"
+        )
+
+    def overshoot_path(self, simulation, forcing, variable) -> str:
+        # overshoot has no factorial axis -> the bare baseline run token, no suffix.
+        stem = _stem(simulation, forcing, "")
+        cad = "yr" if core.is_annual(variable) else "mon"
+        return str(
+            _OUTPUT
+            / Experiment.overshoot.value
+            / "output"
+            / "JSBACH"
+            / stem
+            / f"{stem}_{variable}_{cad}_1.nc"
         )
 
     def _time(self, ds: xr.Dataset):
