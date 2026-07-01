@@ -18,3 +18,6 @@ The `.read()` method returns an `xarray.DataArray` in native units that can be t
 If you want the result masked to land and scaled by gridcell area, use `.weighted_dataarray()`. You can
 cut straight to the chase with `latitudinal_sum()`. 
 
+
+## Adding a new model
+Add a new directory and add it to `wiemip_registry/const.py`

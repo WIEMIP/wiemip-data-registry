@@ -299,6 +299,20 @@ class _VISIT_UT_Forcing:
     ipsl: _VISIT_UT_Simulation
     gfdl: _VISIT_UT_Simulation
 
+class _CLM_FATES_Factorial:
+    baseline: _Variable
+
+class _CLM_FATES_Simulation:
+    bgc: _CLM_FATES_Factorial
+    cou: _CLM_FATES_Factorial
+    rad: _CLM_FATES_Factorial
+    ctrl: _CLM_FATES_Factorial
+
+class _CLM_FATES_Forcing:
+    ukesm: _CLM_FATES_Simulation
+    ipsl: _CLM_FATES_Simulation
+    gfdl: _CLM_FATES_Simulation
+
 class _Model:
     BiomeE: _BiomeE_Forcing
     CLASSIC: _CLASSIC_Forcing
@@ -307,6 +321,7 @@ class _Model:
     JULES: _JULES_Forcing
     LPX_Bern: _LPX_Bern_Forcing
     VISIT_UT: _VISIT_UT_Forcing
+    CLM_FATES: _CLM_FATES_Forcing
 
 # top-level iterables over the axis vocabularies
 models: tuple[str, ...]
