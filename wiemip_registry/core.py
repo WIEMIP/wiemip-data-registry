@@ -61,8 +61,8 @@ class WIEAdapter(ABC):
     @abc.abstractmethod
     def one_pct_path(
         self,
-        simulation: const.Simulation,
-        forcing: const.GCMPattern,
+        simulation: str,
+        forcing: str,
         factorial: str,
         variable: str,
     ) -> str:
@@ -74,8 +74,8 @@ class WIEAdapter(ABC):
 
     def overshoot_path(
         self,
-        simulation: const.Simulation,
-        forcing: const.GCMPattern,
+        simulation: str,
+        forcing: str,
         variable: str,
     ) -> str:
         """Overshoot-experiment path (no factorial axis). Overridden per model once
@@ -85,9 +85,9 @@ class WIEAdapter(ABC):
         raise NotImplementedError(f"overshoot paths not yet mapped for {self.model}")
 
     def path(self, experiment, simulation, forcing, factorial, variable):
-        if experiment == const.Experiment.one_percent_co2:
+        if experiment == "1pctCO2":
             pth = self.one_pct_path(simulation, forcing, factorial, variable)
-        elif experiment == const.Experiment.overshoot:
+        elif experiment == "overshoot":
             pth = self.overshoot_path(simulation, forcing, variable)
         else:
             raise ValueError("Must specify either overshoot or one_percent_co2!")
@@ -96,9 +96,9 @@ class WIEAdapter(ABC):
     @abc.abstractmethod
     def read(
         self,
-        experiment: const.Experiment,
-        simulation: const.Simulation,
-        forcing: const.GCMPattern,
+        experiment: str,
+        simulation: str,
+        forcing: str,
         factorial: str,
         variable: str,
     ) -> xr.DataArray:
@@ -264,9 +264,9 @@ class WIEFile:
     """
 
     model: str  # canonical model name, e.g. "LPX-Bern"
-    experiment: const.Experiment
-    simulation: const.Simulation
-    forcing: const.GCMPattern
+    experiment: str  # on-disk experiment dir, "1pctCO2" | "overshoot"
+    simulation: str  # per-experiment run name, e.g. "bgc", "hl"
+    forcing: str  # GCM pattern name, e.g. "ukesm"
     variable: str  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
     factorial: str | None = None  # per-model factorial name, e.g. "baseline", "ndep"
@@ -344,10 +344,13 @@ class WIEFile:
         return self._adapter.to_pgc(total, self.variable)
 
     def __repr__(self) -> str:
-        # overshoot passes its simulation as a bare string (no enum yet), so don't
-        # assume a `.name`.
-        sim = getattr(self.simulation, "name", self.simulation)
-        return (
-            f"WIEFile({self.experiment.name}.{sim}.{self.model}."
-            f"{self.forcing.name}.{self.factorial}.{self.variable})"
-        )
+        if self.factorial is None:
+            return (
+                f"WIEFile({self.experiment}.{self.simulation}.{self.model}."
+                f"{self.forcing}.{self.variable})"
+            )
+        else:
+            return (
+                f"WIEFile({self.experiment}.{self.simulation}.{self.model}."
+                f"{self.forcing}.{self.factorial}.{self.variable})"
+            )

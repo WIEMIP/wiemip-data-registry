@@ -14,7 +14,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT
@@ -31,9 +31,9 @@ _FACTORIALS = {
 
 def _stem(simulation, forcing, run_suf: str) -> str:
     """The JSBACH run token (file prefix); the dir additionally carries `post`."""
-    if simulation in (Simulation.cou, Simulation.rad):
-        return f"JSBACH_{forcing.value}_{simulation.name}{run_suf}"
-    return f"JSBACH_stable_{simulation.name}{run_suf}"  # bgc, ctrl
+    if simulation in ("cou", "rad"):
+        return f"JSBACH_{forcing}_{simulation}{run_suf}"
+    return f"JSBACH_stable_{simulation}{run_suf}"  # bgc, ctrl
 
 
 class JSBACH(core.WIEAdapter):
@@ -61,7 +61,7 @@ class JSBACH(core.WIEAdapter):
         cad = "yr" if core.is_annual(variable) else "mon"
         return str(
             _OUTPUT
-            / Experiment.overshoot.value
+            / "overshoot"
             / "output"
             / "JSBACH"
             / stem
@@ -85,9 +85,9 @@ class JSBACH(core.WIEAdapter):
         """Computed spherical cell area [m²] (ocean -> NaN on the data)."""
         ref = xr.open_dataset(
             self.path(
-                Experiment.one_percent_co2,
-                Simulation.bgc,
-                GCMPattern.ukesm,
+                "1pctCO2",
+                "bgc",
+                "ukesm",
                 "baseline",
                 "cVeg",
             ),

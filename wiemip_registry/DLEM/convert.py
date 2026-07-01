@@ -19,7 +19,7 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "DLEM"
 _OUTPUT = DATA_ROOT
@@ -44,19 +44,19 @@ class DLEM(core.WIEAdapter):
         return wiemip_variable
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        sim = simulation.name  # bgc/cou/rad/ctrl
+        sim = simulation  # bgc/cou/rad/ctrl
         cad = "yr" if core.is_annual(variable) else "mon"
         gcm_dir = (
-            f"_{forcing.value.upper()}"
-            if simulation in (Simulation.cou, Simulation.rad)
+            f"_{forcing.upper()}"
+            if simulation in ("cou", "rad")
             else ""
         )
         gcm_f = (
-            f"{forcing.value}_"
-            if simulation in (Simulation.cou, Simulation.rad)
+            f"{forcing}_"
+            if simulation in ("cou", "rad")
             else ""
         )
-        if simulation is Simulation.ctrl:
+        if simulation == "ctrl":
             run, fpref = "1pctCO2_CTRL", "DLEM_ctrl"  # ctrl has no ndep variant
         elif factorial == "noNdep":
             run = f"1pctCO2_{sim.upper()}{gcm_dir}"
@@ -66,7 +66,7 @@ class DLEM(core.WIEAdapter):
             fpref = f"DLEM_{gcm_f}{sim}"
         return str(
             _OUTPUT
-            / Experiment.one_percent_co2.value
+            / "1pctCO2"
             / "output"
             / "DLEM"
             / run
@@ -96,9 +96,9 @@ class DLEM(core.WIEAdapter):
         """Computed spherical cell area [m²] (ocean cells masked via fills on the data)."""
         ref = xr.open_dataset(
             self.path(
-                Experiment.one_percent_co2,
-                Simulation.bgc,
-                GCMPattern.ukesm,
+                "1pctCO2",
+                "bgc",
+                "ukesm",
                 "baseline",
                 "cVeg",
             ),

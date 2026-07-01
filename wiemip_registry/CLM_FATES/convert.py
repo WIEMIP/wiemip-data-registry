@@ -5,7 +5,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "CLM-FATES"
 _OUTPUT = DATA_ROOT
@@ -81,10 +81,10 @@ class CLM_FATES(core.WIEAdapter):
         vegtype = self._vegtype(variable)
         z = str(
             _OUTPUT
-            / Experiment.one_percent_co2.value
+            / "1pctCO2"
             / "output"
             / MODEL
-            / f"{_PREFIX}_{simulation.name}_land.{variable}.tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
+            / f"{_PREFIX}_{simulation}_land.{variable}.tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
         )
         return z
 
@@ -108,9 +108,9 @@ class CLM_FATES(core.WIEAdapter):
         """Computed spherical cell area [m²] (ocean cells masked via fills on the data)."""
         ref = xr.open_dataset(
             self.path(
-                Experiment.one_percent_co2,
-                Simulation.bgc,
-                GCMPattern.ukesm,
+                "1pctCO2",
+                "bgc",
+                "ukesm",
                 "baseline",
                 "cVeg",
             ),
@@ -128,9 +128,9 @@ if __name__ == "__main__":
     var = sys.argv[1]
     print(
         obj.path(
-            experiment=Experiment.one_percent_co2,
-            simulation=Simulation.cou,
-            forcing=GCMPattern.ukesm,
+            experiment="1pctCO2",
+            simulation="cou",
+            forcing="ukesm",
             factorial="baseline",
             variable=var,
         )

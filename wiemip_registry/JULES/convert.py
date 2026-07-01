@@ -18,7 +18,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "JULES"
 _OUTPUT = DATA_ROOT
@@ -45,11 +45,11 @@ _FACTORIALS = {
 
 
 def _sim_tok(simulation, forcing) -> str:
-    if simulation is Simulation.cou:
-        return f"{forcing.value}_cou"
-    if simulation is Simulation.rad:
-        return f"{forcing.value}_rad"
-    if simulation is Simulation.ctrl:
+    if simulation == "cou":
+        return f"{forcing}_cou"
+    if simulation == "rad":
+        return f"{forcing}_rad"
+    if simulation == "ctrl":
         return "ctl"
     return "bgc"
 
@@ -67,7 +67,7 @@ class JULES(core.WIEAdapter):
         fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"  # always annual
         return str(
             _OUTPUT
-            / Experiment.one_percent_co2.value
+            / "1pctCO2"
             / "output"
             / "JULES"
             / run
@@ -93,9 +93,9 @@ class JULES(core.WIEAdapter):
         """Spherical cell area × land fraction (ocean fill ~1e37 -> 0)."""
         ref = xr.open_dataset(
             self.path(
-                Experiment.one_percent_co2,
-                Simulation.bgc,
-                GCMPattern.ukesm,
+                "1pctCO2",
+                "bgc",
+                "ukesm",
                 "baseline",
                 "cVeg",
             ),

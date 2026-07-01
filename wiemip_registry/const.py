@@ -85,11 +85,6 @@ class GCMPattern(Enum):
     gfdl = "gfdl"
 
 
-class Experiment(Enum):
-    one_percent_co2 = "1pctCO2"
-    overshoot = "overshoot"
-
-
 class Simulation(Enum):
     """Run types across both experiments. 1pctCO2 uses bgc/cou/ctrl/rad (forcing
     cou/rad is the GCMPattern axis). Overshoot uses the scenario codes
@@ -112,19 +107,6 @@ class Simulation(Enum):
     vl_cf = 11
 
 
-# Universal factorial buckets: the ONE canonical vocabulary every model maps into.
-# Each adapter's `FACTORIALS` dict keys into THIS set (canonical bucket -> that
-# model's path spelling), so a caller asks for a bucket uniformly — `noFire`,
-# `ndep`, … — and each model resolves it to its own filename convention (CLASSIC
-# `_noFire`, VISIT-UT `_noFire`, LPX-Bern `nofire_` prefix). A model that didn't
-# run a bucket simply omits the key; selecting it raises at the factorial axis and
-# lists what that model DOES have. Membership is enforced at import
-# (wiemip_registry package init): an adapter key outside this set is a spelling
-# drift and fails loudly, which is what keeps the buckets universal.
-#
-# Not every bucket is shared — the permafrost splits and JULES fire sweeps are
-# genuinely model-specific — but they all live here so there's a single authority
-# on the legal names. Add a new bucket here first, then map it in an adapter.
 FACTORIAL_BUCKETS: tuple[str, ...] = (
     "baseline",
     # fire

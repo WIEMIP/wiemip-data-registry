@@ -7,9 +7,6 @@ from wiemip_registry.JULES.convert import JULES
 from wiemip_registry.LPX_Bern.convert import LPX_Bern
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
 
-# Model handle (the name you pass to retrieve_*/qa.sh) -> a single shared adapter
-# INSTANCE (weights are cached on it). Keyed by the Python-safe package alias
-# (LPX_Bern, not LPX-Bern); the adapter's own `.model` carries the on-disk name.
 adapters = {
     "BiomeE": BiomeE(),
     "CLASSIC": CLASSIC(),

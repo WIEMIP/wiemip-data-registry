@@ -17,14 +17,14 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "CLASSIC"
 _OUTPUT = DATA_ROOT
 
 # How CLASSIC spells each simulation in the `1pctCO2-<SIM>` run token (ctrl is
 # special-cased in path()).
-_SIM = {Simulation.bgc: "BGC", Simulation.cou: "COU", Simulation.rad: "RAD"}
+_SIM = {"bgc": "BGC", "cou": "COU", "rad": "RAD"}
 
 # CLASSIC factorial -> (ndep_part, post_part). Two slots because CLASSIC spells
 # them in different places (verified on the bucket):
@@ -95,17 +95,17 @@ class CLASSIC(core.WIEAdapter):
             if variable in self.MONTHLY
             else ("ann" if core.is_annual(variable) else "mon")
         )
-        if simulation is Simulation.ctrl:  # ctrl has no ndep variant
+        if simulation == "ctrl":  # ctrl has no ndep variant
             run = f"CLASSIC_stable_piControl{post}"
             prefix = "CLASSIC_stable"
         else:
-            stem = f"CLASSIC_{forcing.value.upper()}_1pctCO2-{_SIM[simulation]}{ndep}"
+            stem = f"CLASSIC_{forcing.upper()}_1pctCO2-{_SIM[simulation]}{ndep}"
             run = f"{stem}{post}"  # dir carries ndep + post
             prefix = stem  # file prefix carries ndep only
         variable = self._get_variable(wiemip_variable=variable)
         return str(
             _OUTPUT
-            / Experiment.one_percent_co2.value
+            / "1pctCO2"
             / "output"
             / "CLASSIC"
             / run
@@ -129,9 +129,9 @@ class CLASSIC(core.WIEAdapter):
         """Spherical cell area × static land fraction (sftlf)."""
         ref = xr.open_dataset(
             self.path(
-                Experiment.one_percent_co2,
-                Simulation.bgc,
-                GCMPattern.ukesm,
+                "1pctCO2",
+                "bgc",
+                "ukesm",
                 "baseline",
                 "cVeg",
             ),

@@ -19,7 +19,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT
@@ -57,20 +57,20 @@ class LPX_Bern(core.WIEAdapter):
         return wiemip_variable
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        sim = simulation.name  # bgc/cou/rad/ctrl
+        sim = simulation  # bgc/cou/rad/ctrl
         pre_tok, suf_tok = self.FACTORIALS[factorial]
         pre = f"{pre_tok}_" if pre_tok else ""
         suf = f"_{suf_tok}" if suf_tok else ""
         gcm = (
-            f"_{forcing.value.upper()}"
-            if simulation in (Simulation.cou, Simulation.rad)
+            f"_{forcing.upper()}"
+            if simulation in ("cou", "rad")
             else ""
         )
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
         fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
         return str(
-            _OUTPUT / Experiment.one_percent_co2.value / "output" / "LPX-Bern" / fname
+            _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / fname
         )
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
@@ -79,12 +79,12 @@ class LPX_Bern(core.WIEAdapter):
         identical to the ones prefixed with "ukesm". These won't be coverered by this naming
         convention but they're duplicates so it's OK.
         """
-        sim = simulation.name  #
-        gcm = forcing.value.lower()
+        sim = simulation  #
+        gcm = forcing.lower()
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
         fname = f"LPX-Bern_{gcm}_{sim}_{variable}_{cad}_1.nc"
-        return str(_OUTPUT / Experiment.overshoot.value / "output" / "LPX-Bern" / fname)
+        return str(_OUTPUT / "overshoot" / "output" / "LPX-Bern" / fname)
 
     def _time(self, ds: xr.Dataset):
         # numeric calendar years (fractional for monthly) -> datetime64

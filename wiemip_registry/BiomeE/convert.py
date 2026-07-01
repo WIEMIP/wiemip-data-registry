@@ -14,7 +14,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Experiment
+from wiemip_registry.const import DATA_ROOT
 
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
@@ -28,9 +28,9 @@ class BiomeE(core.WIEAdapter):
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         cad = "yr" if core.is_annual(variable) else "mon"
-        fname = f"BiomeE_{forcing.value}_{simulation.name}_{variable}_{cad}_05.nc"
+        fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05.nc"
         return str(
-            _OUTPUT / Experiment.one_percent_co2.value / "output" / "BiomeE" / fname
+            _OUTPUT / "1pctCO2" / "output" / "BiomeE" / fname
         )
 
     def _time(self, ds: xr.Dataset):
