@@ -41,12 +41,15 @@ class WIEAdapter(ABC):
 
     _weights_cache: xr.DataArray | None = None
 
-    # Per-model factorial vocabulary: canonical name -> however THIS model spells
+    # Per-model factorial vocabulary: canonical bucket -> however THIS model spells
     # that sensitivity run in its path (a suffix, a config string, a prefix the
-    # path() builder positions itself, …). The namespace validates the factorial
-    # axis against these keys, so an unknown factorial raises at *selection* time;
-    # a declared-but-not-uploaded combo still falls through and fails at read().
-    # Override per model. The default {"baseline": ""} = the one bare run, no token.
+    # path() builder positions itself, …). Keys MUST be members of
+    # `const.FACTORIAL_BUCKETS` (the one universal vocabulary) — enforced at import,
+    # so a caller can ask any model for a bucket uniformly. The namespace validates
+    # the factorial axis against these keys, so an unknown factorial raises at
+    # *selection* time; a declared-but-not-uploaded combo still falls through and
+    # fails at read(). Override per model. The default {"baseline": ""} = the one
+    # bare run, no token.
     FACTORIALS: dict[str, str] = {"baseline": ""}
 
     @property

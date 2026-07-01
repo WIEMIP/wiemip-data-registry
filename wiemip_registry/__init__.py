@@ -27,7 +27,13 @@ import importlib
 import sys
 
 from .core import WIEAdapter, WIEFile
-from .const import Experiment, GCMPattern, Simulation, MODEL_PACKAGES
+from .const import (
+    Experiment,
+    GCMPattern,
+    Simulation,
+    MODEL_PACKAGES,
+    FACTORIAL_BUCKETS,
+)
 from .variables import VARIABLES
 from .variable_overrides import EXTRA_VARIABLES
 
@@ -59,6 +65,17 @@ def _load_adapters() -> dict[str, WIEAdapter]:
 
 
 _ADAPTERS = _load_adapters()
+
+# Every adapter must slot its factorials into the universal buckets — a key outside
+# const.FACTORIAL_BUCKETS is a spelling drift that would make the bucket unreachable
+# cross-model, so fail loudly at import rather than at some later lookup.
+for _name, _adapter in _ADAPTERS.items():
+    _bad = set(_adapter.FACTORIALS) - set(FACTORIAL_BUCKETS)
+    if _bad:
+        raise ValueError(
+            f"{_name} uses undefined factorial buckets {sorted(_bad)}; "
+            f"add them to const.FACTORIAL_BUCKETS"
+        )
 
 # Iterable axis vocabularies — the valid attribute names at each level. Feed any of
 # these back into the namespace with `getattr(node, name)`. (`variables` is the
@@ -197,17 +214,26 @@ def retrieve(
     namespace `wr.<experiment>.<model>.<forcing>.<simulation>.<factorial>.<variable>`.
 
     Use this when the axes are held as strings (looping over `wr.models`, a config,
-    CLI args) rather than typed out as attributes. Each axis is validated by name
-    exactly as attribute access is: an unknown experiment/model/forcing/simulation/
-    factorial raises `AttributeError` listing the valid options. The variable axis is
-    free-form, so a combination that wasn't uploaded surfaces only when you call
-    `.read()` / `.latitudinal_sum()`. Building the WIEFile never touches s3.
+    CLI args) rather than typed out as attributes. The experiment/model/forcing/
+    simulation axes are validated by name exactly as attribute access is (unknown
+    name -> `AttributeError` listing the valid options). The factorial is checked
+    against the model's universal buckets and raises `ValueError` if that model never
+    ran it. The variable axis is free-form, so a combination that wasn't uploaded
+    surfaces only when you call `.read()` / `.latitudinal_sum()`. Building the WIEFile
+    never touches s3.
 
         f = wr.retrieve("one_percent_co2", "CLASSIC", "ukesm", "cou", "baseline", "cVeg")
         f.latitudinal_sum()   # identical to the dotted form
     """
-    axes = (experiment, model, forcing, simulation, factorial, variable)
-    return functools.reduce(getattr, axes, sys.modules[__name__])
+    node = functools.reduce(
+        getattr, (experiment, model, forcing, simulation), sys.modules[__name__]
+    )
+    if factorial not in node._adapter.FACTORIALS:
+        raise ValueError(
+            f"Factorial {factorial} for model {model} does not exist. "
+            f"Available: {', '.join(node._adapter.FACTORIALS)}"
+        )
+    return getattr(getattr(node, factorial), variable)
 
 
 _PUBLIC = ["WIEFile", "retrieve", "models", "variables", "gcm_patterns", "simulations"]

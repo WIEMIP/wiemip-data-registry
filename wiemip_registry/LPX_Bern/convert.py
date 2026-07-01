@@ -6,10 +6,12 @@ time so decode_times=False and floor to integer year. Area = provided
 real, via their own recipe), also ships `fFireCveg`.
 
 Naming (verified on the bucket): flat layout, run encoded in the filename:
-`LPX-Bern_[<factprefix>_]<sim>[_ndep][_<FORCING>]_<var>_<cad>_1.nc`. The
-nofire / nopermafrost sensitivity runs sit as a PREFIX before the sim token;
-`ndep` is a SUFFIX after it; the GCM forcing (cou/rad only) trails, uppercase.
-path() is a pure transform — what exists is decided by read().
+`LPX-Bern_[<factprefix>_]<sim>[_ndep][_<FORCING>]_<var>_<cad>_1.nc`. The fire-off /
+permafrost-off sensitivity runs sit as a PREFIX (`nofire`, `nopermafrost`,
+`nopermafrost_nofire`) before the sim token; `ndep` is a SUFFIX after it; the GCM
+forcing (cou/rad only) trails, uppercase. The FACTORIALS dict maps each canonical
+bucket to that (prefix, suffix) token pair — the lowercase spellings are LPX's own,
+not the bucket names. path() is a pure transform — what exists is decided by read().
 """
 
 from __future__ import annotations
@@ -22,15 +24,13 @@ from wiemip_registry.const import DATA_ROOT, Experiment, Simulation, GCMPattern
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output"
 
-# Factorials whose token is a PREFIX before the simulation (the value is unused;
-# the prefix string is the name itself). `ndep` is handled as a suffix below.
-_PREFIX_FACTORIALS = {"nofire", "nopermafrost", "nopermafrost_nofire"}
+# canonical bucket -> (prefix before sim, suffix after sim) in LPX's own spelling.
 _FACTORIALS = {
-    "baseline": "",
-    "nofire": "",
-    "nopermafrost": "",
-    "nopermafrost_nofire": "",
-    "ndep": "_ndep",
+    "baseline": ("", ""),
+    "noFire": ("nofire", ""),
+    "noPermafrost": ("nopermafrost", ""),
+    "noPermafrost_noFire": ("nopermafrost_nofire", ""),
+    "ndep": ("", "ndep"),
 }
 _AREA = _OUTPUT / "LPX-Bern" / "gridcell_area.nc"
 
@@ -58,8 +58,9 @@ class LPX_Bern(core.WIEAdapter):
 
     def path(self, experiment, simulation, forcing, factorial, variable) -> str:
         sim = simulation.name  # bgc/cou/rad/ctrl
-        pre = f"{factorial}_" if factorial in _PREFIX_FACTORIALS else ""
-        ndep = "_ndep" if factorial == "ndep" else ""
+        pre_tok, suf_tok = self.FACTORIALS[factorial]
+        pre = f"{pre_tok}_" if pre_tok else ""
+        suf = f"_{suf_tok}" if suf_tok else ""
         gcm = (
             f"_{forcing.value.upper()}"
             if simulation in (Simulation.cou, Simulation.rad)
@@ -67,7 +68,7 @@ class LPX_Bern(core.WIEAdapter):
         )
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
-        fname = f"LPX-Bern_{pre}{sim}{ndep}{gcm}_{variable}_{cad}_1.nc"
+        fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
         return str(_OUTPUT / "LPX-Bern" / fname)
 
     def _time(self, ds: xr.Dataset):

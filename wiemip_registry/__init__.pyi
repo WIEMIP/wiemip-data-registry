@@ -188,8 +188,8 @@ class _BiomeE_Factorial:
 class _BiomeE_Simulation:
     bgc: _BiomeE_Factorial
     cou: _BiomeE_Factorial
-    rad: _BiomeE_Factorial
     ctrl: _BiomeE_Factorial
+    rad: _BiomeE_Factorial
 
 class _BiomeE_Forcing:
     ukesm: _BiomeE_Simulation
@@ -207,8 +207,8 @@ class _CLASSIC_Factorial:
 class _CLASSIC_Simulation:
     bgc: _CLASSIC_Factorial
     cou: _CLASSIC_Factorial
-    rad: _CLASSIC_Factorial
     ctrl: _CLASSIC_Factorial
+    rad: _CLASSIC_Factorial
 
 class _CLASSIC_Forcing:
     ukesm: _CLASSIC_Simulation
@@ -222,8 +222,8 @@ class _DLEM_Factorial:
 class _DLEM_Simulation:
     bgc: _DLEM_Factorial
     cou: _DLEM_Factorial
-    rad: _DLEM_Factorial
     ctrl: _DLEM_Factorial
+    rad: _DLEM_Factorial
 
 class _DLEM_Forcing:
     ukesm: _DLEM_Simulation
@@ -238,8 +238,8 @@ class _JSBACH_Factorial:
 class _JSBACH_Simulation:
     bgc: _JSBACH_Factorial
     cou: _JSBACH_Factorial
-    rad: _JSBACH_Factorial
     ctrl: _JSBACH_Factorial
+    rad: _JSBACH_Factorial
 
 class _JSBACH_Forcing:
     ukesm: _JSBACH_Simulation
@@ -266,8 +266,8 @@ class _JULES_Factorial:
 class _JULES_Simulation:
     bgc: _JULES_Factorial
     cou: _JULES_Factorial
-    rad: _JULES_Factorial
     ctrl: _JULES_Factorial
+    rad: _JULES_Factorial
 
 class _JULES_Forcing:
     ukesm: _JULES_Simulation
@@ -276,16 +276,16 @@ class _JULES_Forcing:
 
 class _LPX_Bern_Factorial:
     baseline: _Variable
-    nofire: _Variable
-    nopermafrost: _Variable
-    nopermafrost_nofire: _Variable
+    noFire: _Variable
+    noPermafrost: _Variable
+    noPermafrost_noFire: _Variable
     ndep: _Variable
 
 class _LPX_Bern_Simulation:
     bgc: _LPX_Bern_Factorial
     cou: _LPX_Bern_Factorial
-    rad: _LPX_Bern_Factorial
     ctrl: _LPX_Bern_Factorial
+    rad: _LPX_Bern_Factorial
 
 class _LPX_Bern_Forcing:
     ukesm: _LPX_Bern_Simulation
@@ -300,8 +300,8 @@ class _VISIT_UT_Factorial:
 class _VISIT_UT_Simulation:
     bgc: _VISIT_UT_Factorial
     cou: _VISIT_UT_Factorial
-    rad: _VISIT_UT_Factorial
     ctrl: _VISIT_UT_Factorial
+    rad: _VISIT_UT_Factorial
 
 class _VISIT_UT_Forcing:
     ukesm: _VISIT_UT_Simulation
@@ -314,8 +314,8 @@ class _CLM_FATES_Factorial:
 class _CLM_FATES_Simulation:
     bgc: _CLM_FATES_Factorial
     cou: _CLM_FATES_Factorial
-    rad: _CLM_FATES_Factorial
     ctrl: _CLM_FATES_Factorial
+    rad: _CLM_FATES_Factorial
 
 class _CLM_FATES_Forcing:
     ukesm: _CLM_FATES_Simulation
