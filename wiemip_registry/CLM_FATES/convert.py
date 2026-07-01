@@ -84,7 +84,6 @@ class CLM_FATES(core.WIEAdapter):
             / MODEL
             / f"{_PREFIX}_{simulation.name}_land.{variable}.tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
         )
-        print(variable, z)
         return z
 
     def _time(self, ds: xr.Dataset):
