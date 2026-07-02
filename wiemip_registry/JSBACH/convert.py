@@ -14,7 +14,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT
@@ -23,17 +23,18 @@ _OUTPUT = DATA_ROOT
 # token (dir + file prefix), but `_noNitrogen` suffixes the dir while trailing the
 # cadence in the file: JSBACH_stable_bgc_noNitrogen/JSBACH_stable_bgc_<var>_mon_noNitrogen_1.nc
 _FACTORIALS = {
-    "baseline": ("", ""),
-    "ndep": ("_ndep", ""),
-    "noNitrogen": ("", "_noNitrogen"),
+    Factorial.baseline.name: ("", ""),
+    Factorial.noNitrogen.name: ("", "_noNitrogen"),
 }
 
 
 def _stem(simulation, forcing, run_suf: str) -> str:
-    """The JSBACH run token (file prefix); the dir additionally carries `post`."""
-    if simulation in ("cou", "rad"):
+    """The JSBACH run token (file prefix); the dir additionally carries `post`.
+    ndep is a simulation (bgc_ndep/cou_ndep), so the sim token already carries the
+    `_ndep`; the GCM tag keys on the BASE sim (cou/rad are the GCM-forced ones)."""
+    if simulation.split("_")[0] in ("cou", "rad"):
         return f"JSBACH_{forcing}_{simulation}{run_suf}"
-    return f"JSBACH_stable_{simulation}{run_suf}"  # bgc, ctrl
+    return f"JSBACH_stable_{simulation}{run_suf}"  # bgc, ctrl (+ _ndep)
 
 
 class JSBACH(core.WIEAdapter):

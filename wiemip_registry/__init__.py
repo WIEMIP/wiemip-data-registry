@@ -3,6 +3,18 @@ import wiemip_registry.const as const
 from wiemip_registry.adapters import adapters
 from wiemip_registry.variables import VARIABLES
 from wiemip_registry.variable_overrides import EXTRA_VARIABLES
+import warnings
+
+
+def _warn_factorial(
+    model: str, forcing: str, simulation: str, factorial: str, variable: str
+):
+    accepted = [c.name.lower() for c in const.Factorial]
+    if factorial.lower() not in accepted:
+        warnings.warn(
+            f"Factorial {factorial} for {model} {forcing} {simulation} not in the default list: {accepted}."
+            f" Your factorial will be passed directly to the naming convention adapter for {model}"
+        )
 
 
 def retrieve_one_pct_variable(
@@ -12,14 +24,21 @@ def retrieve_one_pct_variable(
     simulation = simulation.lower()
     forcing = forcing.lower()
 
+    _warn_factorial(model, forcing, simulation, factorial, variable)
+
     if simulation not in (
-        const.Simulation.bgc.name,
-        const.Simulation.cou.name,
-        const.Simulation.ctrl.name,
-        const.Simulation.rad.name,
+        const.OnePctSimulation.bgc.name,
+        const.OnePctSimulation.cou.name,
+        const.OnePctSimulation.ctrl.name,
+        const.OnePctSimulation.rad.name,
+        const.OnePctSimulation.rad_ndep.name,
+        const.OnePctSimulation.bgc_ndep.name,
+        const.OnePctSimulation.cou_ndep.name,
+        const.OnePctSimulation.ctrl_ndep.name,
     ):
         raise ValueError(
-            "One percent simulations only include ctrl, bgc, cou, and rad."
+            "One percent simulations only include ctrl, bgc, cou, and rad, or their transient "
+            "nitrogen deposition variants ctrl_ndep, bgc_ndep, cou_ndep, and rad_ndep."
         )
 
     return WIEFile(
@@ -41,14 +60,14 @@ def retrieve_overshoot_variable(
     forcing = forcing.lower()
 
     if simulation not in (
-        const.Simulation.hist.name,
-        const.Simulation.ctrl.name,
-        const.Simulation.vl.name,
-        const.Simulation.vl_cf.name,
-        const.Simulation.l.name,
-        const.Simulation.hl.name,
-        const.Simulation.hl_cf.name,
-        const.Simulation.m.name,
+        const.OvershootSimulation.hist.name,
+        const.OvershootSimulation.ctrl.name,
+        const.OvershootSimulation.vl.name,
+        const.OvershootSimulation.vl_cf.name,
+        const.OvershootSimulation.l.name,
+        const.OvershootSimulation.hl.name,
+        const.OvershootSimulation.hl_cf.name,
+        const.OvershootSimulation.m.name,
     ):
         raise ValueError(
             "Overshoot simulations only include hist, ctrl, vl, vl_cf, l, hl, "
@@ -66,7 +85,8 @@ def retrieve_overshoot_variable(
 
 
 models = adapters.keys()
-one_percent_simulations = ["ctrl", "bgc", "cou", "rad"]
-overshoot_simulations = ["hist", "ctrl", "vl", "vl_cf", "l", "hl", "hl_cf", "m"]
+one_percent_simulations = [s.name for s in const.OnePctSimulation]
+overshoot_simulations = [s.name for s in const.OvershootSimulation]
 gcm_patterns = [m.name for m in const.GCMPattern]
 variables = list(dict.fromkeys([*VARIABLES, *EXTRA_VARIABLES]))
+factorials = [f.name for f in const.Factorial]

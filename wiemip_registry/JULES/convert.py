@@ -18,7 +18,7 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "JULES"
 _OUTPUT = DATA_ROOT
@@ -26,8 +26,8 @@ _LANDFRAC = _OUTPUT / "1pctCO2" / "output" / "JULES" / "landfrac_n96.nc"
 
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
-    "baseline": "Nitrogen_DynVeg_Permafrost_noFire",
-    "noNitrogen": "noNitrogen_DynVeg_Permafrost_noFire",
+    Factorial.baseline.name: "Nitrogen_DynVeg_Permafrost_noFire",
+    Factorial.noFire_noNitrogen.name: "noNitrogen_DynVeg_Permafrost_noFire",
     "noDynVeg": "Nitrogen_noDynVeg_Permafrost_noFire",
     "noPermafrostC": "Nitrogen_DynVeg_noPermafrostC_noFire",
     "noPermafrostCN": "Nitrogen_DynVeg_noPermafrostCN_noFire",
@@ -65,14 +65,7 @@ class JULES(core.WIEAdapter):
         tok = _sim_tok(simulation, forcing)
         run = f"JULESwiemipV2_{tok}_{config}"
         fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"  # always annual
-        return str(
-            _OUTPUT
-            / "1pctCO2"
-            / "output"
-            / "JULES"
-            / run
-            / fname
-        )
+        return str(_OUTPUT / "1pctCO2" / "output" / "JULES" / run / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds[

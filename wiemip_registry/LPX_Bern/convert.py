@@ -19,18 +19,17 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT
 
 # canonical bucket -> (prefix before sim, suffix after sim) in LPX's own spelling.
 _FACTORIALS = {
-    "baseline": ("", ""),
-    "noFire": ("nofire", ""),
-    "noPermafrost": ("nopermafrost", ""),
-    "noPermafrost_noFire": ("nopermafrost_nofire", ""),
-    "ndep": ("", "ndep"),
+    Factorial.baseline.name: ("", ""),
+    Factorial.noFire.name: ("nofire", ""),
+    Factorial.noPermafrost.name: ("nopermafrost", ""),
+    Factorial.noFire_noPermafrost.name: ("nopermafrost_nofire", ""),
 }
 _AREA = _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / "gridcell_area.nc"
 
@@ -57,21 +56,17 @@ class LPX_Bern(core.WIEAdapter):
         return wiemip_variable
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        sim = simulation  # bgc/cou/rad/ctrl
+        sim = simulation  # bgc/cou/rad/ctrl (+ _ndep simulation variants)
         pre_tok, suf_tok = self.FACTORIALS[factorial]
         pre = f"{pre_tok}_" if pre_tok else ""
         suf = f"_{suf_tok}" if suf_tok else ""
-        gcm = (
-            f"_{forcing.upper()}"
-            if simulation in ("cou", "rad")
-            else ""
-        )
+        # ndep is a simulation, so `sim` already carries `_ndep` (it lands before the
+        # GCM tag in the filename); the GCM keys on the BASE sim (cou/rad are forced).
+        gcm = f"_{forcing.upper()}" if simulation.split("_")[0] in ("cou", "rad") else ""
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
         fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
-        return str(
-            _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / fname
-        )
+        return str(_OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / fname)
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
         """

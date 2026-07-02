@@ -85,29 +85,48 @@ class GCMPattern(Enum):
     gfdl = "gfdl"
 
 
-class Simulation(Enum):
-    """Run types across both experiments. 1pctCO2 uses bgc/cou/ctrl/rad (forcing
-    cou/rad is the GCMPattern axis). Overshoot uses the scenario codes
-    vl/l/m/hl (+ `_cf` constant-fire variants), hist / hist_ctrl, and ctrl. The
-    ndep / noFire / noNitrogen / … sensitivity runs are per-model FACTORIALS
-    (declared on each adapter), not simulations — they vary in name and meaning
-    by model, so each convert.py spells them itself."""
+class OnePctSimulation(Enum):
 
     bgc = 0
     cou = 1
     ctrl = 2
     rad = 3
-    l = 4
-    hl = 5
-    hl_cf = 6
-    m = 7
-    hist = 8
-    hist_ctrl = 9
-    vl = 10
-    vl_cf = 11
+    bgc_ndep = 4
+    cou_ndep = 5
+    rad_ndep = 6
+    ctrl_ndep = 7
 
 
-FACTORIAL_BUCKETS: tuple[str, ...] = (
+class OvershootSimulation(Enum):
+    l = 7
+    hl = 8
+    hl_cf = 9
+    m = 10
+    hist = 11
+    hist_ctrl = 12
+    vl = 13
+    vl_cf = 14
+    ctrl = 15
+
+
+class Factorial(Enum):
+
+    baseline = 0
+    noFire = 1
+    # no nitrogen limitation
+    noNitrogen = 2
+    noPermafrost = 3
+    noFire_noNitrogen = 4
+    noFire_noPermafrost = 5
+    noBVOC = 6
+
+
+class Experiment(Enum):
+    one_percent_co2 = "one_pct_co2"
+    overshoot = "overshoot"
+
+
+factorials: tuple[str, ...] = (
     "baseline",
     # fire
     "noFire",

@@ -19,7 +19,7 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial, OnePctSimulation
 
 MODEL = "DLEM"
 _OUTPUT = DATA_ROOT
@@ -31,7 +31,8 @@ class DLEM(core.WIEAdapter):
     DECODE = False  # numeric "years/months since 1850"
     # baseline = the reference `_ndep` dirs (AGENTS.md §2); noNdep = the plain
     # `1pctCO2_<SIM>` dirs whose files carry a `_noNdep` token.
-    FACTORIALS = {"baseline": "", "noNdep": ""}
+    # no factorials uploaded as far as I know
+    FACTORIALS = {Factorial.baseline.name: ""}
 
     wiemip_to_dlem_variable_mapping = {
         "fFireLitter": "fFireCLitter",
@@ -43,28 +44,40 @@ class DLEM(core.WIEAdapter):
             return self.wiemip_to_dlem_variable_mapping[wiemip_variable]
         return wiemip_variable
 
-    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        sim = simulation  # bgc/cou/rad/ctrl
+    def one_pct_path(
+        self, simulation: str, forcing: str, factorial: str, variable: str
+    ) -> str:
+        sim = simulation  # bgc/cou/rad/ctrl/ctrl-ndep etc
         cad = "yr" if core.is_annual(variable) else "mon"
         gcm_dir = (
-            f"_{forcing.upper()}"
-            if simulation in ("cou", "rad")
-            else ""
+            f"_{forcing.upper()}" if simulation.split("_")[0] in ("cou", "rad") else ""
         )
-        gcm_f = (
-            f"{forcing}_"
-            if simulation in ("cou", "rad")
-            else ""
-        )
+        gcm_f = f"{forcing}_" if simulation.split("_")[0] in ("cou", "rad") else ""
+
         if simulation == "ctrl":
             run, fpref = "1pctCO2_CTRL", "DLEM_ctrl"  # ctrl has no ndep variant
-        elif factorial == "noNdep":
-            run = f"1pctCO2_{sim.upper()}{gcm_dir}"
+        elif simulation in (
+            OnePctSimulation.cou.name,
+            OnePctSimulation.rad.name,
+            OnePctSimulation.bgc.name,
+        ):
+            # no ndep == baseline one percent run
+            run = f"1pctCO2_{sim.split('_')[0].upper()}{gcm_dir}"
+            fpref = f"DLEM_{gcm_f}{sim.split('_')[0]}_noNdep"
+        elif simulation in (
+            OnePctSimulation.cou_ndep.name,
+            OnePctSimulation.rad_ndep.name,
+            OnePctSimulation.bgc_ndep.name,
+        ):  # the transient nitrogen deposition run
+            run = f"1pctCO2_{sim.split('_')[0].upper()}{gcm_dir}_ndep"
+            fpref = f"DLEM_{gcm_f}{sim.split('_')[0]}"
+        else:
+            # not in the registry, construct run, fpref assuming noNdep
+            # will error on downstream calls
+            run = f"1pctCO2_{sim.split('_')[0].upper()}{gcm_dir}"
             fpref = f"DLEM_{gcm_f}{sim}_noNdep"
-        else:  # baseline -> the ndep dirs
-            run = f"1pctCO2_{sim.upper()}{gcm_dir}_ndep"
-            fpref = f"DLEM_{gcm_f}{sim}"
-        return str(
+
+        z = str(
             _OUTPUT
             / "1pctCO2"
             / "output"
@@ -72,6 +85,7 @@ class DLEM(core.WIEAdapter):
             / run
             / f"{fpref}_{variable}_{cad}_05.nc"
         )
+        return z
 
     def _time(self, ds: xr.Dataset):
         # "years/months since 1850" -> datetime64, preserving monthly cadence.

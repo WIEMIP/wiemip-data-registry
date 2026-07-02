@@ -7,12 +7,16 @@ import warnings
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "VISIT-UT"
 _OUTPUT = DATA_ROOT
 
-_FACTORIALS = {"baseline": "", "noBVOC": "_noBVOC", "noFire": "_noFire"}
+_FACTORIALS = {
+    Factorial.baseline.name: "",
+    Factorial.noBVOC.name: "_noBVOC",
+    Factorial.noFire.name: "_noFire",
+}
 
 # Known unit problems in the uploaded files: variable -> human note. Data is
 # returned UNMODIFIED (PLAN.md), but read() emits each file's own `units` attr and
@@ -45,26 +49,12 @@ class VISIT_UT(core.WIEAdapter):
         bare = _bare_run(simulation, forcing)
         run = f"{bare}{suf}"  # dir carries the factorial
         fname = f"{bare}_{variable}_mon{suf}_05.nc"  # file: factorial AFTER cadence
-        return str(
-            _OUTPUT
-            / "1pctCO2"
-            / "output"
-            / "VISIT-UT"
-            / run
-            / fname
-        )
+        return str(_OUTPUT / "1pctCO2" / "output" / "VISIT-UT" / run / fname)
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
         prefix = f"VISIT-UT_{forcing.lower()}_{simulation.lower()}"
         fname = f"{prefix}_{variable}_mon_05.nc"
-        return str(
-            _OUTPUT
-            / "overshoot"
-            / "output"
-            / "VISIT-UT"
-            / prefix
-            / fname
-        )
+        return str(_OUTPUT / "overshoot" / "output" / "VISIT-UT" / prefix / fname)
 
     def _time(self, ds: xr.Dataset):
         # "years since AD 0" (fractional for monthly) -> datetime64

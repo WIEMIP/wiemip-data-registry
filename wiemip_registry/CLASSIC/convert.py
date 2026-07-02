@@ -17,28 +17,26 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "CLASSIC"
 _OUTPUT = DATA_ROOT
 
-# How CLASSIC spells each simulation in the `1pctCO2-<SIM>` run token (ctrl is
-# special-cased in path()).
-_SIM = {"bgc": "BGC", "cou": "COU", "rad": "RAD"}
+_SIM = {
+    "bgc": "BGC",
+    "cou": "COU",
+    "rad": "RAD",
+    "rad_ndep": "RAD-Ndep",
+    "cou_ndep": "COU-Ndep",
+    "bgc_ndep": "BGC-Ndep",
+    "ctrl_ndep": "CTRL-Ndep",
+}
 
-# CLASSIC factorial -> (ndep_part, post_part). Two slots because CLASSIC spells
-# them in different places (verified on the bucket):
-#   * `-Ndep` is part of the RUN token: it's in the dir AND the file prefix, e.g.
-#     CLASSIC_UKESM_1pctCO2-BGC-Ndep/CLASSIC_UKESM_1pctCO2-BGC-Ndep_cVeg_ann_1deg.nc
-#   * `_noFire` / `_noNitrogen` suffix the DIR but trail the CADENCE in the file:
-#     CLASSIC_UKESM_1pctCO2-BGC_noFire/CLASSIC_UKESM_1pctCO2-BGC_cVeg_ann_noFire_1deg.nc
 _FACTORIALS = {
-    "baseline": ("", ""),
-    "ndep": ("-Ndep", ""),
-    "noFire": ("", "_noFire"),
-    "noNitrogen": ("", "_noNitrogen"),
-    "ndep_noFire": ("-Ndep", "_noFire"),
-    "noFire_noNitrogen": ("", "_noFire_noNitrogen"),
+    Factorial.baseline.name: ("", ""),
+    Factorial.noFire.name: ("", "_noFire"),
+    Factorial.noNitrogen.name: ("", "_noNitrogen"),
+    Factorial.noFire_noNitrogen.name: ("", "_noFire_noNitrogen"),
 }
 _SFTLF = (
     _OUTPUT
@@ -74,19 +72,7 @@ class CLASSIC(core.WIEAdapter):
         return wiemip_variable
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
-        cad = (
-            "mon"
-            if variable in self.MONTHLY
-            else ("ann" if core.is_annual(variable) else "mon")
-        )
-        return str(
-            _OUTPUT
-            / "overshoot"
-            / "output"
-            / "CLASSIC"
-            / "test"
-            / f"testk_{variable}_{cad}_1deg.nc"
-        )
+        return "null"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         ndep, post = self.FACTORIALS[factorial]
@@ -103,7 +89,7 @@ class CLASSIC(core.WIEAdapter):
             run = f"{stem}{post}"  # dir carries ndep + post
             prefix = stem  # file prefix carries ndep only
         variable = self._get_variable(wiemip_variable=variable)
-        return str(
+        z = str(
             _OUTPUT
             / "1pctCO2"
             / "output"
@@ -111,6 +97,7 @@ class CLASSIC(core.WIEAdapter):
             / run
             / f"{prefix}_{variable}_{cad}{post}_1deg.nc"
         )
+        return z
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)

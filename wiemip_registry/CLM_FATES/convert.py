@@ -5,13 +5,13 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "CLM-FATES"
 _OUTPUT = DATA_ROOT
 
 _FACTORIALS = {
-    "baseline": ("", ""),
+    Factorial.baseline.name: ("", ""),
 }
 _PREFIX = "FATES_ukesm"
 
@@ -98,8 +98,9 @@ class CLM_FATES(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        if variable == "fN2O":
-            # clm fates reports in g, not kg
+        if variable in ("fN2O", "wetCH4"):
+            # clm fates reports these in g, not kg: the declared units say
+            # kg m-2 s-1 but the global integral is ~1000x too large (g -> kg).
             ds[self._get_variable(variable)] = ds[self._get_variable(variable)] / 1000
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
