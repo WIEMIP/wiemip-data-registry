@@ -62,7 +62,9 @@ class LPX_Bern(core.WIEAdapter):
         suf = f"_{suf_tok}" if suf_tok else ""
         # ndep is a simulation, so `sim` already carries `_ndep` (it lands before the
         # GCM tag in the filename); the GCM keys on the BASE sim (cou/rad are forced).
-        gcm = f"_{forcing.upper()}" if simulation.split("_")[0] in ("cou", "rad") else ""
+        gcm = (
+            f"_{forcing.upper()}" if simulation.split("_")[0] in ("cou", "rad") else ""
+        )
         cad = "yr" if core.is_annual(variable) else "mon"
         variable = self._get_variable(variable)
         fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
@@ -71,7 +73,7 @@ class LPX_Bern(core.WIEAdapter):
     def overshoot_path(self, simulation, forcing, variable) -> str:
         """
         Note: LPX-Bern uploaded files prefixed with "overshoot" which are bitwise
-        identical to the ones prefixed with "ukesm". These won't be coverered by this naming
+        identical to the ones prefixed with "ukesm". These won't be coverred by this naming
         convention but they're duplicates so it's OK.
         """
         sim = simulation  #
