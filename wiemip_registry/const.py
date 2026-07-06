@@ -6,19 +6,6 @@ CSV_ROOT = Path("csv")  # local mirror of the bucket tree; cached latitudinal-su
 # series land here ("csv/" prefix). Repoint to a shared writable dir on the box
 # (e.g. /srv/wiemip-csv) for cross-user reuse. Bucket persistence is deferred.
 
-MODEL_PACKAGES = [
-    # Populated models only (the other ~20 bucket dirs are empty placeholders).
-    # Each name is BOTH the subpackage dir and the Python-safe namespace alias.
-    "BiomeE",
-    "CLASSIC",
-    "DLEM",
-    "JSBACH",
-    "JULES",
-    "LPX_Bern",
-    "VISIT_UT",
-    "CLM_FATES",
-]
-
 
 SPY = 365.25 * 86400.0  # seconds per year: flux rate -> annual integral
 PG = 1e12  # 1 Pg = 1e12 kg
@@ -126,33 +113,20 @@ class Experiment(Enum):
     overshoot = "overshoot"
 
 
-factorials: tuple[str, ...] = (
-    "baseline",
+extra_factorials: tuple[str, ...] = (
     # fire
-    "noFire",
     "Fire0005",
     "Fire0249",
     "Fire0304",
     "Fire0336",
-    # nitrogen
-    "noNitrogen",
-    "ndep",
-    "noNdep",
-    #
     "noBVOC",
     "noDynVeg",
-    # permafrost
-    "noPermafrost",
     "noPermafrostC",
     "noPermafrostCN",
     "noPermafrostCNNinorg",
     "addPermafrostC",
     "addPermafrostCN",
     "addPermafrostCNNinorg",
-    # combined sensitivities
-    "ndep_noFire",
-    "noFire_noNitrogen",
-    "noPermafrost_noFire",
     "noNitrogen_addPermafrostC",
     "noNitrogen_noPermafrostC",
 )

@@ -24,6 +24,22 @@ import xarray as xr
 import wiemip_registry.const as const
 
 
+class MissingModelError(Exception):
+    pass
+
+
+class MissingForcingError(Exception):
+    pass
+
+
+class MissingSimulationError(Exception):
+    pass
+
+
+class MissingVariableError(Exception):
+    pass
+
+
 class WIEAdapter(ABC):
     """
     Contract that each model must fill out. This converts whatever naming

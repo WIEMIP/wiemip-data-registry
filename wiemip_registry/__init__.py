@@ -1,9 +1,16 @@
 from wiemip_registry.core import WIEFile
 import wiemip_registry.const as const
 from wiemip_registry.adapters import adapters
-from wiemip_registry.variables import VARIABLES
-from wiemip_registry.variable_overrides import EXTRA_VARIABLES
+from wiemip_registry.variables import variables
+from wiemip_registry.variable_overrides import extra_variables
 import warnings
+
+models = adapters.keys()
+one_percent_simulations = [s.name for s in const.OnePctSimulation]
+overshoot_simulations = [s.name for s in const.OvershootSimulation]
+gcm_patterns = [m.name for m in const.GCMPattern]
+variables = list(dict.fromkeys([*variables, *extra_variables]))
+factorials = [f.name for f in const.Factorial]
 
 
 def _warn_factorial(
@@ -17,12 +24,36 @@ def _warn_factorial(
         )
 
 
+def _sanity_check(model: str, forcing: str, simulation: str, variable: str):
+    if model not in models:
+        raise core.MissingModelError(
+            f"Model {model} is not in the set of adapters. Supported models: {'|'.join(models)}"
+        )
+    if forcing not in gcm_patterns:
+        raise core.MissingForcingError(
+            f"GCM pattern {forcing} is not in the list of GCM patterns."
+            f" Supported GCM patterns: {'|'.join(gcm_patterns)}"
+        )
+    if simulation not in one_percent_simulations + overshoot_simulations:
+        raise core.MissingSimulationError(
+            f"Simulation {simulation} is not in the list of simulations. "
+            f"Supported simulations: {'|'.join(one_percent_simulations + overshoot_simulations)}"
+        )
+    if variable not in variables:
+        raise core.MissingVariableError(
+            f"Variable {variable} is not in the list of WIEMIP variables."
+            " Use import wiemip_registry.variables; print(variables.variables) to see a listing."
+        )
+
+
 def retrieve_one_pct_variable(
     model: str, forcing: str, simulation: str, factorial: str, variable: str
 ) -> WIEFile:
 
     simulation = simulation.lower()
     forcing = forcing.lower()
+
+    _sanity_check(model, forcing, simulation, variable)
 
     _warn_factorial(model, forcing, simulation, factorial, variable)
 
@@ -59,6 +90,8 @@ def retrieve_overshoot_variable(
     simulation = simulation.lower()
     forcing = forcing.lower()
 
+    _sanity_check(model, forcing, simulation, variable)
+
     if simulation not in (
         const.OvershootSimulation.hist.name,
         const.OvershootSimulation.ctrl.name,
@@ -82,11 +115,3 @@ def retrieve_overshoot_variable(
         variable=variable,
         _adapter=adapters[model],
     )
-
-
-models = adapters.keys()
-one_percent_simulations = [s.name for s in const.OnePctSimulation]
-overshoot_simulations = [s.name for s in const.OvershootSimulation]
-gcm_patterns = [m.name for m in const.GCMPattern]
-variables = list(dict.fromkeys([*VARIABLES, *EXTRA_VARIABLES]))
-factorials = [f.name for f in const.Factorial]
