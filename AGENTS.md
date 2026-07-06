@@ -21,7 +21,7 @@ This file is the shared reference for what we've learned about the data. Keep it
 - **Experiments:** `1pctCO2`, `overshoot`. (`overshoot` currently only has **LPX-Bern** populated.)
   (registry namespace aliases the leading-digit dir `1pctCO2` → `one_percent_co2`.)
 - **Models populated in 1pctCO2 (have data):** BiomeE, CLASSIC, DLEM, JSBACH, JULES, LPX-Bern,
-  VISIT-UT. The other ~20 dirs (BEPS, CLM, ELM, …) are empty placeholders. `LPJ-EOSIM` only has a
+  VISIT-UT, TEM. The other ~20 dirs (BEPS, CLM, ELM, …) are empty placeholders. `LPJ-EOSIM` only has a
   `main.tf` (no model output yet). `extremes` is a pseudo-dir, not a model.
 - **One variable per netCDF file.** ~4938 files in 1pctCO2.
 - **Layout differs by model:** *flat* (run encoded in the filename prefix — BiomeE, LPX-Bern) vs
@@ -67,6 +67,7 @@ values and even which variables exist all vary by model. Encode per-model knowle
 | **JULES** | n96, `latitude/longitude` | datetime + `year` coord | `landfrac_n96.nc` `land` × spherical cell; **`land` has ~1e37 ocean fill → mask >1→0** | **only `cVeg` & `cSoil` submitted**; ctrl is **`ctl`** | bgc/ctl/{esm}_cou, all `Nitrogen_DynVeg_Permafrost_*` |
 | **LPX-Bern** | 1°, `latitude/longitude` | `years`/`year` numeric → **floor**, decode_times=False | **provided `gridcell_area.nc`** (`area`, land-only) | high-fire model (~15–23 PgC/yr fire — **real**, not a bug); has `fFireCveg` too | flat: bgc/ctrl/cou_{ESM}/rad_{ESM} (+nofire/nopermafrost/ndep variants) |
 | **VISIT-UT** | 0.5°, lat/lon | `years since AD 0` (fractional) → **floor**, decode_times=False | compute spherical (no land frac; README §: Σ flux×area) | **`fFire` BROKEN** (units off ~600×, see below) — exclude; stocks/gpp/npp/rh OK | BGC/CTRL/{esm}_COU/{esm}_RAD (+noBVOC/noFire) |
+| **TEM** (TEM-MDM) | 0.5°, `latitude/longitude`, dims `(lon,lat,time)` | `days since 1850-01-01` **noleap** → **decode_times=False**, decode by hand | compute spherical (ocean=NaN in data → land mask) | file prefix `TEM-MDM`; nested `BGC/COU/CTRL` dirs; `nbp` sign/units look off (persistent ~−10 PgC/yr source while cVeg+cSoil rise) — flag for TEM group | **baseline only**: `stable_bgc`, `ukesm_cou`, `stable_ctrl` (no rad, no ndep, no factorials); vars = cVeg,cSoil,gpp,lai,mrro,mrso,nbp,npp,pr,ra,rh |
 
 ## 4. Units & global integral
 
