@@ -12,6 +12,7 @@ aggregation), all seeded from the proven `extract.py`.
 from __future__ import annotations
 
 import abc
+import os
 import functools
 from abc import ABC
 from dataclasses import dataclass
@@ -321,6 +322,18 @@ class WIEFile:
         through the committed virtual-zarr store instead of re-opening raw netCDF.
         """
 
+        if not self.exists():
+            pth = self._adapter.path(
+                self.experiment,
+                self.simulation,
+                self.forcing,
+                self.factorial,
+                self.variable,
+            )
+            raise FileNotFoundError(
+                f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
+            )
+
         return self._adapter.read(
             self.experiment,
             self.simulation,
@@ -337,6 +350,19 @@ class WIEFile:
         if da is None:
             da = self.read()
         return self._adapter.weight_dataarray(da)
+
+    def exists(self):
+        if os.path.isfile(
+            self._adapter.path(
+                self.experiment,
+                self.simulation,
+                self.forcing,
+                self.factorial,
+                self.variable,
+            )
+        ):
+            return True
+        return False
 
     @cache_csv
     def latitudinal_sum(

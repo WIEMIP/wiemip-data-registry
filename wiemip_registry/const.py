@@ -1,10 +1,15 @@
+import os
 from pathlib import Path
 from enum import Enum
 
 DATA_ROOT = Path("/mnt/wiemip")
-CSV_ROOT = Path("csv")  # local mirror of the bucket tree; cached latitudinal-sum
-# series land here ("csv/" prefix). Repoint to a shared writable dir on the box
-# (e.g. /srv/wiemip-csv) for cross-user reuse. Bucket persistence is deferred.
+
+# Cached latitudinal-sum series are written here (a "csv/" mirror of the bucket
+# tree). Defaults to a shared, world-readable dir on the JupyterHub so every user
+# reuses the same cache instead of recomputing; override with the WIEMIP_CSV_PATH
+# environment variable (e.g. point it at a local dir when running off the hub).
+# Bucket persistence is deferred.
+CSV_ROOT = Path(os.environ.get("WIEMIP_CSV_PATH", "/srv/wiemip-csv"))
 
 
 SPY = 365.25 * 86400.0  # seconds per year: flux rate -> annual integral
