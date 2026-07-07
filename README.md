@@ -72,4 +72,6 @@ make sure it works on the new data. Add the adapter to `wiemip_registry/adapters
 `wiemip_registry.models`.
 
 ## Contributing
-Please raise a PR with your edits. *Notebooks are encouraged for knowledge and results sharing!*
+Please raise a PR with your edits. *Notebooks are encouraged for knowledge and
+results sharing!* A push to main will sync the current version of the code with
+the deployed jupyterhub.
