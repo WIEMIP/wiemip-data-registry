@@ -1,6 +1,6 @@
 [project]
 name = "wiemip-data-processing"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Process WIE-MIP land-model-intercomparison output into global stocks & fluxes, via a typed file registry."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,8 +19,13 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+# Version is derived from git (tag + commits-since), so every commit and merged
+# PR auto-bumps it — no version file to maintain, no bump commits.
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 # The installable package is the registry; the root-level scripts

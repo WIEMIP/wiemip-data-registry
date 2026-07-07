@@ -1,3 +1,10 @@
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__ = _pkg_version("wiemip-data-processing")  # git-derived, set at build by hatch-vcs
+except PackageNotFoundError:  # running from a raw source tree, not installed
+    __version__ = "0+unknown"
+
 from wiemip_registry.core import WIEFile
 import wiemip_registry.const as const
 from wiemip_registry.adapters import adapters
