@@ -21,10 +21,14 @@ cut straight to the chase with `latitudinal_sum()`. Note: these methods construc
 in `wiemip_registry` and by design throw errors if you ask for a file that 1) doesn't conform to the naming convention
 spelled out in the adapter or 2) doesn't exist. 
 
-`latitudinal_sum()` will cache a csv locally when it first runs so that subsequent requests for the same latitude bands
-will be faster. It runs again if it detects a difference in the underlying netCDF file. TODO: run latitudinal sums
-across the entire dataset and save to S3.
+`latitudinal_sum()` will cache a csv in a shared write location on the WIEMIP
+JupyterHub. 
 
+## Sanity checking
+
+If you see something unexpected in the data, make sure you're reading the
+correct file by looking at the result of `.path` on the `WIEFile` returned from
+a `retrieve()` request. If you find an error, please raise an issue.
 
 ## One percent factorial runs
 

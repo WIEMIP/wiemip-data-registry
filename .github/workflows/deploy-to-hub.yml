@@ -28,7 +28,7 @@ jobs:
     env:
       AWS_REGION: us-east-2
       HUB_NAME: wiemip-jupyterhub          # the instance Name tag
-      PKG: "wiemip-data-processing @ git+https://github.com/colligant/wiemip-data-registry.git@main"
+      PKG: "wiemip-data-processing @ git+https://github.com/WIEMIP/wiemip-data-registry.git@main"
     steps:
       - name: Assume AWS role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
