@@ -41,6 +41,10 @@ class MissingVariableError(Exception):
     pass
 
 
+class MissingFactorialError(Exception):
+    pass
+
+
 class WIEAdapter(ABC):
     """
     Contract that each model must fill out. This converts whatever naming
@@ -103,6 +107,10 @@ class WIEAdapter(ABC):
 
     def path(self, experiment, simulation, forcing, factorial, variable):
         if experiment == "1pctCO2":
+            if factorial not in self.FACTORIALS:
+                raise MissingFactorialError(
+                    f"{self.model} has no '{factorial}' factorial (has: {sorted(self.FACTORIALS)})"
+                )
             pth = self.one_pct_path(simulation, forcing, factorial, variable)
         elif experiment == "overshoot":
             pth = self.overshoot_path(simulation, forcing, variable)
@@ -352,17 +360,17 @@ class WIEFile:
         return self._adapter.weight_dataarray(da)
 
     def exists(self):
-        if os.path.isfile(
-            self._adapter.path(
+        try:
+            pth = self._adapter.path(
                 self.experiment,
                 self.simulation,
                 self.forcing,
                 self.factorial,
                 self.variable,
             )
-        ):
-            return True
-        return False
+        except MissingFactorialError:
+            return False  # model doesn't provide this factorial -> treat as not-there
+        return os.path.isfile(pth)
 
     @cache_csv
     def latitudinal_sum(
