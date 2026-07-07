@@ -21,8 +21,9 @@ This file is the shared reference for what we've learned about the data. Keep it
 - **Experiments:** `1pctCO2`, `overshoot`. (`overshoot` currently only has **LPX-Bern** populated.)
   (registry namespace aliases the leading-digit dir `1pctCO2` → `one_percent_co2`.)
 - **Models populated in 1pctCO2 (have data):** BiomeE, CLASSIC, DLEM, JSBACH, JULES, LPX-Bern,
-  VISIT-UT, TEM. The other ~20 dirs (BEPS, CLM, ELM, …) are empty placeholders. `LPJ-EOSIM` only has a
-  `main.tf` (no model output yet). `extremes` is a pseudo-dir, not a model.
+  VISIT-UT, TEM, LPJ-EOSIM. The other ~20 dirs (BEPS, CLM, ELM, …) are empty placeholders.
+  `LPJ-EOSIM` is a recent, partial upload — only `cVeg` so far, across bgc/ctrl/(ukesm) cou plus a
+  `noFire` factorial of each. `extremes` is a pseudo-dir, not a model.
 - **One variable per netCDF file.** ~4938 files in 1pctCO2.
 - **Layout differs by model:** *flat* (run encoded in the filename prefix — BiomeE, LPX-Bern) vs
   *nested run sub-directories* (CLASSIC, DLEM, JSBACH, JULES, VISIT-UT).
@@ -68,6 +69,7 @@ values and even which variables exist all vary by model. Encode per-model knowle
 | **LPX-Bern** | 1°, `latitude/longitude` | `years`/`year` numeric → **floor**, decode_times=False | **provided `gridcell_area.nc`** (`area`, land-only) | high-fire model (~15–23 PgC/yr fire — **real**, not a bug); has `fFireCveg` too | flat: bgc/ctrl/cou_{ESM}/rad_{ESM} (+nofire/nopermafrost/ndep variants) |
 | **VISIT-UT** | 0.5°, lat/lon | `years since AD 0` (fractional) → **floor**, decode_times=False | compute spherical (no land frac; README §: Σ flux×area) | **`fFire` BROKEN** (units off ~600×, see below) — exclude; stocks/gpp/npp/rh OK | BGC/CTRL/{esm}_COU/{esm}_RAD (+noBVOC/noFire) |
 | **TEM** (TEM-MDM) | 0.5°, `latitude/longitude`, dims `(lon,lat,time)` | `days since 1850-01-01` **noleap** → **decode_times=False**, decode by hand | compute spherical (ocean=NaN in data → land mask) | file prefix `TEM-MDM`; nested `BGC/COU/CTRL` dirs; `nbp` sign/units look off (persistent ~−10 PgC/yr source while cVeg+cSoil rise) — flag for TEM group | **baseline only**: `stable_bgc`, `ukesm_cou`, `stable_ctrl` (no rad, no ndep, no factorials); vars = cVeg,cSoil,gpp,lai,mrro,mrso,nbp,npp,pr,ra,rh |
+| **LPJ-EOSIM** | 0.5° (`05`), `latitude/longitude` (both ascending), dims `(time,lat,lon)` | `days since 1850-01-01` **gregorian** (end-of-yr stamps 1850..2000) → decodes to datetime64, **decode_times=True** | compute spherical (ocean=NaN in data → land mask) | model dir `LPJ-EOSIM` hyphenated but run-dir/file prefix `LPJ_EOSIM` underscored; `noFire` is a post-cadence `_noFire` suffix on BOTH the run sub-dir and the filename | **partial**: `stable_bgc`, `stable_ctrl`, `ukesm_cou`, each with a `noFire` variant (no rad, no ndep); only `cVeg` uploaded so far |
 
 ## 4. Units & global integral
 
