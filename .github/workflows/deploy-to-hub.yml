@@ -1,0 +1,64 @@
+name: deploy-to-hub
+
+# On every push to main (or manual run), reinstall this package into the WIEMIP
+# JupyterHub's shared env via AWS SSM. Auth is GitHub OIDC -> a scoped IAM role
+# (no stored AWS keys); the role + permissions are defined in the jupyterhub
+# Terraform stack (deploy.tf). Set the repo variable HUB_DEPLOY_ROLE_ARN to the
+# stack's `github_deploy_role_arn` output.
+#
+# Note: this updates the installed package; users pick it up on their next
+# kernel restart (a running kernel can't be hot-swapped).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+concurrency:
+  group: deploy-to-hub
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-2
+      HUB_NAME: wiemip-jupyterhub          # the instance Name tag
+      PKG: "wiemip-data-processing @ git+https://github.com/colligant/wiemip-data-registry.git@main"
+    steps:
+      - name: Assume AWS role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.HUB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Find the running hub instance
+        run: |
+          IID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=$HUB_NAME" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)
+          test -n "$IID" || { echo "No running '$HUB_NAME' instance (is it stopped by the off-hours schedule?)"; exit 1; }
+          echo "INSTANCE_ID=$IID" >> "$GITHUB_ENV"
+          echo "Targeting $IID"
+
+      - name: Reinstall package via SSM
+        run: |
+          CMD="/opt/tljh/user/bin/pip install --force-reinstall --no-deps \"$PKG\""
+          PARAMS=$(jq -n --arg c "$CMD" '{commands: [$c]}')
+          CID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --parameters "$PARAMS" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $CID"
+          aws ssm wait command-executed --command-id "$CID" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation --command-id "$CID" --instance-id "$INSTANCE_ID" \
+            --query "{status:Status, stdout:StandardOutputContent, stderr:StandardErrorContent}" --output json
+          S=$(aws ssm get-command-invocation --command-id "$CID" --instance-id "$INSTANCE_ID" --query Status --output text)
+          echo "Final status: $S"
+          test "$S" = "Success"
