@@ -1,9 +1,5 @@
 """BiomeE adapter.
 
-Quirks (AGENTS.md §3): 0.5° grid, dims (lon, lat, time), datetime time, area =
-provided `veg_area.nc` (vegetated m²), cVeg/etc use a -1e5 fill that must be
-masked, first valid year 1851. UKESM-forced; bgc/cou submitted (no ctrl).
-
 Naming (verified on the bucket): flat layout
 `BiomeE_<forcing>_<sim>_<var>_<cad>_05.nc` (lowercase forcing + sim tokens).
 path() is a pure transform — what exists is decided by read() opening the file.

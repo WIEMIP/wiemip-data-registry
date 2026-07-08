@@ -1,16 +1,4 @@
-"""LPJmL6 adapter.
-
-Quirks (AGENTS.md §3): 1° grid, dims latitude/longitude, datetime time, units
-written `kg C m$^{-2}$`. Global integral needs land fraction (per V. Arora):
-area × sftlf × quantity. sftlf is static across runs — load once from BGC.
-
-Naming (verified on the bucket): nested run dirs
-`LPJmL6_<FORCING>_1pctCO2-<SIM><factorial>/` holding files
-`<dir>_<var>_<cad>_1deg.nc`; ctrl is special-cased to `LPJmL6_stable_piControl…`
-with a `LPJmL6_stable…` file prefix. Only UKESM was submitted, so the forcing
-token is honored (ipsl/gfdl simply won't resolve at read()). path() is a pure
-transform — what exists is decided by read() opening the file.
-"""
+"""LPJmL6 adapter."""
 
 from __future__ import annotations
 
@@ -79,18 +67,12 @@ class LPJmL6(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
-        """Spherical cell area × static land fraction (sftlf)."""
+        """Computed spherical cell area [m²]; ocean cells drop out via the data's
+        NaN mask (no land-fraction raster shipped)."""
         ref = xr.open_dataset(
-            self.path(
-                "1pctCO2",
-                "bgc",
-                "ukesm",
-                "baseline",
-                "cVeg",
-            ),
+            self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg"),
             decode_times=self.DECODE,
         )
-        cell = core.spherical_area(ref, self.LAT, self.LON)
+        a = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        sftlf = xr.open_dataset(_SFTLF)["sftlf"]
-        return core.rename_latlon((cell * sftlf).astype("float32"), self.LAT, self.LON)
+        return core.rename_latlon(a, self.LAT, self.LON)

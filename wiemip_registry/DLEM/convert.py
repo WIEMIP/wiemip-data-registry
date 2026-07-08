@@ -1,13 +1,9 @@
 """DLEM adapter.
 
-Quirks (AGENTS.md §3): 0.5° grid, lat truncated to 354 rows, time is
-`years since 1850` (yr) / `months since 1850` (mon) so decode_times=False.
-No `fFire`. `nbp` is 0 in 1850, nonzero later.
-
 Naming (verified on the bucket): nested run dirs `1pctCO2_<SIM>[_<FORCING>][_ndep]/`
 holding files `DLEM_[<forcing>_]<sim>_<var>_<cad>_05.nc`. DLEM's reference run is
-the `_ndep` dir (AGENTS.md §2: "baseline has ndep in the dir name but the
-filename has no suffix") for bgc/cou/rad; ctrl is the bare `1pctCO2_CTRL`. The
+the `_ndep` dir (baseline has ndep in the dir name but the filename has no
+suffix) for bgc/cou/rad; ctrl is the bare `1pctCO2_CTRL`. The
 ndep-vs-not split is genuinely model-specific, so `baseline` reproduces that
 curated mapping and other DLEM factorials are left for later. path() is a pure
 transform — what exists is decided by read().
@@ -29,7 +25,7 @@ class DLEM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False  # numeric "years/months since 1850"
-    # baseline = the reference `_ndep` dirs (AGENTS.md §2); noNdep = the plain
+    # baseline = the reference `_ndep` dirs; noNdep = the plain
     # `1pctCO2_<SIM>` dirs whose files carry a `_noNdep` token.
     # no factorials uploaded as far as I know
     FACTORIALS = {Factorial.baseline.name: ""}

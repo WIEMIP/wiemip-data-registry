@@ -1,9 +1,5 @@
 """JULES adapter.
 
-Quirks (AGENTS.md §3): n96 grid, latitude/longitude, datetime + a `year` coord.
-Area = `landfrac_n96.nc` `land` × spherical cell; `land` carries ~1e37 ocean
-fill so mask values >1 -> 0. Only `cVeg` & `cSoil` were submitted. ctrl is `ctl`.
-
 Naming (verified on the bucket): nested run dirs
 `JULESwiemipV2_<sim>_<config>/` holding files
 `JULESwiemipV2_<sim>_<var>_yr_<config>_n96.nc` (always annual). `<sim>` is bgc /

@@ -1,8 +1,5 @@
 """JSBACH adapter.
 
-Quirks (AGENTS.md §3): 1° grid, lat/lon, datetime time (epoch 1847). `fFire`≈0
-(fire effectively off in this run).
-
 Naming (verified on the bucket): nested run dirs holding same-named files.
 bgc/ctrl carry a `stable_` tag (`JSBACH_stable_<sim>`), cou carries the GCM
 (`JSBACH_<forcing>_cou`); the factorial is a trailing suffix. path() is a pure

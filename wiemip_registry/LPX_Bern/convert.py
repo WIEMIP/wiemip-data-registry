@@ -1,10 +1,5 @@
 """LPX-Bern adapter.
 
-Quirks (AGENTS.md §3): 1° grid, latitude/longitude, numeric `years`/`year`
-time so decode_times=False and floor to integer year. Area = provided
-`gridcell_area.nc` (`area`, land-only). High-fire model (~15-23 Pg C/yr fire —
-real, via their own recipe), also ships `fFireCveg`.
-
 Naming (verified on the bucket): flat layout, run encoded in the filename:
 `LPX-Bern_[<factprefix>_]<sim>[_ndep][_<FORCING>]_<var>_<cad>_1.nc`. The fire-off /
 permafrost-off sensitivity runs sit as a PREFIX (`nofire`, `nopermafrost`,

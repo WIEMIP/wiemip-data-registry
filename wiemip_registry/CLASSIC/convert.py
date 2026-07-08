@@ -1,9 +1,5 @@
 """CLASSIC adapter.
 
-Quirks (AGENTS.md §3): 1° grid, dims latitude/longitude, datetime time, units
-written `kg C m$^{-2}$`. Global integral needs land fraction (per V. Arora):
-area × sftlf × quantity. sftlf is static across runs — load once from BGC.
-
 Naming (verified on the bucket): nested run dirs
 `CLASSIC_<FORCING>_1pctCO2-<SIM><factorial>/` holding files
 `<dir>_<var>_<cad>_1deg.nc`; ctrl is special-cased to `CLASSIC_stable_piControl…`
