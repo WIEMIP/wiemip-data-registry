@@ -1,6 +1,5 @@
 """Sync `wiemip_registry`'s variable list from the WIE-MIP data request
-(GitHub: colligant/wiemip-data-request) into `wiemip_registry/variables.py`, then
-regenerate `__init__.pyi` so `wr.variables` and editor autocomplete track it.
+(GitHub: colligant/wiemip-data-request) into `wiemip_registry/variables.py`.
 
 The data request defines one JSON per variable under
 `<data-request>/variables/<category>/<name>.json`, each carrying a `"Variable name"`
@@ -11,17 +10,15 @@ short/CMIP name. This collects those names across all categories and overwrites
     python .github/workflows/_sync_variables.py /path/to/wiemip-data-request
     WIEMIP_DATA_REQUEST=/path/to/wiemip-data-request python .github/workflows/_sync_variables.py
 
-The sync itself is stdlib (json + pathlib), but it chains `_gen_stubs.py`, which now
-imports `wiemip_registry` (to read each adapter's per-model FACTORIALS), so the stub
-step needs the package's deps installed. The synced `variables.py` is COMMITTED, so
-using the package needs no data-request checkout — only re-syncing does. If the data
-request is ever added as a git submodule at the repo root it's picked up automatically
-(it's one of the search candidates), no code change needed.
+The sync is stdlib only (json + pathlib) — no package install needed. The synced
+`variables.py` is COMMITTED, so using the package needs no data-request checkout;
+only re-syncing does. If the data request is ever added as a git submodule at the
+repo root it's picked up automatically (it's one of the search candidates), no code
+change needed.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import sys
@@ -89,16 +86,6 @@ def write_variables_py(names: list[str]) -> None:
     )
 
 
-def _regenerate_stubs() -> None:
-    """Re-run _gen_stubs.main() so __init__.pyi / wr.variables track the new list."""
-    spec = importlib.util.spec_from_file_location(
-        "_wr_gen_stubs", _HERE / "_gen_stubs.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.main()
-
-
 def main() -> None:
     explicit = sys.argv[1] if len(sys.argv) > 1 else None
     variables_dir = _find_variables_dir(explicit)
@@ -107,7 +94,6 @@ def main() -> None:
     print(
         f"synced {len(names)} variables from {variables_dir} -> {_VARIABLES_PY.relative_to(_REPO)}"
     )
-    _regenerate_stubs()
 
 
 if __name__ == "__main__":

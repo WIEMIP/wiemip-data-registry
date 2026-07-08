@@ -1,8 +1,8 @@
 name: sync-variables
 
-# Keeps wiemip_registry's VARIABLES (const.py) + the __init__.pyi stub in sync with
-# the WIE-MIP data request (colligant/wiemip-data-request), so nobody has to run
-# `python wiemip_registry/_sync_variables.py` by hand.
+# Keeps wiemip_registry's VARIABLES (variables.py) in sync with the WIE-MIP data
+# request (colligant/wiemip-data-request), so nobody has to run
+# `python .github/workflows/_sync_variables.py` by hand.
 
 on:
   schedule:
@@ -48,13 +48,13 @@ jobs:
 
       - name: Commit & push if anything changed
         run: |
-          changed="$(git status --porcelain wiemip_registry/variables.py wiemip_registry/__init__.pyi)"
+          changed="$(git status --porcelain wiemip_registry/variables.py)"
           if [ -z "$changed" ]; then
             echo "No variable changes — nothing to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add wiemip_registry/variables.py wiemip_registry/__init__.pyi
+          git add wiemip_registry/variables.py
           git commit -m "chore: sync variables from wiemip-data-request"
           git push origin HEAD:${{ github.ref_name }}
