@@ -4,7 +4,7 @@
 #
 # The `variable` axis is free-form (any name resolves, erroring only at read if the
 # file is absent) — this list is for iteration / completion, NOT a gating schema.
-variables = [
+VARIABLES = [
     "LWalbedo",
     "SWalbedo",
     "SoilRH",
@@ -142,6 +142,8 @@ variables = [
     "rhpft",
     "rnpft",
     "rsds",
+    "sftgif",
+    "sftlf",
     "shflxpft",
     "snowDepth",
     "snow_depthpft",

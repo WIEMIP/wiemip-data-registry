@@ -8,7 +8,7 @@ except PackageNotFoundError:  # running from a raw source tree, not installed
 from wiemip_registry.core import WIEFile
 import wiemip_registry.const as const
 from wiemip_registry.adapters import adapters
-from wiemip_registry.variables import variables
+from wiemip_registry.variables import VARIABLES as variables
 from wiemip_registry.variable_overrides import extra_variables
 import warnings
 
@@ -49,7 +49,7 @@ def _sanity_check(model: str, forcing: str, simulation: str, variable: str):
     if variable not in variables:
         raise core.MissingVariableError(
             f"Variable {variable} is not in the list of WIEMIP variables."
-            " Use import wiemip_registry.variables; print(variables.variables) to see a listing."
+            " Use import wiemip_registry.variables; print(variables.VARIABLES) to see a listing."
         )
 
 
