@@ -9,6 +9,7 @@ from wiemip_registry.LPJmL6.convert import LPJmL6
 from wiemip_registry.LPX_Bern.convert import LPX_Bern
 from wiemip_registry.TEM.convert import TEM
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
+from wiemip_registry.core import Model
 
 adapters = {
     "BiomeE": BiomeE(),
@@ -23,3 +24,5 @@ adapters = {
     "VISIT_UT": VISIT_UT(),
     "TEM": TEM(),
 }
+
+models = tuple(Model(name, adapter) for name, adapter in adapters.items())

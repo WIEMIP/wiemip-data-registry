@@ -7,12 +7,11 @@ except PackageNotFoundError:  # running from a raw source tree, not installed
 
 from wiemip_registry.core import WIEFile
 import wiemip_registry.const as const
-from wiemip_registry.adapters import adapters
+from wiemip_registry.adapters import adapters, models
 from wiemip_registry.variables import VARIABLES as variables
 from wiemip_registry.variable_overrides import extra_variables
 import warnings
 
-models = adapters.keys()
 one_percent_simulations = [s.name for s in const.OnePctSimulation]
 overshoot_simulations = [s.name for s in const.OvershootSimulation]
 gcm_patterns = [m.name for m in const.GCMPattern]

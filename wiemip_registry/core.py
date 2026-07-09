@@ -45,6 +45,27 @@ class MissingFactorialError(Exception):
     pass
 
 
+class Model(str):
+    """A model name that also carries its adapter. Still a plain string
+    (equality, hashing, joins, dict lookup all behave as the bare name), so it is
+    a drop-in for the old string entries of `wr.models`; the extra attributes just
+    save the `wr.adapters[name]` hop."""
+
+    def __new__(cls, name: str, adapter: WIEAdapter) -> Model:
+        obj = str.__new__(cls, name)
+        obj._adapter = adapter
+        return obj
+
+    @property
+    def adapter(self) -> WIEAdapter:
+        return self._adapter
+
+    @property
+    def factorials(self) -> tuple[str, ...]:
+        """Factorial names this model accepts (auto-ingested from its adapter)."""
+        return self._adapter.factorials
+
+
 class WIEAdapter(ABC):
     """
     Contract that each model must fill out. This converts whatever naming
@@ -63,14 +84,8 @@ class WIEAdapter(ABC):
     _weights_cache: xr.DataArray | None = None
 
     # Per-model factorial vocabulary: canonical bucket -> however THIS model spells
-    # that sensitivity run in its path (a suffix, a config string, a prefix the
-    # path() builder positions itself, …). Keys MUST be members of
-    # `const.FACTORIAL_BUCKETS` (the one universal vocabulary) — enforced at import,
-    # so a caller can ask any model for a bucket uniformly. The namespace validates
-    # the factorial axis against these keys, so an unknown factorial raises at
-    # *selection* time; a declared-but-not-uploaded combo still falls through and
-    # fails at read(). Override per model. The default {"baseline": ""} = the one
-    # bare run, no token.
+    # the factorial
+    # either overriden or set in the adapter subclass
     FACTORIALS: dict[str, str] = {"baseline": ""}
 
     @property
@@ -88,9 +103,8 @@ class WIEAdapter(ABC):
         variable: str,
     ) -> str:
         """Build the .nc path on the mounted S3 bucket by transforming the axis
-        tokens into THIS model's upload naming convention. A pure string transform:
-        it never decides what exists — a combination that wasn't uploaded simply
-        fails when `read()` tries to open the constructed path."""
+        tokens into THIS model's upload naming convention."""
+
         raise NotImplementedError()
 
     def overshoot_path(
