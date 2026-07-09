@@ -75,6 +75,7 @@ class GCMPattern(Enum):
     ukesm = "ukesm"
     ipsl = "ipsl"
     gfdl = "gfdl"
+    stable = "stable"
 
 
 class OnePctSimulation(Enum):
