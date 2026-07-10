@@ -18,7 +18,7 @@ _FACTORIALS = {
 
 class LPJmL6(core.WIEAdapter):
     model = MODEL
-    LAT, LON = "latitude", "longitude"
+    LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = _FACTORIALS
 
