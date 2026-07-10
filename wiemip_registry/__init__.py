@@ -1,7 +1,9 @@
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
 try:
-    __version__ = _pkg_version("wiemip-data-processing")  # git-derived, set at build by hatch-vcs
+    __version__ = _pkg_version(
+        "wiemip-data-processing"
+    )  # git-derived, set at build by hatch-vcs
 except PackageNotFoundError:  # running from a raw source tree, not installed
     __version__ = "0+unknown"
 
