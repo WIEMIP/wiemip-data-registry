@@ -3,4 +3,5 @@ debug/
 plotting_scripts/
 uncovered/
 figures/
-AGENTS.md
+MY_AGENTS.md
+*.ipynb

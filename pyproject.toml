@@ -32,6 +32,13 @@ source = "vcs"
 # (build_registry.py, extract.py, plot_*.py) are run in place.
 packages = ["wiemip_registry"]
 
+# Bundle the docs (CONTEXT.md = project overview, AGENTS.md = registry/data
+# reference) inside the package so they travel with any install and can be surfaced
+# to agent tooling that reads project context.
+[tool.hatch.build.targets.wheel.force-include]
+"CONTEXT.md" = "wiemip_registry/CONTEXT.md"
+"AGENTS.md" = "wiemip_registry/AGENTS.md"
+
 [tool.uv.workspace]
 members = [
     ".",

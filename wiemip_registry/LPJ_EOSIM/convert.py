@@ -22,7 +22,6 @@ class LPJ_EOSIM(core.WIEAdapter):
         return self.FACTORIALS.get(factorial, f"_{factorial}")
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        # bgc/ctrl are not GCM-forced ("stable"); cou/rad carry the GCM name.
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         second = forcing.lower() if gcm_forced else "stable"
         cad = "yr" if core.is_annual(variable) else "mon"
