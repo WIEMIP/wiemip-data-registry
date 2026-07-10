@@ -43,9 +43,14 @@ Requests are validated against the vocabularies exported at the top level (`wr.m
 ### Design contract
 - Each adapter's `one_pct_path` / `overshoot_path` is a **pure token→string transform**:
   it spells the request into that model's naming convention and never decides what exists.
-- `read()` is the **only existence gate**: a combo that wasn't uploaded raises
+- `read()` is the **existence gate that raises**: a combo that wasn't uploaded raises
   `FileNotFoundError` when opened, not at selection time — so be ready to catch on
   `.read()` / `.latitudinal_sum()`.
+- `exists()` is the **non-raising probe**: it spells the path the same way `path()` does
+  and returns whether that file is actually on disk (`os.path.isfile`), so you can
+  pre-filter a request set without wrapping every combo in `try`/`except`. A factorial the
+  chosen model doesn't declare returns `False` (it swallows `MissingFactorialError`) rather
+  than erroring. Use it to check before reading; `read()` stays the gate that raises.
 - **Factorials are per-model.** Each adapter declares a `FACTORIALS` dict; the namespace
   validates the factorial against the chosen model's keys. Common names live in
   `const.Factorial`; model-unique ones (`const.extra_factorials`: JULES config strings,
