@@ -16,13 +16,7 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT
 
-# JSBACH factorial -> (run_suffix, post_cadence). Like CLASSIC: `_ndep` is a run
-# token (dir + file prefix), but `_noNitrogen` suffixes the dir while trailing the
-# cadence in the file: JSBACH_stable_bgc_noNitrogen/JSBACH_stable_bgc_<var>_mon_noNitrogen_1.nc
-_FACTORIALS = {
-    Factorial.baseline.name: ("", ""),
-    Factorial.noNitrogen.name: ("", "_noNitrogen"),
-}
+_SFTLF = _OUTPUT / "1pctCO2" / "output" / "JSBACH" / "sftlf_1.nc"
 
 
 def _stem(simulation, forcing, run_suf: str) -> str:
@@ -38,7 +32,11 @@ class JSBACH(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = True
-    FACTORIALS = _FACTORIALS
+    FACTORIALS = {
+        Factorial.baseline.name: ("", ""),
+        Factorial.noNitrogen.name: ("", "_noNitrogen"),
+        Factorial.noFire.name: ("", "_noFire"),
+    }
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         run_suf, post = self.FACTORIALS[factorial]
@@ -91,6 +89,7 @@ class JSBACH(core.WIEAdapter):
             ),
             decode_times=self.DECODE,
         )
-        a = core.spherical_area(ref, self.LAT, self.LON)
+        cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        return core.rename_latlon(a, self.LAT, self.LON)
+        sftlf = xr.open_dataset(_SFTLF)["sftlf"]
+        return core.rename_latlon((cell * sftlf).astype("float32"), self.LAT, self.LON)

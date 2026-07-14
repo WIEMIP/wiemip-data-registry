@@ -276,16 +276,19 @@ def cache_csv(method):
     only when that CSV is missing or older than the source variable file; on a hit
     it reads the CSV straight back (two stats, zero netCDF reads).
 
-    Freshness keys on the *variable* file (`self.path`) only. The model's static
-    area rasters (veg_area / gridcell_area / landfrac / land-fraction) are NOT
-    tracked — uploaded once per experiment and never revised, so this is sound in
-    practice; delete the cache tree to force a rebuild if one ever changes."""
+    Freshness keys on the *variable* file (`self.path`) only.
+    Use overwrite to recompute the sum. Useful when cache is invalid or methods change.
+    """
 
     @functools.wraps(method)
-    def wrapper(self, start=None, end=None):
+    def wrapper(self, start=None, end=None, overwrite=False):
         src = Path(self.path)  # pure transform == the file read() opens
         out = _csv_path(src, start, end)
-        if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
+        if (
+            not overwrite
+            and out.exists()
+            and out.stat().st_mtime >= src.stat().st_mtime
+        ):
             return pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
         series = method(self, start, end)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -388,7 +391,10 @@ class WIEFile:
 
     @cache_csv
     def latitudinal_sum(
-        self, start: float | None = None, end: float | None = None
+        self,
+        start: float | None = None,
+        end: float | None = None,
+        overwrite: bool = False,
     ) -> pd.Series:
         """Area-weighted total as a Pg C series at the file's native cadence
         (monthly stays monthly). With no band, sums the whole globe; pass
@@ -396,7 +402,7 @@ class WIEFile:
         delegated to the model's adapter (`to_pgc`).
 
         Wrapped by `@cache_csv`: the result is mirrored to a CSV under
-        `const.CSV_ROOT` and reused until the source .nc is newer (lazy reader).
+        `const.CSV_ROOT` and reused until the source .nc is newer or overwrite is True.
         """
         da = self.read()
         if start is not None and end is not None:
