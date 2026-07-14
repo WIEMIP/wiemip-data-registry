@@ -394,7 +394,6 @@ class WIEFile:
         self,
         start: float | None = None,
         end: float | None = None,
-        overwrite: bool = False,
     ) -> pd.Series:
         """Area-weighted total as a Pg C series at the file's native cadence
         (monthly stays monthly). With no band, sums the whole globe; pass
