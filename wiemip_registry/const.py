@@ -20,6 +20,7 @@ FILL_FLOOR = -1e3  # no physical stock/flux is below this; sentinel fills
 # CMIP variable names treated as stocks (kg C m-2). Everything else is a flux
 # (kg C m-2 s-1). Drives unit conversion in WIEFile.global_sum().
 STOCKS = {"cVeg", "cSoil", "cLitter", "cWood", "cLeaf", "cRoot", "cCwd"}
+ONE_PERCENT_CO2_KEY = "1pctCO2"
 
 # Variables written at ANNUAL cadence (the `yr`/`ann` filename token); everything
 # else is monthly (`mon`). Cadence is INDEPENDENT of stock/flux units: the

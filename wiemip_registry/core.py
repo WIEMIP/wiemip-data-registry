@@ -45,6 +45,50 @@ class MissingFactorialError(Exception):
     pass
 
 
+def ensure_valid(method):
+    """
+    Hand-deny any strange combination of arguments.
+
+    So:
+     bgc/ctrl should only return True for stable climate
+     cou should only return True for ukesm/gfdl/ipsl
+     otherwise we should return false
+    """
+
+    @functools.wraps(method)
+    def wrapper(self):
+
+        if self.experiment == const.ONE_PERCENT_CO2_KEY:
+            # cou and rad both include the radiative effect of CO2, so they are
+            # driven with a transient GCM-pattern climate. bgc and ctrl hold the
+            # climate constant, so they take the stable pattern.
+            if self.simulation in (
+                const.OnePctSimulation.cou.name,
+                const.OnePctSimulation.cou_ndep.name,
+                const.OnePctSimulation.rad.name,
+                const.OnePctSimulation.rad_ndep.name,
+            ):
+                if self.forcing not in (
+                    const.GCMPattern.ukesm.name,
+                    const.GCMPattern.ipsl.name,
+                    const.GCMPattern.gfdl.name,
+                ):
+                    return False
+            elif self.simulation in (
+                const.OnePctSimulation.bgc.name,
+                const.OnePctSimulation.bgc_ndep.name,
+            ):
+                if self.forcing != const.GCMPattern.stable.name:
+                    return False
+            elif self.simulation == const.OnePctSimulation.ctrl.name:
+                if self.forcing != const.GCMPattern.stable.name:
+                    return False
+
+        return method(self)
+
+    return wrapper
+
+
 class Model(str):
     """A model name that also carries its adapter. Still a plain string
     (equality, hashing, joins, dict lookup all behave as the bare name), so it is
@@ -120,7 +164,7 @@ class WIEAdapter(ABC):
         raise NotImplementedError(f"overshoot paths not yet mapped for {self.model}")
 
     def path(self, experiment, simulation, forcing, factorial, variable):
-        if experiment == "1pctCO2":
+        if experiment == const.ONE_PERCENT_CO2_KEY:
             if factorial not in self.FACTORIALS:
                 raise MissingFactorialError(
                     f"{self.model} has no '{factorial}' factorial (has: {sorted(self.FACTORIALS)})"
@@ -376,6 +420,7 @@ class WIEFile:
             da = self.read()
         return self._adapter.weight_dataarray(da)
 
+    @ensure_valid
     def exists(self):
         try:
             pth = self._adapter.path(

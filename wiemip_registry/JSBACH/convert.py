@@ -91,5 +91,7 @@ class JSBACH(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        sftlf = xr.open_dataset(_SFTLF)["sftlf"]
-        return core.rename_latlon((cell * sftlf).astype("float32"), self.LAT, self.LON)
+        sftlf = core.rename_latlon(xr.open_dataset(_SFTLF)["sftlf"], self.LAT, self.LON)
+        return core.rename_latlon(
+            (cell * sftlf.values).astype("float32"), self.LAT, self.LON
+        )

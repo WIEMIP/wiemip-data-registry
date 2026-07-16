@@ -82,7 +82,7 @@ def retrieve_one_pct_variable(
 
     return WIEFile(
         model=model,
-        experiment="1pctCO2",
+        experiment=const.ONE_PERCENT_CO2_KEY,
         forcing=forcing,
         simulation=simulation,
         factorial=factorial,
