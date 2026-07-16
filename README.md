@@ -1,28 +1,28 @@
 # WIEMIP variable registry
 
 This repository contains scripts to map each model's submission to a standard WIEMIP format.
-Each model gets its own directory under wiemip_registry/MODEL/, within which is a convert.py script
+Each model has its own directory under wiemip_registry/MODEL/, within which is a convert.py script
 that implements the class in wiemip_registry/core.py: the `WIEAdapter`. This class has methods
 to read a file from `S3` by transforming the standardized WIEMIP variable request into a model-specific one.
 In addition, it applies the masking specified by each group's uploaded `README` to compute global sums.
 
-A WIEMIP variable request is structured as follows (the `Enum` objects describing this are in `wiemip_registry/const.py`):
+A WIEMIP variable request is structured as follows (the `Enum` objects describing the accepted arguments are in `wiemip_registry/const.py`):
 
 ```python
 import wiemip_registry as wr
+# both methods below return a WIEFile object that exposes some helper methods
 # one percent co2; note model, forcing, simulation (bgc, rad, cou, ctrl), and factorial (baseline, noFire, noNitrogen, etc)
 classic_cveg = wr.retrieve_one_pct_variable(model="CLASSIC", forcing="ukesm", simulation="cou", factorial="baseline", variable="cVeg")
 # and overshoot
 overshoot_classic_cveg = wr.retrieve_overshoot_variable(model="CLASSIC", forcing="ukesm", simulation="cou",variable="cVeg")
 ```
-Check for existence with `.exists()`. If a file exists, the `.read()` method returns an `xarray.DataArray` in native units that can be transformed as you need.
+Check for existence with `.exists()`. If a file exists, the `.read()` method returns an `xarray.DataArray` in unconverted units that can be transformed as you need.
 If you want the result masked to land and scaled by gridcell area, use `.weighted_dataarray()`. You can
-cut straight to the chase with `latitudinal_sum()`. Note: these methods construct a path using the `WIEAdapter` object
-in `wiemip_registry` and by design throw errors if you ask for a file that 1) doesn't conform to the naming convention
-spelled out in the adapter or 2) doesn't exist. 
+compute weighted latitudinal sums using `latitudinal_sum(start, end)`. No arguments to this function will compute a global
+sum. Note: these methods construct a path using the `WIEAdapter` object
+in `wiemip_registry` and by design throw errors if you ask for a file that doesn't conform to the naming convention spelled out in the adapter or doesn't exist.
 
-`latitudinal_sum()` will cache a csv in a shared write location on the WIEMIP
-JupyterHub. 
+`latitudinal_sum()` will cache a csv in a shared write location on the WIEMIP JupyterHub. 
 
 ## Sanity checking
 
