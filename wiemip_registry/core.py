@@ -45,10 +45,16 @@ class MissingFactorialError(Exception):
     pass
 
 
+class InvalidSimulationError(Exception):
+    pass
+
+
 def ensure_valid(method):
     """
     Hand-deny any strange combination of arguments.
-
+    Each adapter can have pathological combinations and decide whether to
+    accept unconventional arguments (e.g., UKESM forcing a ctrl simulation),
+    so we short-circuit that here.
     So:
      bgc/ctrl should only return True for stable climate
      cou should only return True for ukesm/gfdl/ipsl
@@ -73,15 +79,18 @@ def ensure_valid(method):
                     const.GCMPattern.ipsl.name,
                     const.GCMPattern.gfdl.name,
                 ):
+                    self.invalid_combination = True
                     return False
             elif self.simulation in (
                 const.OnePctSimulation.bgc.name,
                 const.OnePctSimulation.bgc_ndep.name,
             ):
                 if self.forcing != const.GCMPattern.stable.name:
+                    self.invalid_combination = True
                     return False
             elif self.simulation == const.OnePctSimulation.ctrl.name:
                 if self.forcing != const.GCMPattern.stable.name:
+                    self.invalid_combination = True
                     return False
 
         return method(self)
@@ -356,6 +365,7 @@ class WIEFile:
     variable: str  # CMIP name, e.g. "cVeg"
     _adapter: WIEAdapter
     factorial: str | None = None  # per-model factorial name, e.g. "baseline", "ndep"
+    invalid_combination = False
 
     @property
     def kind(self) -> str:
@@ -392,16 +402,22 @@ class WIEFile:
         """
 
         if not self.exists():
-            pth = self._adapter.path(
-                self.experiment,
-                self.simulation,
-                self.forcing,
-                self.factorial,
-                self.variable,
-            )
-            raise FileNotFoundError(
-                f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
-            )
+            if self.invalid_combination:
+                raise InvalidSimulationError(
+                    f"The combination of {self.experiment}, {self.simulation}, {self.forcing}, "
+                    f"{self.factorial}, and {self.variable} does not exist in the WIEMIP protocol."
+                )
+            else:
+                pth = self._adapter.path(
+                    self.experiment,
+                    self.simulation,
+                    self.forcing,
+                    self.factorial,
+                    self.variable,
+                )
+                raise FileNotFoundError(
+                    f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
+                )
 
         return self._adapter.read(
             self.experiment,
