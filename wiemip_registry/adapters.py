@@ -1,5 +1,6 @@
 from wiemip_registry.BiomeE.convert import BiomeE
 from wiemip_registry.CLASSIC.convert import CLASSIC
+from wiemip_registry.CLM.convert import CLM
 from wiemip_registry.CLM_FATES.convert import CLM_FATES
 from wiemip_registry.DLEM.convert import DLEM
 from wiemip_registry.JSBACH.convert import JSBACH
@@ -14,6 +15,7 @@ from wiemip_registry.core import Model
 adapters = {
     "BiomeE": BiomeE(),
     "CLASSIC": CLASSIC(),
+    "CLM": CLM(),
     "CLM_FATES": CLM_FATES(),
     "DLEM": DLEM(),
     "JSBACH": JSBACH(),

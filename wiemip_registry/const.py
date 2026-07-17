@@ -136,4 +136,6 @@ extra_factorials: tuple[str, ...] = (
     "addPermafrostCNNinorg",
     "noNitrogen_addPermafrostC",
     "noNitrogen_noPermafrostC",
+    # CLM's second run set (vs the hh baseline)
+    "flat",
 )
