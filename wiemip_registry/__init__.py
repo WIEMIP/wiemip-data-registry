@@ -35,7 +35,7 @@ def _warn_factorial(
 def _sanity_check(model: str, forcing: str, simulation: str, variable: str):
     if model not in models:
         raise core.MissingModelError(
-            f"Model {model} is not in the set of adapters. Supported models: {'|'.join(models)}"
+            f"Model {model} is not in the set of registered models. Supported models: {'|'.join(models)}"
         )
     if forcing not in gcm_patterns:
         raise core.MissingForcingError(
