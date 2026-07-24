@@ -141,6 +141,9 @@ class WIEAdapter(ABC):
     # either overriden or set in the adapter subclass
     FACTORIALS: dict[str, str] = {"baseline": ""}
 
+    def land_carbon_variables(self) -> list[str]:
+        raise NotImplementedError()
+
     @property
     def factorials(self) -> tuple[str, ...]:
         """The factorial names this model accepts (drives namespace validation
