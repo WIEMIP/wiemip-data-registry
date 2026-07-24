@@ -42,6 +42,9 @@ class CLM_FATES(core.WIEAdapter):
         "wetfrac": "wetlandFrac",
     }
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def _get_variable(self, wiemip_variable: str) -> str:
         if wiemip_variable in self.wiemip_to_clm_fates_variable_mapping:
             return self.wiemip_to_clm_fates_variable_mapping[wiemip_variable]

@@ -22,6 +22,9 @@ class LPJmL6(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     yearly = {"alt", "fNHarvest"}
 
     def _get_variable(self, wiemip_variable: str) -> str:

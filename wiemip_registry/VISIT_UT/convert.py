@@ -44,6 +44,9 @@ class VISIT_UT(core.WIEAdapter):
     DECODE = False  # "years since AD 0" fractional -> floor
     FACTORIALS = _FACTORIALS
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         suf = self.FACTORIALS[factorial]  # "" | "_noBVOC" | "_noFire"
         bare = _bare_run(simulation, forcing)

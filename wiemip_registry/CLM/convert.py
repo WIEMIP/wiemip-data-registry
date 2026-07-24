@@ -23,6 +23,9 @@ class CLM(core.WIEAdapter):
     # top, and we register only the sub-dir runs, so flat+ctrl has no path here.
     FACTORIALS = {Factorial.baseline.name: "hh", "flat": "flat"}
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are

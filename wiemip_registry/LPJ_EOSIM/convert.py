@@ -18,6 +18,9 @@ class LPJ_EOSIM(core.WIEAdapter):
     DECODE = True  # gregorian "days since 1850-01-01" -> datetime64 directly
     FACTORIALS = {Factorial.baseline.name: "", Factorial.noFire.name: "_noFire"}
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def _factorial_suffix(self, factorial: str) -> str:
         return self.FACTORIALS.get(factorial, f"_{factorial}")
 

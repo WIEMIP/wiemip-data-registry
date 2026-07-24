@@ -35,6 +35,9 @@ class DLEM(core.WIEAdapter):
         "nOrgSoilpft": "nSoilpft",
     }
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def _get_variable(self, wiemip_variable: str) -> str:
         if wiemip_variable in self.wiemip_to_dlem_variable_mapping:
             return self.wiemip_to_dlem_variable_mapping[wiemip_variable]

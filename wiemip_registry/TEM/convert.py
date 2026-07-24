@@ -44,6 +44,9 @@ class TEM(core.WIEAdapter):
     # Only the bare baseline runs were uploaded — no sensitivity factorials.
     FACTORIALS = {Factorial.baseline.name: ""}
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         # bgc/ctrl are not GCM-forced ("stable"); cou/rad carry the GCM name.
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")

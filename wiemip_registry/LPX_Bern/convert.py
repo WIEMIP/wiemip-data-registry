@@ -40,6 +40,9 @@ class LPX_Bern(core.WIEAdapter):
     By default, we'll skip nSoil.
     """
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     wiemip_to_lpx_bern_variable_mapping = {
         "fFireLitter": "fFireCLitter",
         "nOrgSoilpft": "nSoilpft",

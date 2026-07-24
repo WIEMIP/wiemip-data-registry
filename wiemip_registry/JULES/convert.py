@@ -56,6 +56,9 @@ class JULES(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         config = self.FACTORIALS[factorial]
         tok = _sim_tok(simulation, forcing)

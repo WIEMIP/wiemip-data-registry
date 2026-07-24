@@ -26,6 +26,9 @@ class BiomeE(core.WIEAdapter):
         Factorial.noNitrogen.name: "noNitrogen",
     }  # only the bare run was submitted
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         cad = "yr" if core.is_annual(variable) else "mon"
         fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05.nc"

@@ -45,6 +45,10 @@ _SFTLF = (
 
 
 class CLASSIC(core.WIEAdapter):
+
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cSoil", "cVeg"]
+
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True

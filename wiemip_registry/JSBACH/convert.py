@@ -38,6 +38,9 @@ class JSBACH(core.WIEAdapter):
         Factorial.noFire.name: ("", "_noFire"),
     }
 
+    def land_carbon_variables(self) -> list[str]:
+        return ["cLitter", "cVeg", "cSoil"]
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         run_suf, post = self.FACTORIALS[factorial]
         stem = _stem(simulation, forcing, run_suf)
