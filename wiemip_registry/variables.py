@@ -21,6 +21,7 @@ VARIABLES = [
     "cLeaf",
     "cLitter",
     "cLitterpft",
+    "cOther",
     "cPoolVr",
     "cProduct",
     "cRoot",
