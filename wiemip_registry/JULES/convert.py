@@ -57,7 +57,11 @@ class JULES(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
 
     def land_carbon_variables(self) -> list[str]:
-        return ["cLitter", "cVeg", "cSoil"]
+        # No cLitter was submitted (0 files across every combo), so the land carbon
+        # total is veg + soil and litter is presumed folded into the reported cSoil.
+        # Unconfirmed with the JULES group — treat cross-model comparisons that hinge on
+        # an explicit litter pool with care.
+        return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         config = self.FACTORIALS[factorial]

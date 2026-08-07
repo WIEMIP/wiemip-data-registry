@@ -55,9 +55,16 @@ class VISIT_UT(core.WIEAdapter):
         return str(_OUTPUT / "1pctCO2" / "output" / "VISIT-UT" / run / fname)
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
-        prefix = f"VISIT-UT_{forcing.lower()}_{simulation.lower()}"
+        # The control run is the one place dir and file tokens disagree: the dir is
+        # `VISIT-UT_<gcm>_control/` but the files inside are `VISIT-UT_<gcm>_CTRL_…`
+        # (the 1pct spelling). Without both, all 3 control runs are unreachable.
+        # Note there is also a duplicate `ml-cf` (hyphen) dir that this deliberately
+        # does not name; `ml_cf` is the one to use.
+        sim = simulation.lower()
+        run = f"VISIT-UT_{forcing.lower()}_{'control' if sim == 'ctrl' else sim}"
+        prefix = f"VISIT-UT_{forcing.lower()}_{'CTRL' if sim == 'ctrl' else sim}"
         fname = f"{prefix}_{variable}_mon_05.nc"
-        return str(_OUTPUT / "overshoot" / "output" / "VISIT-UT" / prefix / fname)
+        return str(_OUTPUT / "overshoot" / "output" / "VISIT-UT" / run / fname)
 
     def _time(self, ds: xr.Dataset):
         # "years since AD 0" (fractional for monthly) -> datetime64

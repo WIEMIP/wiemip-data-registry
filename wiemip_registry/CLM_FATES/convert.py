@@ -13,7 +13,21 @@ _OUTPUT = DATA_ROOT
 _FACTORIALS = {
     Factorial.baseline.name: ("", ""),
 }
-_PREFIX = "FATES_ukesm"
+# Only ukesm was submitted, and the constant-climate runs (bgc/ctrl, which the protocol
+# requires be requested as `stable`) are labelled `ukesm` on disk too — so that token is
+# pinned for them. The GCM-forced sims must still spell the *requested* pattern: this
+# used to be a flat `FATES_ukesm` prefix that ignored `forcing` entirely, so an ipsl or
+# gfdl request silently returned ukesm data (identical global sums, no error) instead of
+# raising for a run that was never submitted.
+_PREFIX = "FATES"
+_GCM_FORCED = ("cou", "rad")
+_CONSTANT_CLIMATE_TOKEN = "ukesm"
+
+# Overshoot uses the same flat layout and the same filename grammar as 1pctCO2, only
+# the experiment directory differs. Submitted: ctrl / hist / l / m / hl / ml / ml_cf,
+# ukesm only (including hist and ctrl, which other models label with a CRUJRA token).
+# `ml_cf` is the one sim whose on-disk token is hyphenated.
+_OVERSHOOT_SIM_TOKENS = {"ml_cf": "ml-cf"}
 
 
 class CLM_FATES(core.WIEAdapter):
@@ -65,7 +79,9 @@ class CLM_FATES(core.WIEAdapter):
             vegtype = "u"
         return vegtype
 
-    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+    def _fname(self, token: str, simulation: str, variable: str) -> str:
+        """`FATES_<token>_<sim>_land.<VAR>.tavg-<level>-hxy-<vegtype>.<cad>.glb_1.nc`
+        — the same grammar in both experiments."""
         cad = (
             "mon"
             if variable in self.MONTHLY
@@ -82,14 +98,36 @@ class CLM_FATES(core.WIEAdapter):
 
         variable = self._get_variable(wiemip_variable=variable)
         vegtype = self._vegtype(variable)
-        z = str(
+        return (
+            f"{_PREFIX}_{token}_{simulation}_land.{variable}"
+            f".tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
+        )
+
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        token = (
+            forcing.lower()
+            if simulation.split("_")[0] in _GCM_FORCED
+            else _CONSTANT_CLIMATE_TOKEN
+        )
+        return str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / MODEL
-            / f"{_PREFIX}_{simulation}_land.{variable}.tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
+            / self._fname(token, simulation, variable)
         )
-        return z
+
+    def overshoot_path(self, simulation, forcing, variable) -> str:
+        # Only ukesm was submitted here too, but spell the *requested* pattern so an
+        # ipsl/gfdl request raises instead of silently returning ukesm data.
+        sim = _OVERSHOOT_SIM_TOKENS.get(simulation, simulation)
+        return str(
+            _OUTPUT
+            / "overshoot"
+            / "output"
+            / MODEL
+            / self._fname(forcing.lower(), sim, variable)
+        )
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)

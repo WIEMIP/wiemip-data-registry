@@ -6,6 +6,10 @@ Naming (verified on the bucket): nested run dirs
 with a `CLASSIC_stable…` file prefix. Only UKESM was submitted, so the forcing
 token is honored (ipsl/gfdl simply won't resolve at read()). path() is a pure
 transform — what exists is decided by read() opening the file.
+
+The bgc family is a third grammar: CLASSIC re-ran it with the *stable*
+(constant-climate) driver rather than a GCM pattern, and dropped the forcing token
+from the file prefix — see `_STABLE_BGC`.
 """
 
 from __future__ import annotations
@@ -28,6 +32,14 @@ _SIM = {
     "ctrl_ndep": "CTRL-Ndep",
 }
 
+# The bgc runs were redone with the stable (constant-climate) driver — the right
+# forcing for a biogeochemically-coupled run, so there is only ONE bgc run and every
+# requested GCM pattern resolves to it. Dir `CLASSIC_stable_1pctCO2-BGC<ndep><post>/`
+# holds `CLASSIC_1pctCO2-BGC<ndep>_<var>_<cad><post>_1deg.nc` — note the file prefix
+# carries no forcing token at all. This deliberately orphans the superseded
+# `CLASSIC_UKESM_1pctCO2-BGC*` dirs: they are no longer addressable.
+_STABLE_BGC = {"bgc", "bgc_ndep"}
+
 _FACTORIALS = {
     Factorial.baseline.name: ("", ""),
     Factorial.noFire.name: ("", "_noFire"),
@@ -39,8 +51,8 @@ _SFTLF = (
     / "1pctCO2"
     / "output"
     / "CLASSIC"
-    / "CLASSIC_UKESM_1pctCO2-BGC"
-    / "CLASSIC_UKESM_1pctCO2-BGC_land_fraction_ann_1deg.nc"
+    / "CLASSIC_stable_1pctCO2-BGC"
+    / "CLASSIC_1pctCO2-BGC_land_fraction_ann_1deg.nc"
 )
 
 
@@ -84,6 +96,9 @@ class CLASSIC(core.WIEAdapter):
         if simulation == "ctrl":  # ctrl has no ndep variant
             run = f"CLASSIC_stable_piControl{post}"
             prefix = "CLASSIC_stable"
+        elif simulation in _STABLE_BGC:  # stable driver, forcing-free file prefix
+            prefix = f"CLASSIC_1pctCO2-{_SIM[simulation]}"
+            run = f"CLASSIC_stable_1pctCO2-{_SIM[simulation]}{post}"
         else:
             stem = f"CLASSIC_{forcing.upper()}_1pctCO2-{_SIM[simulation]}{ndep}"
             run = f"{stem}{post}"  # dir carries ndep + post
