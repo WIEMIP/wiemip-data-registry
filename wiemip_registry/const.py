@@ -101,6 +101,10 @@ class OvershootSimulation(Enum):
     vl = 13
     vl_cf = 14
     ctrl = 15
+    # Not required by the protocol, but driver data was provided for the rest of
+    # ScenarioMIP and both LPX-Bern and VISIT-UT submitted ml (+ VISIT-UT ml_cf).
+    ml = 16
+    ml_cf = 17
 
 
 class Factorial(Enum):

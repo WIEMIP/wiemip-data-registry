@@ -49,6 +49,10 @@ class InvalidSimulationError(Exception):
     pass
 
 
+class InvalidExperimentError(Exception):
+    pass
+
+
 def ensure_valid(method):
     """
     Hand-deny any strange combination of arguments.

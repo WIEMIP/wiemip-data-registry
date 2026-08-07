@@ -1,5 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
+import wiemip_registry
+
 try:
     __version__ = _pkg_version(
         "wiemip-data-processing"
@@ -54,6 +56,115 @@ def _sanity_check(model: str, forcing: str, simulation: str, variable: str):
         )
 
 
+def _land_carbon_overshoot(
+    model: str,
+    forcing: str,
+    simulation: str,
+    land_carbon_variables: list[str],
+    lat_start: float | None = None,
+    lat_end: float | None = None,
+):
+    _land_stock = None
+    for variable in land_carbon_variables:
+        if _land_stock is None:
+            _land_stock = retrieve_overshoot_variable(
+                model=model,
+                forcing=forcing,
+                simulation=simulation,
+                variable=variable,
+            ).latitudinal_sum(start=lat_start, end=lat_end)
+        else:
+            _land_stock += retrieve_overshoot_variable(
+                model=model,
+                forcing=forcing,
+                simulation=simulation,
+                variable=variable,
+            ).latitudinal_sum(start=lat_start, end=lat_end)
+    return _land_stock
+
+
+def _land_carbon_one_pct(
+    model: str,
+    forcing: str,
+    simulation: str,
+    land_carbon_variables: list[str],
+    factorial: str,
+    lat_start: float | None = None,
+    lat_end: float | None = None,
+):
+    _land_stock = None
+    for variable in land_carbon_variables:
+        if _land_stock is None:
+            _land_stock = retrieve_one_pct_variable(
+                model=model,
+                forcing=forcing,
+                simulation=simulation,
+                variable=variable,
+                factorial=factorial,
+            ).latitudinal_sum(start=lat_start, end=lat_end)
+        else:
+            _land_stock += retrieve_one_pct_variable(
+                model=model,
+                forcing=forcing,
+                simulation=simulation,
+                variable=variable,
+                factorial=factorial,
+            ).latitudinal_sum(start=lat_start, end=lat_end)
+    return _land_stock
+
+
+def _check_land_carbon_variables(model: str) -> list:
+
+    try:
+        _land_carbon_variables = wiemip_registry.adapters[model].land_carbon_variables()
+    except KeyError:
+        raise core.MissingModelError(
+            f"Model {model} is not in the list of registered models. "
+            f"Supported models: {'|'.join(models)}"
+        )
+    return _land_carbon_variables
+
+
+def land_carbon_variables(model: str) -> list[str]:
+    return _check_land_carbon_variables(model)
+
+
+def land_carbon_stock(
+    experiment: str,
+    model: str,
+    forcing: str,
+    simulation: str,
+    factorial: str,
+    lat_start: float | None = None,
+    lat_end: float | None = None,
+):
+    _land_carbon_variables = _check_land_carbon_variables(model)
+
+    if experiment == "1pctCO2":
+        return _land_carbon_one_pct(
+            model,
+            forcing,
+            simulation,
+            _land_carbon_variables,
+            factorial,
+            lat_start,
+            lat_end,
+        )
+    elif experiment == "overshoot":
+        return _land_carbon_overshoot(
+            model,
+            forcing,
+            simulation,
+            _land_carbon_variables,
+            lat_start,
+            lat_end,
+        )
+    else:
+        raise core.InvalidExperimentError(
+            "Experiment must be one of 1pctCO2 or overshoot"
+        )
+
+
 def retrieve_one_pct_variable(
     model: str, forcing: str, simulation: str, factorial: str, variable: str
 ) -> WIEFile:
@@ -93,26 +204,19 @@ def retrieve_one_pct_variable(
 
 def retrieve_overshoot_variable(
     model: str, forcing: str, simulation: str, variable: str
-):
+) -> WIEFile:
 
     simulation = simulation.lower()
     forcing = forcing.lower()
 
     _sanity_check(model, forcing, simulation, variable)
 
-    if simulation not in (
-        const.OvershootSimulation.hist.name,
-        const.OvershootSimulation.ctrl.name,
-        const.OvershootSimulation.vl.name,
-        const.OvershootSimulation.vl_cf.name,
-        const.OvershootSimulation.l.name,
-        const.OvershootSimulation.hl.name,
-        const.OvershootSimulation.hl_cf.name,
-        const.OvershootSimulation.m.name,
-    ):
+    # Validate against the exported vocabulary itself, so it cannot drift from what
+    # this function accepts — the hand-written tuple here had dropped hist_ctrl, which
+    # made looping over wr.overshoot_simulations raise.
+    if simulation not in overshoot_simulations:
         raise ValueError(
-            "Overshoot simulations only include hist, ctrl, vl, vl_cf, l, hl, "
-            "hl_cf, and m."
+            f"Overshoot simulations only include {', '.join(overshoot_simulations)}."
         )
 
     return WIEFile(
