@@ -18,6 +18,10 @@ _OUTPUT = DATA_ROOT
 
 _SFTLF = _OUTPUT / "1pctCO2" / "output" / "JSBACH" / "sftlf_1.nc"
 
+# Overshoot hist/ctrl are CRUJRA-driven; the scenarios carry the GCM pattern.
+_CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
+_CRUJRA_TOKEN = "crujra3"
+
 
 def _stem(simulation, forcing, run_suf: str) -> str:
     """The JSBACH run token (file prefix); the dir additionally carries `post`.
@@ -55,16 +59,18 @@ class JSBACH(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
-        # overshoot has no factorial axis -> the bare baseline run token, no suffix.
-        stem = _stem(simulation, forcing, "")
-        cad = "yr" if core.is_annual(variable) else "mon"
+        # Run dir is the bare simulation token; no factorial axis.
+        forcing_token = (
+            _CRUJRA_TOKEN if simulation in _CRUJRA_FORCED_SIMULATIONS else forcing
+        )
+        cadence = "yr" if core.is_annual(variable) else "mon"
         return str(
             _OUTPUT
             / "overshoot"
             / "output"
             / "JSBACH"
-            / stem
-            / f"{stem}_{variable}_{cad}_1.nc"
+            / simulation
+            / f"JSBACH_{forcing_token}_{simulation}_{variable}_{cadence}_1.nc"
         )
 
     def _time(self, ds: xr.Dataset):

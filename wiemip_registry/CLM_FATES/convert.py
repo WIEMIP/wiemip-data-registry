@@ -23,11 +23,8 @@ _PREFIX = "FATES"
 _GCM_FORCED = ("cou", "rad")
 _CONSTANT_CLIMATE_TOKEN = "ukesm"
 
-# Overshoot uses the same flat layout and the same filename grammar as 1pctCO2, only
-# the experiment directory differs. Submitted: ctrl / hist / l / m / hl / ml / ml_cf,
-# ukesm only (including hist and ctrl, which other models label with a CRUJRA token).
-# `ml_cf` is the one sim whose on-disk token is hyphenated.
-_OVERSHOOT_SIM_TOKENS = {"ml_cf": "ml-cf"}
+# ml_cf is the one overshoot sim whose on-disk token is hyphenated.
+_OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf"}
 
 
 class CLM_FATES(core.WIEAdapter):
@@ -118,15 +115,14 @@ class CLM_FATES(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable) -> str:
-        # Only ukesm was submitted here too, but spell the *requested* pattern so an
-        # ipsl/gfdl request raises instead of silently returning ukesm data.
-        sim = _OVERSHOOT_SIM_TOKENS.get(simulation, simulation)
+        # ukesm only, but spell the requested pattern so ipsl/gfdl raise.
+        simulation = _OVERSHOOT_SIMULATION_TOKENS.get(simulation, simulation)
         return str(
             _OUTPUT
             / "overshoot"
             / "output"
             / MODEL
-            / self._fname(forcing.lower(), sim, variable)
+            / self._fname(forcing.lower(), simulation, variable)
         )
 
     def _time(self, ds: xr.Dataset):

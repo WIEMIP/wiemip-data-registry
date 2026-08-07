@@ -19,19 +19,12 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
 
-# Only cou/rad carry the requested GCM pattern in the filename. bgc/ctrl are
-# constant-climate and `core.ensure_valid` only lets them be requested with the
-# `stable` pattern, but BiomeE uploaded most of them labelled `ukesm`
-# (BiomeE_ukesm_bgc_cVeg_yr_05.nc) — so pin the token rather than spell a
-# `BiomeE_stable_bgc…` file that does not exist, which stranded every bgc/ctrl file.
+# Only cou/rad carry the requested GCM pattern; bgc and the fact_ runs are on disk
+# as `ukesm` even though the protocol requires requesting them as `stable`.
 _GCM_FORCED = ("cou", "rad")
 _CONSTANT_CLIMATE_TOKEN = "ukesm"
 
-# ...except the baseline ctrl run, which BiomeE re-uploaded under the protocol's
-# `stable` token (42 × BiomeE_stable_ctrl_*, superseding the 40-file
-# BiomeE_ukesm_ctrl_* set — same variables plus cNS and cSeed). Only that one run
-# was re-spelled: bgc and every `fact_` factorial run are still on disk as `ukesm`.
-# The superseded BiomeE_ukesm_ctrl_* files are deliberately left unreachable.
+# Baseline ctrl was re-uploaded as BiomeE_stable_ctrl_*, superseding BiomeE_ukesm_ctrl_*.
 _STABLE_TOKEN = "stable"
 _STABLE_TOKEN_SIMS = ("ctrl",)
 

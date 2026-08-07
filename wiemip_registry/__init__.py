@@ -22,6 +22,9 @@ gcm_patterns = [m.name for m in const.GCMPattern]
 variables = list(dict.fromkeys([*variables, *extra_variables]))
 factorials = [f.name for f in const.Factorial]
 
+# Series name returned by land_carbon_stock().
+LAND_CARBON_STOCK_NAME = "land_carbon_PgC"
+
 
 def _warn_factorial(
     model: str, forcing: str, simulation: str, factorial: str, variable: str
@@ -134,14 +137,14 @@ def land_carbon_stock(
     model: str,
     forcing: str,
     simulation: str,
-    factorial: str,
+    factorial: str = "baseline",
     lat_start: float | None = None,
     lat_end: float | None = None,
 ):
     _land_carbon_variables = _check_land_carbon_variables(model)
 
     if experiment == "1pctCO2":
-        return _land_carbon_one_pct(
+        land_carbon = _land_carbon_one_pct(
             model,
             forcing,
             simulation,
@@ -151,7 +154,7 @@ def land_carbon_stock(
             lat_end,
         )
     elif experiment == "overshoot":
-        return _land_carbon_overshoot(
+        land_carbon = _land_carbon_overshoot(
             model,
             forcing,
             simulation,
@@ -163,6 +166,9 @@ def land_carbon_stock(
         raise core.InvalidExperimentError(
             "Experiment must be one of 1pctCO2 or overshoot"
         )
+
+    # The accumulators use `+=`, which keeps the first component's name.
+    return land_carbon.rename(LAND_CARBON_STOCK_NAME)
 
 
 def retrieve_one_pct_variable(
