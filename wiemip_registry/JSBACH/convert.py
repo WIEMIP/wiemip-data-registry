@@ -43,6 +43,8 @@ class JSBACH(core.WIEAdapter):
     }
 
     def land_carbon_variables(self) -> list[str]:
+        # Aug 7: Confirmed with Beiyao that our aggregations and
+        # definitions of land carbon stock are correct.
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
