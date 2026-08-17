@@ -2,8 +2,9 @@ import os
 from pathlib import Path
 from enum import Enum
 
-DATA_ROOT = Path("/mnt/wiemip")
-
+# where the data lives. Can overwrite with export WIEMIP_DATA_ROOT=/your/value/here,
+# though you'll have to run it in every session, so you can also add to .bashrc.
+DATA_ROOT = Path(os.environ.get("WIEMIP_DATA_ROOT", "/mnt/wiemip"))
 # Cached latitudinal-sum series are written here (a "csv/" mirror of the bucket
 # tree). Defaults to a shared, world-readable dir on the JupyterHub so every user
 # reuses the same cache instead of recomputing; override with the WIEMIP_CSV_PATH
