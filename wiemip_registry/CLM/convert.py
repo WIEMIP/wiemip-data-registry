@@ -24,12 +24,16 @@ class CLM(core.WIEAdapter):
     FACTORIALS = {Factorial.baseline.name: "hh", "flat": "flat"}
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Downstream reuslts validated by Will Wieder on 11/08/2026.
+        """
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are
         # still labelled "ukesm" on disk, so that's the token for anything else.
+        # Validated with Will Wieder on 8/17/2026
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         token = forcing.lower() if gcm_forced else "ukesm"
         run_dir = f"{prefix}_{token}_{simulation}"
