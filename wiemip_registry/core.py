@@ -391,9 +391,8 @@ def cache_csv(method):
     """Lazy CSV cache for a `WIEFile` (lat, lon)->time aggregation returning a
     `pd.Series`. Mirrors the result to a CSV under `const.CSV_ROOT` and recomputes
     only when that CSV is missing or older than the source variable file; on a hit
-    it reads the CSV straight back (two stats, zero netCDF reads).
+    it reads the CSV straight back.
 
-    Freshness keys on the *variable* file (`self.path`) only.
     Use overwrite to recompute the sum. Useful when cache is invalid or methods change.
     """
 

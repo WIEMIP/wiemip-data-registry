@@ -23,16 +23,24 @@ Quick start
     series = cveg.latitudinal_sum() # global total, Pg C
 
 
-Guides
-------
+Please see the API documentation for more detailed descriptions of functions and how to use them.
+Of particular interest may be `land_carbon_stock`, `retrieve_one_pct_variable`, `retrieve_overshoot_variable`,
+and the description of the `WIEFile` class.
 
-- [WIEAdapter](core.html#WIEAdapter): One class per model on how to convert the files it uploaded to WIEMIP-compatible ones
-- [WIEFile](core.html#WIEFile): What a request for a variable returns: .path, .exists(), .read(), .latitudinal_sum()
-- Quickstart: https://wiemip.github.io/docs/quickstart/
-- Reading data: https://wiemip.github.io/docs/reading-data/
-- Factorials: https://wiemip.github.io/docs/factorials/
-- Adding a model: https://wiemip.github.io/docs/adding-a-model/
-- Data caveats: https://wiemip.github.io/docs/caveats/
+The `WIEFile` class is returned from every `retrieve` call and includes key methods that operate on the underlying data,
+including weighting the data in the way the modeling group intended.
+
+Below are some helpful links to key functions and objects:
+
+- [WIEFile](https://wiemip.github.io/docs/api/wiemip_registry/core.html#WIEFile)
+
+- [How csv caching works](https://wiemip.github.io/docs/api/wiemip_registry/core.html#cache_csv)
+
+- See each model's one percent CO2 factorials by clicking on the model on the left hand side of the page and navigating to `FACTORIALS`.
+[Here are CLASSIC's factorials](https://wiemip.github.io/docs/api/wiemip_registry/CLASSIC.html#CLASSIC.FACTORIALS).
+
+- The [`core` submodule contains](https://wiemip.github.io/docs/api/wiemip_registry/core.html) documentation for many of the important functions.
+
 """
 
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
