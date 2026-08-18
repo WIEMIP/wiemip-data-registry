@@ -45,7 +45,7 @@ class TEM(core.WIEAdapter):
     FACTORIALS = {Factorial.baseline.name: ""}
 
     def land_carbon_variables(self) -> list[str]:
-        """Unconfirmed. Assuming cVeg and cSoil since no cLitter was submitted."""
+        """Confirmed with Shuo Chen on 10/08/2026. cVeg and cSoil."""
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import xarray as xr
 
 from wiemip_registry import core
@@ -55,7 +57,10 @@ class CLM_FATES(core.WIEAdapter):
     }
 
     def land_carbon_variables(self) -> list[str]:
-        return ["cLitter", "cVeg", "cSoil"]
+        """
+        Confirmed with Jessie Needham.
+        """
+        return ["cLitter", "cVeg", "cSoil", "cOther"]
 
     def _get_variable(self, wiemip_variable: str) -> str:
         if wiemip_variable in self.wiemip_to_clm_fates_variable_mapping:

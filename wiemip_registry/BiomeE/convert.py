@@ -34,7 +34,7 @@ class BiomeE(core.WIEAdapter):
 
     def land_carbon_variables(self) -> list[str]:
         """
-        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        Confirmed. Assuming cLitter, cVeg, and cSoil.
         """
         return ["cLitter", "cVeg", "cSoil"]
 

@@ -42,7 +42,7 @@ class LPX_Bern(core.WIEAdapter):
 
     def land_carbon_variables(self) -> list[str]:
         """
-        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        Confirmed with Hyuna Kim 08/08/2026.
         """
 
         return ["cLitter", "cVeg", "cSoil"]
