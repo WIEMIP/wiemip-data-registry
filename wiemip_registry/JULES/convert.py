@@ -7,6 +7,11 @@ ctl / `<forcing>_cou`. The `<config>` string IS the factorial — every run carr
 a Nitrogen/DynVeg/Permafrost/Fire combination; the README reference run
 `Nitrogen_DynVeg_Permafrost_noFire` is our `baseline`. path() is a pure transform
 — what exists is decided by read().
+
+The overshoot upload keeps the config idea but spells it differently: the config
+leads the prefix instead of trailing the sim token (`JULESwiemipV2<config>_<run>/`),
+only the fire axis was repeated, and those configs are `noFire`/`FireP####` rather
+than the full 1pct strings. cVeg and cSoil only.
 """
 
 from __future__ import annotations
@@ -40,6 +45,19 @@ _FACTORIALS = {
 }
 
 
+# Overshoot fire configs, keyed by the 1pct factorial name they correspond to.
+_OVERSHOOT_CONFIGS = {
+    Factorial.baseline.name: "noFire",
+    "Fire0005": "FireP0005",
+    "Fire0249": "FireP0249",
+    "Fire0304": "FireP0304",
+    "Fire0336": "FireP0336",
+}
+
+# hist and the control are CRUJRA-driven, so their run token carries no GCM pattern.
+_UNFORCED_OVERSHOOT_SIMS = {"hist": "hist", "ctrl": "ctl"}
+
+
 def _sim_tok(simulation, forcing) -> str:
     if simulation == "cou":
         return f"{forcing}_cou"
@@ -51,16 +69,23 @@ def _sim_tok(simulation, forcing) -> str:
 
 
 class JULES(core.WIEAdapter):
+    """JULES submitted a bunch of factorials which have to be accessed by name in the
+    retrieve_one_pct_variable() function. See the factorials dict in wiemip_registry/JULES/convert.py for a
+    listing.
+    """
+
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True
     FACTORIALS = _FACTORIALS
+    OVERSHOOT_FACTORIALS = _OVERSHOOT_CONFIGS
 
     def land_carbon_variables(self) -> list[str]:
+        """
         # No cLitter was submitted (0 files across every combo), so the land carbon
         # total is veg + soil and litter is presumed folded into the reported cSoil.
-        # Unconfirmed with the JULES group — treat cross-model comparisons that hinge on
-        # an explicit litter pool with care.
+        # Confirmed with the JULES group.
+        """
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
@@ -69,6 +94,21 @@ class JULES(core.WIEAdapter):
         run = f"JULESwiemipV2_{tok}_{config}"
         fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"  # always annual
         return str(_OUTPUT / "1pctCO2" / "output" / "JULES" / run / fname)
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        config = self.OVERSHOOT_FACTORIALS.get(factorial or Factorial.baseline.name)
+        if config is None:
+            raise core.MissingFactorialError(
+                f"{MODEL} ran no '{factorial}' overshoot config "
+                f"(has: {sorted(self.OVERSHOOT_FACTORIALS)})"
+            )
+        # The counterfactual scenarios are hyphenated on disk (hl-cf, not hl_cf).
+        tok = _UNFORCED_OVERSHOOT_SIMS.get(
+            simulation, f"{forcing}_{simulation.replace('_cf', '-cf')}"
+        )
+        run = f"JULESwiemipV2{config}_{tok}"
+        fname = f"{run}_{variable}_yr_n96.nc"  # always annual
+        return str(_OUTPUT / "overshoot" / "output" / MODEL / run / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds[

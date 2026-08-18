@@ -13,14 +13,16 @@ _OUTPUT = DATA_ROOT
 _FACTORIALS = {
     Factorial.baseline.name: ("", ""),
 }
-# Only ukesm was submitted. The constant-climate runs (bgc/ctrl) are labelled `ukesm`
-# on disk even though the protocol requires requesting them as `stable` — no pinning
-# here, so a `stable` request spells a path that doesn't exist and raises at read(),
-# flagging the run as unreachable until CLM-FATES re-uploads it under a neutral token
-# (as CLASSIC did). This used to be a flat `FATES_ukesm` prefix that ignored `forcing`
-# entirely, so an ipsl or gfdl request silently returned ukesm data (identical global
-# sums, no error) instead of raising for a run that was never submitted.
+# Only ukesm was submitted for the GCM-forced sims (cou/rad), which must still spell
+# the *requested* pattern — this used to be a flat `FATES_ukesm` prefix that ignored
+# `forcing` entirely, so an ipsl or gfdl request silently returned ukesm data
+# (identical global sums, no error) instead of raising for a run that was never
+# submitted. The 1pct constant-climate runs (bgc/ctrl) should be `stable` — confirmed
+# with the CLM-FATES team on 2026-08-17 — but as of that date the files on disk are
+# still labelled `ukesm` (renaming issue on their end, like BiomeE's bgc), so `stable`
+# paths correctly raise at read() until CLM-FATES re-uploads them.
 _PREFIX = "FATES"
+_GCM_FORCED = ("cou", "rad")
 
 # ml_cf is the one overshoot sim whose on-disk token is hyphenated.
 _OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf"}
@@ -100,15 +102,16 @@ class CLM_FATES(core.WIEAdapter):
         )
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        token = forcing.lower() if simulation.split("_")[0] in _GCM_FORCED else "stable"
         return str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / MODEL
-            / self._fname(forcing.lower(), simulation, variable)
+            / self._fname(token, simulation, variable)
         )
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         # ukesm only, but spell the requested pattern so ipsl/gfdl raise.
         simulation = _OVERSHOOT_SIMULATION_TOKENS.get(simulation, simulation)
         return str(

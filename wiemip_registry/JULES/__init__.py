@@ -1,1 +1,3 @@
-"""JULES model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.JULES.convert import JULES
+
+__all__ = ["JULES"]

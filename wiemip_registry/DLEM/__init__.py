@@ -1,1 +1,3 @@
-"""DLEM model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.DLEM.convert import DLEM
+
+__all__ = ["DLEM"]

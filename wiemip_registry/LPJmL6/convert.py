@@ -23,6 +23,9 @@ class LPJmL6(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        """
         return ["cLitter", "cVeg", "cSoil"]
 
     yearly = {"alt", "fNHarvest"}
@@ -30,7 +33,7 @@ class LPJmL6(core.WIEAdapter):
     def _get_variable(self, wiemip_variable: str) -> str:
         return wiemip_variable
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         return "null"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:

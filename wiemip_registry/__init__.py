@@ -1,3 +1,40 @@
+"""
+
+This package acts as a wrapper on top of WIEMIP submissions to ease analysis.
+It can be run on the WIEMIP Jupyterhub or installed locally. Each model (e.g., CLM)
+gets its own implementation of the [WIEAdapter](core.html#WIEAdapter) class, which contains
+logic on how to compute weighted aggregations and how to construct paths for WIEMIP variables.
+Each variable is returned as a [WIEFile](core.html#WIEFile), which contains methods like exists(), latitudinal_sum(),
+read(), and so forth. All functions are documented on this site.
+
+Quick start
+-----------
+
+    import wiemip_registry as wr
+
+    cveg = wr.retrieve_one_pct_variable(
+        model="CLASSIC", forcing="ukesm", simulation="cou",
+        factorial="baseline", variable="cVeg",
+    )
+
+    cveg.path                       # which file this resolves to
+    cveg.exists()                   # is it actually on the bucket
+    data = cveg.read()              # xarray.DataArray, native units
+    series = cveg.latitudinal_sum() # global total, Pg C
+
+
+Guides
+------
+
+- [WIEAdapter](core.html#WIEAdapter): One class per model on how to convert the files it uploaded to WIEMIP-compatible ones
+- [WIEFile](core.html#WIEFile): What a request for a variable returns: .path, .exists(), .read(), .latitudinal_sum()
+- Quickstart: https://wiemip.github.io/docs/quickstart/
+- Reading data: https://wiemip.github.io/docs/reading-data/
+- Factorials: https://wiemip.github.io/docs/factorials/
+- Adding a model: https://wiemip.github.io/docs/adding-a-model/
+- Data caveats: https://wiemip.github.io/docs/caveats/
+"""
+
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
 import wiemip_registry
@@ -64,6 +101,7 @@ def _land_carbon_overshoot(
     forcing: str,
     simulation: str,
     land_carbon_variables: list[str],
+    factorial: str | None = None,
     lat_start: float | None = None,
     lat_end: float | None = None,
 ):
@@ -75,6 +113,7 @@ def _land_carbon_overshoot(
                 forcing=forcing,
                 simulation=simulation,
                 variable=variable,
+                factorial=factorial,
             ).latitudinal_sum(start=lat_start, end=lat_end)
         else:
             _land_stock += retrieve_overshoot_variable(
@@ -82,6 +121,7 @@ def _land_carbon_overshoot(
                 forcing=forcing,
                 simulation=simulation,
                 variable=variable,
+                factorial=factorial,
             ).latitudinal_sum(start=lat_start, end=lat_end)
     return _land_stock
 
@@ -141,6 +181,10 @@ def land_carbon_stock(
     lat_start: float | None = None,
     lat_end: float | None = None,
 ):
+    """Compute the land carbon stock for a model. Requires experiment (1pctCO2 or overshoot),
+    the model (CLM, etc), the forcing (ukesm, stable, etc), the simulation (cou, bgc, ctrl),
+    and finally the optional factorial argument, which is typically only used for 1pctCO2 simulations.
+    """
     _land_carbon_variables = _check_land_carbon_variables(model)
 
     if experiment == "1pctCO2":
@@ -159,6 +203,7 @@ def land_carbon_stock(
             forcing,
             simulation,
             _land_carbon_variables,
+            factorial,
             lat_start,
             lat_end,
         )
@@ -174,6 +219,11 @@ def land_carbon_stock(
 def retrieve_one_pct_variable(
     model: str, forcing: str, simulation: str, factorial: str, variable: str
 ) -> WIEFile:
+    """Retrieve a one percent variable from the WIEMIP Wasabi bucket.
+    Forcing is one of `stable`, `ukesm`, `ipsl`, or `gfdl`, simulation can be bgc/cou/ctrl/rad, factorial can be baseline (for the default
+    simulation, noFire, noPermafrost, or the custom factorial name for, say, JULES.
+    Variables one of the WIEMIP variables from the request.
+    Invalid combinations - like LPJ-EOSIM, stable, cou, noFire, vegC - are rejected."""
 
     simulation = simulation.lower()
     forcing = forcing.lower()
@@ -209,16 +259,33 @@ def retrieve_one_pct_variable(
 
 
 def retrieve_overshoot_variable(
-    model: str, forcing: str, simulation: str, variable: str
+    model: str,
+    forcing: str,
+    simulation: str,
+    variable: str,
+    factorial: str | None = None,
 ) -> WIEFile:
+    """
+    Retrieve an overshoot variable from the WIEMIP Wasabi bucket. Forcing can be one of ukesm/ipsl/gfdl,
+    simulation can be one of hist/ctrl/vl/ml/ml_cf and so on. See const.py for Enum classes containing the
+    overshoot simulations.
+    Factorial is always None except for models like JULES which have submitted custom factorials with
+    unique names. In this case, the name of the factorial will be passed through to the path() method
+    without checking against the WIEMIP vocabulary.
+    """
 
     simulation = simulation.lower()
     forcing = forcing.lower()
 
     _sanity_check(model, forcing, simulation, variable)
 
+    # Only JULES repeated the overshoot scenarios under several configurations; every
+    # other group ran one, so the factorial stays None and their adapters ignore it.
+    if factorial is not None:
+        _warn_factorial(model, forcing, simulation, factorial, variable)
+
     # Validate against the exported vocabulary itself, so it cannot drift from what
-    # this function accepts — the hand-written tuple here had dropped hist_ctrl, which
+    # this function accepts — the handwritten tuple here had dropped hist_ctrl, which
     # made looping over wr.overshoot_simulations raise.
     if simulation not in overshoot_simulations:
         raise ValueError(
@@ -231,5 +298,6 @@ def retrieve_overshoot_variable(
         forcing=forcing,
         simulation=simulation,
         variable=variable,
+        factorial=factorial,
         _adapter=adapters[model],
     )

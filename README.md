@@ -1,5 +1,7 @@
 # WIEMIP variable registry
 
+Docs: <https://wiemip.github.io/docs/> (source: `docs/` in the `wiemip.github.io` repo).
+
 This repository contains scripts to map each model's submission to a standard WIEMIP format.
 Each model has its own directory under wiemip_registry/MODEL/, within which is a convert.py script
 that implements the class in wiemip_registry/core.py: the `WIEAdapter`. This class has methods

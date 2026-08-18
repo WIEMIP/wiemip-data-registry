@@ -1,5 +1,12 @@
 """
 CLM adapter.
+
+The overshoot upload reuses the 1pctCO2 grammar for the run dir and file prefix
+(`hh_<forcing>_<sim>/clm6_hh_<forcing>_<sim>_<var>`), with two differences: `hist` is
+CRUJRA-driven so it carries no pattern token, and each variable is split into time
+chunks (`.2024-2100.nc`, `.2101-2200.nc`, `.2201-2300.nc`; `hist` uses `.1850-1950` +
+`.1951-2023`), so `paths()` lists the chunks and `read()` concatenates them. Only the
+`hh` set was submitted, and no control run.
 """
 
 from __future__ import annotations
@@ -13,6 +20,13 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "CLM"
 _OUTPUT = DATA_ROOT
 
+# Time chunks each overshoot variable is split across.
+_SCENARIO_CHUNKS = ("2024-2100", "2101-2200", "2201-2300")
+_OVERSHOOT_CHUNKS = {"hist": ("1850-1950", "1951-2023")}
+
+# hist is CRUJRA-driven, so its run token carries no GCM pattern.
+_UNFORCED_OVERSHOOT_SIMS = ("hist", "hist_ctrl")
+
 
 class CLM(core.WIEAdapter):
     model = MODEL
@@ -25,7 +39,7 @@ class CLM(core.WIEAdapter):
 
     def land_carbon_variables(self) -> list[str]:
         """
-        Downstream reuslts validated by Will Wieder on 11/08/2026.
+        Confirmed by Will Wieder on 11/08/2026 to be cVeg and cSoil.
         """
         return ["cVeg", "cSoil"]
 
@@ -40,24 +54,59 @@ class CLM(core.WIEAdapter):
         fname = f"clm6_{prefix}_{token}_{simulation}_{variable}.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
 
+    def _overshoot_files(self, simulation, forcing, factorial, variable) -> list[str]:
+        """The chunk files for one overshoot variable, oldest first."""
+        prefix = self.FACTORIALS.get(factorial or Factorial.baseline.name)
+        if prefix is None:
+            raise core.MissingFactorialError(
+                f"{MODEL} has no '{factorial}' factorial (has: {sorted(self.FACTORIALS)})"
+            )
+        if simulation in _UNFORCED_OVERSHOOT_SIMS:
+            run = f"{prefix}_{simulation}"
+        else:
+            run = f"{prefix}_{forcing}_{simulation}"
+        chunks = _OVERSHOOT_CHUNKS.get(simulation, _SCENARIO_CHUNKS)
+        return [
+            str(
+                _OUTPUT
+                / "overshoot"
+                / "output"
+                / MODEL
+                / run
+                / f"clm6_{run}_{variable}.{chunk}.nc"
+            )
+            for chunk in chunks
+        ]
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        return self._overshoot_files(simulation, forcing, factorial, variable)[0]
+
+    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        if experiment != "overshoot":
+            return super().paths(experiment, simulation, forcing, factorial, variable)
+        return self._overshoot_files(simulation, forcing, factorial, variable)
+
     def _time(self, ds: xr.Dataset):
         t = ds["time"]
         if t.attrs.get("units") == "yr":  # annual pools: a bare calendar-year axis
             return core.years_to_datetime(t.values)
-        # monthly, contiguous from January 1850 — index it month-by-month rather
-        # than unpick the noleap sub-month timestamps.
-        months = np.arange(t.size).astype("timedelta64[M]")
-        return np.datetime64("1850-01", "M") + months
+        # monthly, contiguous from the epoch in the file's own units — January 1850 for
+        # 1pctCO2, the chunk's first year for the overshoot files. Index it
+        # month-by-month rather than unpick the noleap sub-month timestamps.
+        epoch = np.datetime64(t.attrs["units"].split("since")[1].strip()[:7], "M")
+        return epoch + np.arange(t.size).astype("timedelta64[M]")
 
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
-        ds = xr.open_dataset(
-            self.path(experiment, simulation, forcing, factorial, variable),
-            decode_times=self.DECODE,
-        )
-        da = core.mask_fill(ds[variable])
-        return core.standardize(da, self.LAT, self.LON, self._time(ds))
+        chunks = []
+        for path in self.paths(experiment, simulation, forcing, factorial, variable):
+            ds = xr.open_dataset(path, decode_times=self.DECODE)
+            da = core.mask_fill(ds[variable])
+            chunks.append(core.standardize(da, self.LAT, self.LON, self._time(ds)))
+        if len(chunks) == 1:
+            return chunks[0]
+        return xr.concat(chunks, dim="time")
 
     def _compute_weights(self) -> xr.DataArray:
         """Land area per cell [m²] from the shipped `area` (km²) and `landfrac`."""

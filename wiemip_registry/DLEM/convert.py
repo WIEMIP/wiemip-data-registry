@@ -36,6 +36,9 @@ class DLEM(core.WIEAdapter):
     }
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        """
         return ["cLitter", "cVeg", "cSoil"]
 
     def _get_variable(self, wiemip_variable: str) -> str:

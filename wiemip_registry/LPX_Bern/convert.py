@@ -41,6 +41,10 @@ class LPX_Bern(core.WIEAdapter):
     """
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        """
+
         return ["cLitter", "cVeg", "cSoil"]
 
     wiemip_to_lpx_bern_variable_mapping = {
@@ -68,7 +72,7 @@ class LPX_Bern(core.WIEAdapter):
         fname = f"LPX-Bern_{pre}{sim}{suf}{gcm}_{variable}_{cad}_1.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / fname)
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         """
         Note: LPX-Bern uploaded files prefixed with "overshoot" which are bitwise
         identical to the ones prefixed with "ukesm". These won't be coverred by this naming

@@ -1,1 +1,3 @@
-"""JSBACH model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.JSBACH.convert import JSBACH
+
+__all__ = ["JSBACH"]

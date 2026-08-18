@@ -1,1 +1,3 @@
-"""LPX-Bern model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.LPX_Bern.convert import LPX_Bern
+
+__all__ = ["LPX_Bern"]

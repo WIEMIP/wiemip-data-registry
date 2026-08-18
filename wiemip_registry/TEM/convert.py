@@ -45,10 +45,7 @@ class TEM(core.WIEAdapter):
     FACTORIALS = {Factorial.baseline.name: ""}
 
     def land_carbon_variables(self) -> list[str]:
-        # No cLitter was submitted (0 files across every combo), so the land carbon
-        # total is veg + soil and litter is presumed folded into the reported cSoil.
-        # Unconfirmed with the TEM group — treat cross-model comparisons that hinge on
-        # an explicit litter pool with care.
+        """Unconfirmed. Assuming cVeg and cSoil since no cLitter was submitted."""
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:

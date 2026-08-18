@@ -1,1 +1,3 @@
-"""LPJ-EOSIM model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
+
+__all__ = ["LPJ_EOSIM"]

@@ -1,1 +1,3 @@
-"""BiomeE model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.BiomeE.convert import BiomeE
+
+__all__ = ["BiomeE"]

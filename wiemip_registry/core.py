@@ -26,30 +26,44 @@ import wiemip_registry.const as const
 
 
 class MissingModelError(Exception):
+    """Raised when a model is missing."""
+
     pass
 
 
 class MissingForcingError(Exception):
+    """Raised when a forcing is requested that doesn't exist."""
+
     pass
 
 
 class MissingSimulationError(Exception):
+    """Raised when a simulation is requested that doesn't exist."""
+
     pass
 
 
 class MissingVariableError(Exception):
+    """Raised when a variable is requested that doesn't exist."""
+
     pass
 
 
 class MissingFactorialError(Exception):
+    """Raised when a factorial is requested that doesn't exist."""
+
     pass
 
 
 class InvalidSimulationError(Exception):
+    """Raised when the combination of experiment, simulation, and factorial do not align with a known WIEMIP run."""
+
     pass
 
 
 class InvalidExperimentError(Exception):
+    """Raised when neither 1pctCO2 nor overshoot is requested."""
+
     pass
 
 
@@ -115,6 +129,7 @@ class Model(str):
 
     @property
     def adapter(self) -> WIEAdapter:
+        """Return the `WIEAdapter` this model is part of. Implemented in wiemip_registry/MODEL_DIR."""
         return self._adapter
 
     @property
@@ -145,7 +160,14 @@ class WIEAdapter(ABC):
     # either overriden or set in the adapter subclass
     FACTORIALS: dict[str, str] = {"baseline": ""}
 
+    # Same idea for the overshoot arm, empty unless the group ran more than one
+    # overshoot configuration (only JULES did).
+    OVERSHOOT_FACTORIALS: dict[str, str] = {}
+
     def land_carbon_variables(self) -> list[str]:
+        """The variables that make up each model's land carbon stock. Usually some combination
+        of cVeg, cSoil, cLitter, and cOther.
+        """
         raise NotImplementedError()
 
     @property
@@ -172,14 +194,29 @@ class WIEAdapter(ABC):
         simulation: str,
         forcing: str,
         variable: str,
+        factorial: str | None = None,
     ) -> str:
-        """Overshoot-experiment path (no factorial axis). Overridden per model once
-        that model's overshoot upload naming is known; until then asking for an
-        overshoot path raises here rather than guessing a layout. Like `one_pct_path`
-        it's a pure string transform — what exists is decided by `read()`."""
+        """Overshoot-experiment path. Overridden per model once that model's overshoot
+        upload naming is known; until then asking for an overshoot path raises here
+        rather than guessing a layout. Like `one_pct_path` it's a pure string transform
+        — what exists is decided by `read()`.
+
+        Most groups ran a single overshoot configuration, so `factorial` is None by
+        default and those adapters ignore it. JULES is the exception: it repeated the
+        whole scenario set under five fire configs, so the factorial picks the run."""
         raise NotImplementedError(f"overshoot paths not yet mapped for {self.model}")
 
+    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        """Every file that makes up one variable's series, in time order. One file per
+        variable for everyone except CLM's overshoot upload, which splits each run into
+        time chunks, so the default just wraps `path`."""
+        return [self.path(experiment, simulation, forcing, factorial, variable)]
+
     def path(self, experiment, simulation, forcing, factorial, variable):
+        """Return the expected path of the file defined by the experiment, simulation, forcing, factorial, and variable.
+        This is not guaranteed to exist - it just constructs the path.
+        """
+
         if experiment == const.ONE_PERCENT_CO2_KEY:
             if factorial not in self.FACTORIALS:
                 raise MissingFactorialError(
@@ -187,7 +224,7 @@ class WIEAdapter(ABC):
                 )
             pth = self.one_pct_path(simulation, forcing, factorial, variable)
         elif experiment == "overshoot":
-            pth = self.overshoot_path(simulation, forcing, variable)
+            pth = self.overshoot_path(simulation, forcing, variable, factorial)
         else:
             raise ValueError("Must specify either overshoot or one_percent_co2!")
         return pth
@@ -303,10 +340,30 @@ def standardize(
     datetime axis from the adapter's `_time(ds)` hook.
     """
     da = rename_latlon(da, latn, lonn)
-    da = da.assign_coords(time=("time", np.asarray(time, dtype="datetime64[ns]")))
+    da = da.assign_coords(time=("time", to_datetime64(time)))
     front = [d for d in ("time", "lat", "lon") if d in da.dims]
     rest = [d for d in da.dims if d not in front]
     return da.transpose(*front, *rest)
+
+
+def to_datetime64(values) -> np.ndarray:
+    """A decoded time axis -> `datetime64[us]`.
+
+    Microseconds, not nanoseconds: the overshoot runs end in 2300 and datetime64[ns]
+    stops at 2262, so an ns cast silently wrapped every overshoot series past that year
+    (2299 came back as 1714). Files that far out decode to cftime objects rather than
+    datetime64, so pull the fields off them directly.
+    """
+    arr = np.asarray(values)
+    if arr.dtype == object:  # cftime.datetime, one per timestep
+        arr = np.array(
+            [
+                f"{t.year:04d}-{t.month:02d}-{t.day:02d}T{t.hour:02d}:{t.minute:02d}"
+                for t in arr
+            ],
+            dtype="datetime64[us]",
+        )
+    return arr.astype("datetime64[us]")
 
 
 def years_to_datetime(values) -> np.ndarray:
@@ -342,14 +399,20 @@ def cache_csv(method):
 
     @functools.wraps(method)
     def wrapper(self, start=None, end=None, overwrite=False):
-        src = Path(self.path)  # pure transform == the file read() opens
-        out = _csv_path(src, start, end)
+        srcs = [Path(p) for p in self.paths]  # pure transform == what read() opens
+        out = _csv_path(srcs[0], start, end)
         if (
             not overwrite
             and out.exists()
-            and out.stat().st_mtime >= src.stat().st_mtime
+            and all(src.exists() for src in srcs)
+            and out.stat().st_mtime >= max(src.stat().st_mtime for src in srcs)
         ):
-            return pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
+            series = pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
+            # read_csv picks a resolution per file, so a series that stops before 2262
+            # comes back in ns and one running to 2300 in us; adding the two then
+            # overflows. Pin both to what standardize() hands out.
+            series.index = series.index.astype("datetime64[us]")
+            return series
         series = method(self, start, end)
         out.parent.mkdir(parents=True, exist_ok=True)
         series.to_csv(out)
@@ -376,6 +439,7 @@ class WIEFile:
 
     @property
     def kind(self) -> str:
+        """Is the variable a stock or flux? Stocks don't carry a s-1 unit and as such are not multiplied by seconds."""
         return kind_of(self.variable)
 
     @property
@@ -396,6 +460,20 @@ class WIEFile:
             )
         )
 
+    @property
+    def paths(self) -> list[str]:
+        """Every file behind this variable's series (one, unless the model chunked it)."""
+        return [
+            str(p)
+            for p in self._adapter.paths(
+                self.experiment,
+                self.simulation,
+                self.forcing,
+                self.factorial,
+                self.variable,
+            )
+        ]
+
     def read(self) -> xr.DataArray:
         """Standardized, *lazy* DataArray for this variable (canonical dims,
         pandas-datetime time coord at native cadence, NaN fills, native units).
@@ -403,9 +481,6 @@ class WIEFile:
         Raises whatever opening the file raises (FileNotFoundError for a combo
         that wasn't uploaded): read() is the single source of truth for what
         exists, so the caller can catch and report it. path() never pre-judges.
-
-        TODO(virtualizarr): when a reference sidecar exists in `references/`, open
-        through the committed virtual-zarr store instead of re-opening raw netCDF.
         """
 
         if not self.exists():
@@ -445,17 +520,16 @@ class WIEFile:
 
     @ensure_valid
     def exists(self):
+        """Does the file exist? Also returns false if a model hasn't been implemented yet in the registry."""
         try:
-            pth = self._adapter.path(
-                self.experiment,
-                self.simulation,
-                self.forcing,
-                self.factorial,
-                self.variable,
-            )
-        except MissingFactorialError:
-            return False  # model doesn't provide this factorial -> treat as not-there
-        return os.path.isfile(pth)
+            pths = self.paths
+        except (MissingFactorialError, NotImplementedError):
+            # No such factorial for this model, or its overshoot naming isn't mapped
+            # yet: either way there is nothing on disk to find. exists() is the
+            # non-raising probe, so callers can sweep a request set without guarding
+            # every combo; read() stays the gate that raises.
+            return False
+        return all(os.path.isfile(p) for p in pths)
 
     @cache_csv
     def latitudinal_sum(

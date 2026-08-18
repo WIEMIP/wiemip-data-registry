@@ -1,1 +1,3 @@
-"""TEM model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.TEM.convert import TEM
+
+__all__ = ["TEM"]

@@ -45,6 +45,9 @@ class VISIT_UT(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Unconfirmed. Assuming cLitter, cSoil, and cVeg.
+        """
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
@@ -54,7 +57,7 @@ class VISIT_UT(core.WIEAdapter):
         fname = f"{bare}_{variable}_mon{suf}_05.nc"  # file: factorial AFTER cadence
         return str(_OUTPUT / "1pctCO2" / "output" / "VISIT-UT" / run / fname)
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         # The control run is the one place dir and file tokens disagree: the dir is
         # `VISIT-UT_<gcm>_control/` but the files inside are `VISIT-UT_<gcm>_CTRL_…`
         # (the 1pct spelling). Without both, all 3 control runs are unreachable.

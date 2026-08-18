@@ -4,9 +4,11 @@ Naming (verified on the bucket): flat layout
 `BiomeE_<forcing>_<sim>_<var>_<cad>_05.nc` (lowercase forcing + sim tokens).
 path() is a pure transform — what exists is decided by read() opening the file.
 
-The constant-climate runs (bgc/ctrl) are labelled `ukesm` on disk even though the
-protocol requires requesting them as `stable`, so their token is pinned — see
-`_GCM_FORCED`.
+BiomeE's constant-climate runs (bgc/ctrl, incl. their fact_ variants) are `stable`
+on disk — confirmed with the BiomeE team. Baseline ctrl was already re-uploaded as
+`BiomeE_stable_ctrl_*`, superseding `BiomeE_ukesm_ctrl_*`. bgc is still `ukesm`-only
+on disk as of 2026-08-17 pending their re-upload, so `stable` bgc paths raise at
+read() until that lands — that's the correct signal, not a bug in this adapter.
 """
 
 from __future__ import annotations
@@ -18,15 +20,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
-
-# Only cou/rad carry the requested GCM pattern; bgc and the fact_ runs are on disk
-# as `ukesm` even though the protocol requires requesting them as `stable`.
-_GCM_FORCED = ("cou", "rad")
-_CONSTANT_CLIMATE_TOKEN = "ukesm"
-
-# Baseline ctrl was re-uploaded as BiomeE_stable_ctrl_*, superseding BiomeE_ukesm_ctrl_*.
-_STABLE_TOKEN = "stable"
-_STABLE_TOKEN_SIMS = ("ctrl",)
 
 
 class BiomeE(core.WIEAdapter):
@@ -40,18 +33,20 @@ class BiomeE(core.WIEAdapter):
     }  # only the bare run was submitted
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        """
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         cad = "yr" if core.is_annual(variable) else "mon"
         is_fact = factorial != Factorial.baseline.name and factorial in self.FACTORIALS
 
-        if simulation.split("_")[0] not in _GCM_FORCED:
-            forcing = (
-                _STABLE_TOKEN
-                if not is_fact and simulation in _STABLE_TOKEN_SIMS
-                else _CONSTANT_CLIMATE_TOKEN
-            )
+        # cou/rad carry the GCM pattern; bgc/ctrl (and their fact_ variants) are
+        # constant-climate and labelled "stable" on disk. Confirmed with BiomeE team
+        # on 2026-08-17.
+        if simulation.split("_")[0] not in ("cou", "rad"):
+            forcing = "stable"
 
         if is_fact:
             fname = f"BiomeE_{forcing}_fact_{simulation}_{self.FACTORIALS[factorial]}_{variable}_{cad}_05.nc"

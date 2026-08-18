@@ -59,6 +59,9 @@ _SFTLF = (
 class CLASSIC(core.WIEAdapter):
 
     def land_carbon_variables(self) -> list[str]:
+        """
+        Confirmed with Vivek. cLitter, cVeg, and cSoil.
+        """
         return ["cLitter", "cSoil", "cVeg"]
 
     model = MODEL
@@ -83,7 +86,7 @@ class CLASSIC(core.WIEAdapter):
             return self.wiemip_to_classic_variable_mapping[wiemip_variable]
         return wiemip_variable
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         return "null"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:

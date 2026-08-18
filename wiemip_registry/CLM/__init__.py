@@ -1,1 +1,3 @@
-"""CLM model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.CLM.convert import CLM
+
+__all__ = ["CLM"]

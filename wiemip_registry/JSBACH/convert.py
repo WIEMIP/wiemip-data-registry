@@ -43,8 +43,11 @@ class JSBACH(core.WIEAdapter):
     }
 
     def land_carbon_variables(self) -> list[str]:
-        # Aug 7: Confirmed with Beiyao that our aggregations and
-        # definitions of land carbon stock are correct.
+        """
+        Aug 7: Confirmed with Beiyao Xu that our aggregations and
+        definitions of land carbon stock are correct.
+        They include cLitter, cVeg, and cSoil.
+        """
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
@@ -60,7 +63,7 @@ class JSBACH(core.WIEAdapter):
             / f"{stem}_{variable}_{cad}{post}_1.nc"
         )
 
-    def overshoot_path(self, simulation, forcing, variable) -> str:
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         # Run dir is the bare simulation token; no factorial axis.
         forcing_token = (
             _CRUJRA_TOKEN if simulation in _CRUJRA_FORCED_SIMULATIONS else forcing

@@ -1,1 +1,3 @@
-"""LPJmL6 model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.LPJmL6.convert import LPJmL6
+
+__all__ = ["LPJmL6"]

@@ -1,1 +1,3 @@
-"""CLASSIC model subpackage. The adapter lives in `convert.py`."""
+from wiemip_registry.CLASSIC.convert import CLASSIC
+
+__all__ = ["CLASSIC"]
