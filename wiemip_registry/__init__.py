@@ -2,12 +2,12 @@
 
 This package acts as a wrapper on top of WIEMIP submissions to ease analysis.
 It can be run on the WIEMIP Jupyterhub or installed locally. Each model (e.g., CLM)
-gets its own implementation of the [WIEAdapter](core.html#WIEAdapter) class, which contains
+gets its own implementation of the `WIEAdapter` class, which contains
 logic on how to compute weighted aggregations and how to construct paths for WIEMIP variables.
-Each variable is returned as a [WIEFile](core.html#WIEFile), which contains methods like exists(), latitudinal_sum(),
+Each variable is returned as a `WIEFile` which contains methods like exists(), latitudinal_sum(),
 read(), and so forth. All functions are documented on this site.
 
-Quick start
+Quick start to analyze a 1pctCO2 result from CLASSIC
 -----------
 
     import wiemip_registry as wr
@@ -41,9 +41,11 @@ Below are some helpful links to key functions and objects:
 
 - The [`core` submodule contains](https://wiemip.github.io/docs/api/wiemip_registry/core.html) documentation for many of the important functions.
 
+- [The list of models currently registered](https://wiemip.github.io/docs/api/wiemip_registry/adapters.html#models). Import with `import wiemip_registry as wr; models = wr.models`. Useful for iterating over the set of reviewed models.
 """
 
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
 
 import wiemip_registry
 
