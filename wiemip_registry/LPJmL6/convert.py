@@ -11,8 +11,11 @@ MODEL = "LPJmL6"
 _OUTPUT = DATA_ROOT
 
 
+# Token suffixes the run dir AND trails the cadence in the filename:
+# ukesm_cou_noNitrogen/LPJmL6_ukesm_cou_albedo_mon_noNitrogen_05.nc
 _FACTORIALS = {
-    Factorial.baseline.name: ("", ""),
+    Factorial.baseline.name: "",
+    Factorial.noNitrogen.name: "_noNitrogen",
 }
 
 
@@ -48,14 +51,15 @@ class LPJmL6(core.WIEAdapter):
             cadence = "yr"
 
         prefix = f"LPJmL6_{run}"
+        post = self.FACTORIALS[factorial]
 
         z = str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / "LPJmL6"
-            / run
-            / f"{prefix}_{variable}_{cadence}_05.nc"
+            / f"{run}{post}"
+            / f"{prefix}_{variable}_{cadence}{post}_05.nc"
         )
         return z
 
