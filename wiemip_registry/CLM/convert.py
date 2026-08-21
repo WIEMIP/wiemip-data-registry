@@ -27,14 +27,28 @@ _OVERSHOOT_CHUNKS = {"hist": ("1850-1950", "1951-2023")}
 # hist is CRUJRA-driven, so its run token carries no GCM pattern.
 _UNFORCED_OVERSHOOT_SIMS = ("hist", "hist_ctrl")
 
+# Pool-split variables (1pctCO2 arm): one requested name fans out to one file per
+# pool; read() stacks them along a "pool" dim (same dim name as BiomeE's single-file
+# cSoilPools). Labels per CLM_README: cSoilpools _1/_2/_3 = fast/slow/passive;
+# rhPools l1-l3 = litter, s1-s3 = soil, plus cwd. The file's data variable is named
+# like its filename token (e.g. "rhPools_cwd"), not the requested name.
+_POOL_SPLITS = {
+    "cSoilPools": {
+        "fast": "cSoilpools_1",
+        "slow": "cSoilpools_2",
+        "passive": "cSoilpools_3",
+    },
+    "rhPools": {p: f"rhPools_{p}" for p in ("cwd", "l1", "l2", "l3", "s1", "s2", "s3")},
+}
+
 
 class CLM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False  # mixed "yr" / noleap "hours since 1850" axis, decoded by hand
     # The factorial picks the run set: hh (baseline) or flat, CLM's two uploads.
-    # flat has only bgc/cou/rad in sub-dirs — its ctrl is loose at the model-dir
-    # top, and we register only the sub-dir runs, so flat+ctrl has no path here.
+    # flat's ctrl originally sat loose at the model-dir top (unreachable); moved
+    # into flat_ukesm_ctrl/ on the bucket 2026-08-21, so all runs resolve here.
     FACTORIALS = {Factorial.baseline.name: "hh", "flat": "flat"}
 
     def land_carbon_variables(self) -> list[str]:
@@ -82,9 +96,14 @@ class CLM(core.WIEAdapter):
         return self._overshoot_files(simulation, forcing, factorial, variable)[0]
 
     def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
-        if experiment != "overshoot":
-            return super().paths(experiment, simulation, forcing, factorial, variable)
-        return self._overshoot_files(simulation, forcing, factorial, variable)
+        if experiment == "overshoot":
+            return self._overshoot_files(simulation, forcing, factorial, variable)
+        if variable in _POOL_SPLITS:
+            return [
+                self.one_pct_path(simulation, forcing, factorial, file_var)
+                for file_var in _POOL_SPLITS[variable].values()
+            ]
+        return super().paths(experiment, simulation, forcing, factorial, variable)
 
     def _time(self, ds: xr.Dataset):
         t = ds["time"]
@@ -99,6 +118,19 @@ class CLM(core.WIEAdapter):
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
+        if variable in _POOL_SPLITS and experiment != "overshoot":
+            pools = []
+            for file_var in _POOL_SPLITS[variable].values():
+                ds = xr.open_dataset(
+                    self.one_pct_path(simulation, forcing, factorial, file_var),
+                    decode_times=self.DECODE,
+                )
+                da = core.mask_fill(ds[file_var])
+                pools.append(core.standardize(da, self.LAT, self.LON, self._time(ds)))
+            labels = xr.DataArray(
+                list(_POOL_SPLITS[variable]), dims="pool", name="pool"
+            )
+            return xr.concat(pools, dim=labels).rename(variable)
         chunks = []
         for path in self.paths(experiment, simulation, forcing, factorial, variable):
             ds = xr.open_dataset(path, decode_times=self.DECODE)
