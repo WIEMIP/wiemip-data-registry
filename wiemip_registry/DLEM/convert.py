@@ -19,6 +19,7 @@ from wiemip_registry.const import DATA_ROOT, Factorial, OnePctSimulation
 
 MODEL = "DLEM"
 _OUTPUT = DATA_ROOT
+_AREA = _OUTPUT / "1pctCO2" / "output" / "DLEM" / "LAND_AREA_DLEM.nc"
 
 
 class DLEM(core.WIEAdapter):
@@ -37,7 +38,7 @@ class DLEM(core.WIEAdapter):
 
     def land_carbon_variables(self) -> list[str]:
         """
-        Unconfirmed. Assuming cLitter, cVeg, and cSoil.
+        Confirmed with DLEM team on 2026/08/24. cLitter, cVeg, and cSoil make up the land carbon stock.
         """
         return ["cLitter", "cVeg", "cSoil"]
 
@@ -109,7 +110,7 @@ class DLEM(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
-        """Computed spherical cell area [m²] (ocean cells masked via fills on the data)."""
+        """Provided land-area raster `LAND_AREA_DLEM.nc` [km2 -> m2]."""
         ref = xr.open_dataset(
             self.path(
                 "1pctCO2",
@@ -120,6 +121,7 @@ class DLEM(core.WIEAdapter):
             ),
             decode_times=self.DECODE,
         )
-        a = core.spherical_area(ref, self.LAT, self.LON)
+        a = xr.open_dataset(_AREA)["LAND_AREA"] * 1e6  # km2 -> m2
+        a = a.sel({self.LAT: ref[self.LAT], self.LON: ref[self.LON]})
         ref.close()
-        return core.rename_latlon(a, self.LAT, self.LON)
+        return core.rename_latlon(a.astype("float32"), self.LAT, self.LON)

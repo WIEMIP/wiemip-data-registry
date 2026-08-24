@@ -267,11 +267,15 @@ class WIEAdapter(ABC):
         return da.weighted(self.weights())
 
     def to_pgc(self, total: xr.DataArray, variable: str) -> pd.Series:
-        """Convert a per-timestep weighted (lat, lon) sum to a Pg C series,
+        """Convert a per-timestep weighted (lat, lon) sum to a Pg series,
         PRESERVING the file's native cadence (monthly stays monthly — no annual
         collapse). MODEL-SPECIFIC: override when a model's upload units make the
         default wrong (e.g. its flux is not a per-second rate that SPY applies to).
-        Default: stock `/PG`; flux rate `×SPY/PG` (a per-timestep annualized rate)."""
+        Default: stock `/PG`; flux rate `×SPY/PG` (a per-timestep annualized rate).
+
+        Pg C for the carbon variables, Pg N for the nitrogen ones and Gt for the water
+        pools — `PG` is a kg->Pg factor and carries no species, so the caller reads the
+        species off the variable name."""
         s = total.to_series()
         s = s / const.PG if kind_of(variable) == "stock" else s * const.SPY / const.PG
         s.name = variable
@@ -279,7 +283,13 @@ class WIEAdapter(ABC):
 
 
 def kind_of(variable: str) -> str:
-    """'stock' or 'flux' — selects the global-integral unit conversion."""
+    """'stock' or 'flux' — selects the global-integral unit conversion.
+
+    'stock' means a per-m2 AMOUNT (no SPY multiply), 'flux' a per-second RATE. See
+    `const.STOCKS`, whose membership comes from the uploads' `units` attributes: the
+    carbon, nitrogen and water POOLS are stocks, everything else falls through to the
+    rate branch — including the intensive variables, for which an area-weighted sum is
+    the wrong reduction either way."""
     return "stock" if variable in const.STOCKS else "flux"
 
 
@@ -296,9 +306,10 @@ def spherical_area(
     """
     Grid-cell area [m2] from lat/lon centres, assuming a regular spherical grid.
 
-    Used by the models that do *not* ship an area raster (CLASSIC, DLEM, JSBACH,
+    Used by the models that do *not* ship an area raster (CLASSIC, JSBACH,
     JULES cell, VISIT-UT). Models with a provided raster (BiomeE `veg_area.nc`,
-    LPX-Bern `gridcell_area.nc`) ignore this. Verbatim from extract.py.
+    LPX-Bern `gridcell_area.nc`, DLEM `LAND_AREA_DLEM.nc`) ignore this. Verbatim
+    from extract.py.
     """
     lat, lon = obj[latn].values, obj[lonn].values
     R = 6.371e6

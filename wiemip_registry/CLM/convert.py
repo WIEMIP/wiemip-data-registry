@@ -27,11 +27,12 @@ _OVERSHOOT_CHUNKS = {"hist": ("1850-1950", "1951-2023")}
 # hist is CRUJRA-driven, so its run token carries no GCM pattern.
 _UNFORCED_OVERSHOOT_SIMS = ("hist", "hist_ctrl")
 
-# Pool-split variables (1pctCO2 arm): one requested name fans out to one file per
-# pool; read() stacks them along a "pool" dim (same dim name as BiomeE's single-file
-# cSoilPools). Labels per CLM_README: cSoilpools _1/_2/_3 = fast/slow/passive;
-# rhPools l1-l3 = litter, s1-s3 = soil, plus cwd. The file's data variable is named
-# like its filename token (e.g. "rhPools_cwd"), not the requested name.
+# Pool-split variables (both arms): one requested name fans out to one file per
+# pool (x time chunks on the overshoot arm); read() stacks them along a "pool" dim
+# (same dim name as BiomeE's single-file cSoilPools). Labels per CLM_README:
+# cSoilpools _1/_2/_3 = fast/slow/passive; rhPools l1-l3 = litter, s1-s3 = soil,
+# plus cwd. The file's data variable is named like its filename token (e.g.
+# "rhPools_cwd"), not the requested name.
 _POOL_SPLITS = {
     "cSoilPools": {
         "fast": "cSoilpools_1",
@@ -96,13 +97,16 @@ class CLM(core.WIEAdapter):
         return self._overshoot_files(simulation, forcing, factorial, variable)[0]
 
     def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
-        if experiment == "overshoot":
-            return self._overshoot_files(simulation, forcing, factorial, variable)
         if variable in _POOL_SPLITS:
             return [
-                self.one_pct_path(simulation, forcing, factorial, file_var)
+                path
                 for file_var in _POOL_SPLITS[variable].values()
+                for path in self.paths(
+                    experiment, simulation, forcing, factorial, file_var
+                )
             ]
+        if experiment == "overshoot":
+            return self._overshoot_files(simulation, forcing, factorial, variable)
         return super().paths(experiment, simulation, forcing, factorial, variable)
 
     def _time(self, ds: xr.Dataset):
@@ -115,22 +119,10 @@ class CLM(core.WIEAdapter):
         epoch = np.datetime64(t.attrs["units"].split("since")[1].strip()[:7], "M")
         return epoch + np.arange(t.size).astype("timedelta64[M]")
 
-    def read(
+    def _read_one(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
-        if variable in _POOL_SPLITS and experiment != "overshoot":
-            pools = []
-            for file_var in _POOL_SPLITS[variable].values():
-                ds = xr.open_dataset(
-                    self.one_pct_path(simulation, forcing, factorial, file_var),
-                    decode_times=self.DECODE,
-                )
-                da = core.mask_fill(ds[file_var])
-                pools.append(core.standardize(da, self.LAT, self.LON, self._time(ds)))
-            labels = xr.DataArray(
-                list(_POOL_SPLITS[variable]), dims="pool", name="pool"
-            )
-            return xr.concat(pools, dim=labels).rename(variable)
+        """One on-disk variable: its (possibly time-chunked) files, concatenated."""
         chunks = []
         for path in self.paths(experiment, simulation, forcing, factorial, variable):
             ds = xr.open_dataset(path, decode_times=self.DECODE)
@@ -139,6 +131,19 @@ class CLM(core.WIEAdapter):
         if len(chunks) == 1:
             return chunks[0]
         return xr.concat(chunks, dim="time")
+
+    def read(
+        self, experiment, simulation, forcing, factorial, variable
+    ) -> xr.DataArray:
+        if variable in _POOL_SPLITS:
+            split = _POOL_SPLITS[variable]
+            pools = [
+                self._read_one(experiment, simulation, forcing, factorial, file_var)
+                for file_var in split.values()
+            ]
+            labels = xr.DataArray(list(split), dims="pool", name="pool")
+            return xr.concat(pools, dim=labels).rename(variable)
+        return self._read_one(experiment, simulation, forcing, factorial, variable)
 
     def _compute_weights(self) -> xr.DataArray:
         """Land area per cell [m²] from the shipped `area` (km²) and `landfrac`."""

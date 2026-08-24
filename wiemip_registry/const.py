@@ -18,15 +18,68 @@ PG = 1e12  # 1 Pg = 1e12 kg
 FILL_FLOOR = -1e3  # no physical stock/flux is below this; sentinel fills
 # (BiomeE -1e5, JULES -9999, stray -99999) -> NaN.
 
-# CMIP variable names treated as stocks (kg C m-2). Everything else is a flux
-# (kg C m-2 s-1). Drives unit conversion in WIEFile.global_sum().
-STOCKS = {"cVeg", "cSoil", "cLitter", "cWood", "cLeaf", "cRoot", "cCwd"}
+# Variable names that are a per-m2 AMOUNT rather than a per-second RATE. This is the
+# only thing `core.kind_of` decides: an amount is integrated as `sum(x*area)/PG`, a rate
+# as `sum(x*area)*SPY/PG`. Membership was set from the `units` attribute of the real
+# uploads (one file per model x variable) — `kg <X> m-2` is here, `kg <X> m-2 s-1` is
+# not — so the `n` prefix is not a guide: nVeg/nSoil are nitrogen POOLS, while
+# nbp/npp are carbon FLUXES.
+#
+# The integral is Pg for the carbon pools, Pg N for the nitrogen pools and Gt for the
+# water pools; `PG = 1e12` is just kg -> Pg and carries no species.
+#
+# NOT here, and deliberately: the intensive variables (albedo, lai, tas/soilT, wetfrac,
+# landCoverFrac, burntArea, snowDepth/wtd/alt, the W m-2 energy terms). They are not
+# rates, but an area-weighted SUM is the wrong reduction for them regardless — they want
+# a mean, which `latitudinal_sum` does not offer. Leaving them out keeps them visibly
+# wrong rather than plausibly wrong.
+STOCKS = {
+    # carbon pools [kg C m-2]
+    "cVeg",
+    "cSoil",
+    "cLitter",
+    "cWood",
+    "cLeaf",
+    "cRoot",
+    "cCwd",
+    "cOther",
+    "cProduct",
+    "cPoolVr",
+    "cVegpft",
+    "cSoilpft",
+    "cLitterpft",
+    "cSoilPools",
+    "cSoilLayers",
+    "cSoilAbove1m",
+    "cSoilBelow1m",
+    "cfuelTotal",
+    # nitrogen pools [kg N m-2]
+    "nVeg",
+    "nSoil",
+    "nLitter",
+    "nOrgSoil",
+    "nInorgSoil",
+    "nProduct",
+    "nVegpft",
+    "nSoilpft",
+    "nLitterpft",
+    "nOrgSoilpft",
+    "nInOrgSoilpft",
+    "nOrgSoilLayer",
+    "nInorgSoilLayer",
+    # water pools [kg m-2]
+    "mrso",
+    "mrsoLayer",
+    "swe",
+    "soilMoist",
+    "soilIce",
+}
 ONE_PERCENT_CO2_KEY = "1pctCO2"
 
 # Variables written at ANNUAL cadence (the `yr`/`ann` filename token); everything
-# else is monthly (`mon`). Cadence is INDEPENDENT of stock/flux units: the
-# nitrogen pools and per-PFT carbon are annual but are not carbon STOCKS. Derived
-# from the bucket filenames. Per-model overrides win — VISIT-UT writes everything
+# else is monthly (`mon`). Cadence is INDEPENDENT of the STOCKS split above: a pool
+# is usually annual but `landCoverFrac`/`wetfrac` are annual without being amounts,
+# and some models write pools monthly. Derived from the bucket filenames. Per-model overrides win — VISIT-UT writes everything
 # monthly and JULES everything annual, so their adapters ignore this set.
 ANNUAL = {
     "cVeg",

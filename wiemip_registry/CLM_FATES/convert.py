@@ -26,8 +26,9 @@ _FACTORIALS = {
 _PREFIX = "FATES"
 _GCM_FORCED = ("cou", "rad")
 
-# ml_cf is the one overshoot sim whose on-disk token is hyphenated.
-_OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf"}
+# The counterfactual overshoot sims are hyphenated on disk (vl_cf/hl_cf uploaded
+# 2026-08, after ml_cf).
+_OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf", "vl_cf": "vl-cf", "hl_cf": "hl-cf"}
 
 
 class CLM_FATES(core.WIEAdapter):
