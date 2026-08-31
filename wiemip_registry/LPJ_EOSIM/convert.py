@@ -11,12 +11,25 @@ MODEL = "LPJ-EOSIM"  # model dir on disk (hyphenated)
 _PREFIX = "LPJ_EOSIM"  # run sub-dir and file prefix (underscored)
 _OUTPUT = DATA_ROOT
 
+# Overshoot runs driven by CRUJRA rather than a GCM pattern: their dir/file names carry
+# no forcing token. Verified for `hist`; ctrl/hist_ctrl are not uploaded yet.
+_NO_FORCING_TOKEN = {"hist", "hist_ctrl", "ctrl"}
+
 
 class LPJ_EOSIM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True  # gregorian "days since 1850-01-01" -> datetime64 directly
-    FACTORIALS = {Factorial.baseline.name: "", Factorial.noFire.name: "_noFire"}
+    FACTORIALS = {
+        Factorial.baseline.name: "",
+        Factorial.noFire.name: "_noFire",
+        Factorial.noNitrogen.name: "_noNitrogen",
+    }
+
+    # Cadence overrides of const.ANNUAL (verified on the bucket, 2026-08-28
+    # upload): wetfrac and nInorgSoil arrive monthly, docFlux annual.
+    MONTHLY = {"wetfrac", "nInorgSoil"}
+    ANNUAL = {"docFlux"}
 
     def land_carbon_variables(self) -> list[str]:
         return ["cLitter", "cVeg", "cSoil"]
@@ -24,14 +37,28 @@ class LPJ_EOSIM(core.WIEAdapter):
     def _factorial_suffix(self, factorial: str) -> str:
         return self.FACTORIALS.get(factorial, f"_{factorial}")
 
+    def _cadence(self, variable: str) -> str:
+        return (
+            "mon"
+            if variable in self.MONTHLY
+            else "yr"
+            if variable in self.ANNUAL or core.is_annual(variable)
+            else "mon"
+        )
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         second = forcing.lower() if gcm_forced else "stable"
-        cad = "yr" if core.is_annual(variable) else "mon"
+        cad = self._cadence(variable)
         suffix = self._factorial_suffix(factorial)
         run_dir = f"{_PREFIX}_{second}_{simulation}{suffix}"
         fname = f"{_PREFIX}_{second}_{simulation}_{variable}_{cad}{suffix}_05.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        run = simulation if simulation in _NO_FORCING_TOKEN else f"{forcing.lower()}_{simulation}"
+        fname = f"{_PREFIX}_{run}_{variable}_{self._cadence(variable)}_05.nc"
+        return str(_OUTPUT / "overshoot" / "output" / MODEL / f"{_PREFIX}_{run}" / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)

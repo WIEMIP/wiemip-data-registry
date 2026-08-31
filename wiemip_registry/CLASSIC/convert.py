@@ -76,9 +76,8 @@ class CLASSIC(core.WIEAdapter):
         "fCH4Fire": "fCh4Fire",
         "fN2OFire": "fN2oFire",
         "soilR": "soilr",
-        "wetCH4": "wetch4_spec",
-        # NOTE: Assumed that CH4 == wet CH4 here!!!
-        "ch4": "wetch4_spec",
+        "wetCH4": "wetch4",
+        "fch4soil": "fCh4Soil",
     }
 
     def _get_variable(self, wiemip_variable: str) -> str:
