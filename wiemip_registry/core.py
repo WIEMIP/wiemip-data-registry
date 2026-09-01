@@ -541,6 +541,28 @@ class WIEFile:
             return False
         return all(os.path.isfile(p) for p in pths)
 
+    def zonal_mean(
+        self,
+        start: float | None = None,
+        end: float | None = None,
+    ) -> xr.DataArray:
+        """Zonal mean of the variable at the file's native cadence and in native units. Land-only.
+        The method returns a weighted mean across longitudes.
+        Uses self.read() to open the netCDF then .mean("lon") to compute the mean over longitudes.
+        NOT wrapped by `@cache_csv` since the result is 2-d.
+        """
+        da = self.read()
+
+        if start is not None and end is not None:
+            band = da.sel(lat=slice(start, end))
+            if band.sizes.get("lat", 0) == 0:  # handle descending-lat grids
+                band = da.sel(lat=slice(end, start))
+            da = band
+
+        total = self.weighted_dataarray(da).mean("lon")
+
+        return total
+
     @cache_csv
     def latitudinal_sum(
         self,
