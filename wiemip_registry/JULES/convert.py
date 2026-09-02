@@ -1,17 +1,4 @@
 """JULES adapter.
-
-Naming (verified on the bucket): nested run dirs
-`JULESwiemipV2_<sim>_<config>/` holding files
-`JULESwiemipV2_<sim>_<var>_yr_<config>_n96.nc` (always annual). `<sim>` is bgc /
-ctl / `<forcing>_cou`. The `<config>` string IS the factorial — every run carries
-a Nitrogen/DynVeg/Permafrost/Fire combination; the README reference run
-`Nitrogen_DynVeg_Permafrost_noFire` is our `baseline`. path() is a pure transform
-— what exists is decided by read().
-
-The overshoot upload keeps the config idea but spells it differently: the config
-leads the prefix instead of trailing the sim token (`JULESwiemipV2<config>_<run>/`),
-only the fire axis was repeated, and those configs are `noFire`/`FireP####` rather
-than the full 1pct strings. cVeg and cSoil only.
 """
 
 from __future__ import annotations
@@ -80,6 +67,22 @@ class JULES(core.WIEAdapter):
     FACTORIALS = _FACTORIALS
     OVERSHOOT_FACTORIALS = _OVERSHOOT_CONFIGS
 
+    ANNUAL = {"fFireCveg", "fFireCsoil"}
+
+    wiemip_to_jules_variable_mapping = {
+        "fFireCveg": "fVegFire",
+        "fFireCsoil": "fSoilFire",
+    }
+
+    def _get_variable(self, wiemip_variable: str) -> str:
+        return self.wiemip_to_jules_variable_mapping.get(
+            wiemip_variable, wiemip_variable
+        )
+
+    def _cadence(self, variable: str) -> str:
+        """Cadence token, keyed on the registry name (as is const.ANNUAL)."""
+        return "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
+
     def land_carbon_variables(self) -> list[str]:
         """
         # No cLitter was submitted (0 files across every combo), so the land carbon
@@ -92,7 +95,8 @@ class JULES(core.WIEAdapter):
         config = self.FACTORIALS[factorial]
         tok = _sim_tok(simulation, forcing)
         run = f"JULESwiemipV2_{tok}_{config}"
-        fname = f"JULESwiemipV2_{tok}_{variable}_yr_{config}_n96.nc"  # always annual
+        var, cad = self._get_variable(variable), self._cadence(variable)
+        fname = f"JULESwiemipV2_{tok}_{var}_{cad}_{config}_n96.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / "JULES" / run / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
@@ -107,7 +111,8 @@ class JULES(core.WIEAdapter):
             simulation, f"{forcing}_{simulation.replace('_cf', '-cf')}"
         )
         run = f"JULESwiemipV2{config}_{tok}"
-        fname = f"{run}_{variable}_yr_n96.nc"  # always annual
+        var = self._get_variable(variable)
+        fname = f"{run}_{var}_{self._cadence(variable)}_n96.nc"
         return str(_OUTPUT / "overshoot" / "output" / MODEL / run / fname)
 
     def _time(self, ds: xr.Dataset):
@@ -122,7 +127,7 @@ class JULES(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        da = core.mask_fill(ds[variable])
+        da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
