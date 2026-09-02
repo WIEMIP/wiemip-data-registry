@@ -1,12 +1,4 @@
 """DLEM adapter.
-
-Naming (verified on the bucket): nested run dirs `1pctCO2_<SIM>[_<FORCING>][_ndep]/`
-holding files `DLEM_[<forcing>_]<sim>_<var>_<cad>_05.nc`. DLEM's reference run is
-the `_ndep` dir (baseline has ndep in the dir name but the filename has no
-suffix) for bgc/cou/rad; ctrl is the bare `1pctCO2_CTRL`. The
-ndep-vs-not split is genuinely model-specific, so `baseline` reproduces that
-curated mapping and other DLEM factorials are left for later. path() is a pure
-transform — what exists is decided by read().
 """
 
 from __future__ import annotations
@@ -21,13 +13,13 @@ MODEL = "DLEM"
 _OUTPUT = DATA_ROOT
 _AREA = _OUTPUT / "1pctCO2" / "output" / "DLEM" / "LAND_AREA_DLEM.nc"
 
+_OVERSHOOT_NO_FORCING_TOKEN = ("ctrl", "hist", "hist_ctrl")
+
 
 class DLEM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False  # numeric "years/months since 1850"
-    # baseline = the reference `_ndep` dirs; noNdep = the plain
-    # `1pctCO2_<SIM>` dirs whose files carry a `_noNdep` token.
     # no factorials uploaded as far as I know
     FACTORIALS = {Factorial.baseline.name: ""}
 
@@ -90,14 +82,31 @@ class DLEM(core.WIEAdapter):
         )
         return z
 
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        cad = "yr" if core.is_annual(variable) else "mon"
+        if simulation in _OVERSHOOT_NO_FORCING_TOKEN:
+            run, fpref = f"os_{simulation}", f"DLEM_{simulation}"
+        else:
+            run, fpref = f"os_future_{simulation}", f"DLEM_{forcing}_{simulation}"
+        return str(
+            _OUTPUT
+            / "overshoot"
+            / "output"
+            / "DLEM"
+            / run
+            / f"{fpref}_{variable}_{cad}_05.nc"
+        )
+
     def _time(self, ds: xr.Dataset):
-        # "years/months since 1850" -> datetime64, preserving monthly cadence.
+        # "years/months since <epoch>" -> datetime64, preserving monthly cadence.
+        # The epoch is READ OFF THE FILE, not assumed: 1pctCO2 and the overshoot
+        # hist/ctrl runs count from 1850, the overshoot scenarios from 2024.
         tu = ds["time"].attrs.get("units", "")
         tv = np.asarray(ds["time"].values).astype("int64")
-        base = np.datetime64("1850-01", "M")
+        base = core.cf_reference_month(tu)
         if "months since" in tu:
             return base + tv.astype("timedelta64[M]")
-        return base + (tv * 12).astype("timedelta64[M]")  # years since 1850
+        return base + (tv * 12).astype("timedelta64[M]")  # years since <epoch>
 
     def read(
         self, experiment, simulation, forcing, factorial, variable

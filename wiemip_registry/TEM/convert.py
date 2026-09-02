@@ -1,23 +1,5 @@
 """TEM (TEM-MDM) adapter.
 
-Discovered on the bucket (`/mnt/wiemip/1pctCO2/output/TEM/`):
-
-* Nested run sub-dirs `BGC/`, `COU/`, `CTRL/` — only these three runs were
-  uploaded (no `rad`, no `_ndep`, no sensitivity/factorial runs). Baseline only.
-* Files: `TEM-MDM_<second>_<sim>_<var>_<cad>_05.nc`, where the `<second>` token is
-  the GCM name for the coupled run (`ukesm`) and the literal `stable` for the
-  not-GCM-forced runs (`bgc`, `ctrl`). File prefix is `TEM-MDM`; the on-disk model
-  dir is `TEM`.
-* 0.5° grid (`05` token), coords `latitude`/`longitude` (lat ascending). Internal
-  netCDF variable names are the CMIP short-names already, so no renaming.
-* Time is CF `days since 1850-01-01` on a **noleap** calendar → decode_times=False
-  and convert by hand (`_time`). Annual stocks (cVeg/cSoil) use the `yr` token,
-  everything else `mon`.
-* No area / land-fraction raster is shipped, and ocean cells are NaN in the data,
-  so the area weight is the computed spherical cell area — the data's NaN mask is
-  the land mask (identical recipe to DLEM/VISIT-UT).
-
-path() is a pure token→string transform; what exists is decided by read().
 """
 
 from __future__ import annotations
@@ -31,10 +13,10 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "TEM-MDM"
 _OUTPUT = DATA_ROOT
 
-# noleap calendar: 365-day years with fixed month lengths. Cumulative day-of-year
-# at the start of each month (Jan..Dec), used to turn "days since 1850" into (year,
-# month) without leap-day drift.
 _MONTH_START = np.array([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
+
+_CRUJRA_FORCED_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
+_CRUJRA_TOKEN = "crujra3"
 
 
 class TEM(core.WIEAdapter):
@@ -57,14 +39,23 @@ class TEM(core.WIEAdapter):
         fname = f"TEM-MDM_{second}_{simulation}_{variable}_{cad}_05.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / "TEM" / run_dir / fname)
 
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        second = (
+            _CRUJRA_TOKEN
+            if simulation in _CRUJRA_FORCED_SIMULATIONS
+            else forcing.lower()
+        )
+        cad = "yr" if core.is_annual(variable) else "mon"
+        fname = f"TEM-MDM_{second}_{simulation}_{variable}_{cad}_05.nc"
+        return str(_OUTPUT / "overshoot" / "output" / "TEM" / simulation / fname)
+
     def _time(self, ds: xr.Dataset):
-        """noleap `days since 1850-01-01` -> datetime64[M], preserving cadence."""
+        base = core.cf_reference_month(ds["time"].attrs.get("units", ""))
         days = np.asarray(ds["time"].values, dtype="float64")
-        year = 1850 + np.floor(days / 365.0).astype("int64")
+        years = np.floor(days / 365.0).astype("int64")
         doy = np.mod(days, 365.0)
         month = np.searchsorted(_MONTH_START, doy, side="right") - 1  # 0..11
-        total_months = (year - 1970) * 12 + month
-        return np.datetime64("1970-01", "M") + total_months.astype("timedelta64[M]")
+        return base + (years * 12 + month).astype("timedelta64[M]")
 
     def read(
         self, experiment, simulation, forcing, factorial, variable

@@ -377,6 +377,23 @@ def to_datetime64(values) -> np.ndarray:
     return arr.astype("datetime64[us]")
 
 
+def cf_reference_month(units: str) -> np.datetime64:
+    """The reference date of a CF `"<unit> since <date>"` string, as `datetime64[M]`.
+
+    For the models read with `decode_times=False`, whose `_time` hook decodes the axis
+    by hand. Those hooks used to hardcode a 1850 epoch, which is right for every
+    1pctCO2 file and for the overshoot hist/ctrl runs but WRONG for the overshoot
+    scenarios: DLEM and TEM both wrote those with a `since 2024-01-01` reference, so a
+    hardcoded 1850 dated the 2024-2300 runs as 1850-2126 — a silent 174-year shift that
+    also made a scenario un-joinable with its own historical run. Read the epoch off the
+    file instead.
+    """
+    _, since, reference = units.partition("since")
+    if not since:
+        raise ValueError(f"not a CF 'unit since date' units string: {units!r}")
+    return np.datetime64(reference.strip()[:7], "M")  # 'YYYY-MM'
+
+
 def years_to_datetime(values) -> np.ndarray:
     """Numeric (possibly fractional) *calendar* years -> `datetime64[M]`, keeping
     sub-annual resolution: year = floor(v), month = round(frac * 12) clamped 0..11.
