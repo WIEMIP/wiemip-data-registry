@@ -1,3 +1,4 @@
+from wiemip_registry.BEPS.convert import BEPS
 from wiemip_registry.BiomeE.convert import BiomeE
 from wiemip_registry.CLASSIC.convert import CLASSIC
 from wiemip_registry.CLM.convert import CLM
@@ -13,6 +14,7 @@ from wiemip_registry.VISIT_UT.convert import VISIT_UT
 from wiemip_registry.core import Model
 
 adapters = {
+    "BEPS": BEPS(),
     "BiomeE": BiomeE(),
     "CLASSIC": CLASSIC(),
     "CLM": CLM(),
