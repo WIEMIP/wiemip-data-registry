@@ -6,3 +6,4 @@ figures/
 MY_AGENTS.md
 *.ipynb
 validation/
+uv.lock
