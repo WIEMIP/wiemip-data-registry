@@ -16,8 +16,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT
 
-_SFTLF = _OUTPUT / "1pctCO2" / "output" / "JSBACH" / "sftlf_1.nc"
-
 # Overshoot hist/ctrl are CRUJRA-driven; the scenarios carry the GCM pattern.
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
@@ -91,6 +89,10 @@ class JSBACH(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return _OUTPUT / "1pctCO2" / "output" / "JSBACH" / "sftlf_1.nc"
+
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²] (ocean -> NaN on the data)."""
         ref = xr.open_dataset(
@@ -105,7 +107,9 @@ class JSBACH(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        sftlf = core.rename_latlon(xr.open_dataset(_SFTLF)["sftlf"], self.LAT, self.LON)
+        sftlf = core.rename_latlon(
+            xr.open_dataset(self._area_weight_path)["sftlf"], self.LAT, self.LON
+        )
         return core.rename_latlon(
             (cell * sftlf.values).astype("float32"), self.LAT, self.LON
         )

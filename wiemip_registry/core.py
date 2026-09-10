@@ -247,6 +247,14 @@ class WIEAdapter(ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    @property
+    def _area_weight_path(self):
+        """
+        The path to the raster that contains the spatial weights for each model.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def _compute_weights(self) -> xr.DataArray:
         """Grid-cell weight [m2] for this model, per its README (provided raster
         OR computed spherical area), standardized to ('lat', 'lon')."""

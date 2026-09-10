@@ -47,11 +47,12 @@ class BEPS(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return self.path("1pctCO2", "bgc", "stable", Factorial.baseline.name, "cVeg")
+
     def _compute_weights(self) -> xr.DataArray:
-        ref = xr.open_dataset(
-            self.path("1pctCO2", "bgc", "stable", Factorial.baseline.name, "cVeg"),
-            decode_times=self.DECODE,
-        )
+        ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
         area = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
         return core.rename_latlon(area, self.LAT, self.LON)

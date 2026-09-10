@@ -68,10 +68,12 @@ class BiomeE(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return _OUTPUT / "1pctCO2" / "output" / "BiomeE" / "veg_area.nc"
+
     def _compute_weights(self) -> xr.DataArray:
         """Provided vegetated-area raster [m²] (BiomeE README recipe)."""
-        a = xr.open_dataset(_OUTPUT / "1pctCO2" / "output" / "BiomeE" / "veg_area.nc")[
-            "veg_area"
-        ]
+        a = xr.open_dataset(self._area_weight_path)["veg_area"]
         a = a.drop_vars("time", errors="ignore")
         return core.rename_latlon(a, self.LAT, self.LON).astype("float32")

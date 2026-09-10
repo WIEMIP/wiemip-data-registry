@@ -26,7 +26,6 @@ _FACTORIALS = {
     Factorial.noPermafrost.name: ("nopermafrost", ""),
     Factorial.noFire_noPermafrost.name: ("nopermafrost_nofire", ""),
 }
-_AREA = _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / "gridcell_area.nc"
 
 
 class LPX_Bern(core.WIEAdapter):
@@ -99,7 +98,11 @@ class LPX_Bern(core.WIEAdapter):
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / "gridcell_area.nc"
+
     def _compute_weights(self) -> xr.DataArray:
         """Provided land-only grid-cell area raster [m²] (LPX-Bern README)."""
-        a = xr.open_dataset(_AREA)["area"]
+        a = xr.open_dataset(self._area_weight_path)["area"]
         return core.rename_latlon(a.astype("float32"), self.LAT, self.LON)

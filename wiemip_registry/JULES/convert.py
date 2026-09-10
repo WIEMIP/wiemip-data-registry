@@ -10,7 +10,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "JULES"
 _OUTPUT = DATA_ROOT
-_LANDFRAC = _OUTPUT / "1pctCO2" / "output" / "JULES" / "landfrac_n96.nc"
 
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
@@ -132,6 +131,10 @@ class JULES(core.WIEAdapter):
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return _OUTPUT / "1pctCO2" / "output" / "JULES" / "landfrac_n96.nc"
+
     def _compute_weights(self) -> xr.DataArray:
         """Spherical cell area × land fraction (ocean fill ~1e37 -> 0)."""
         ref = xr.open_dataset(
@@ -146,6 +149,6 @@ class JULES(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        land = xr.open_dataset(_LANDFRAC)["land"]
+        land = xr.open_dataset(self._area_weight_path)["land"]
         land = land.where(land <= 1.0, 0.0)
         return core.rename_latlon((cell * land).astype("float32"), self.LAT, self.LON)

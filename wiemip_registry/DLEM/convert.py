@@ -1,5 +1,4 @@
-"""DLEM adapter.
-"""
+"""DLEM adapter."""
 
 from __future__ import annotations
 
@@ -11,7 +10,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial, OnePctSimulation
 
 MODEL = "DLEM"
 _OUTPUT = DATA_ROOT
-_AREA = _OUTPUT / "1pctCO2" / "output" / "DLEM" / "LAND_AREA_DLEM.nc"
 
 _OVERSHOOT_NO_FORCING_TOKEN = ("ctrl", "hist", "hist_ctrl")
 
@@ -118,6 +116,10 @@ class DLEM(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return _OUTPUT / "1pctCO2" / "output" / "DLEM" / "LAND_AREA_DLEM.nc"
+
     def _compute_weights(self) -> xr.DataArray:
         """Provided land-area raster `LAND_AREA_DLEM.nc` [km2 -> m2]."""
         ref = xr.open_dataset(
@@ -130,7 +132,7 @@ class DLEM(core.WIEAdapter):
             ),
             decode_times=self.DECODE,
         )
-        a = xr.open_dataset(_AREA)["LAND_AREA"] * 1e6  # km2 -> m2
+        a = xr.open_dataset(self._area_weight_path)["LAND_AREA"] * 1e6  # km2 -> m2
         a = a.sel({self.LAT: ref[self.LAT], self.LON: ref[self.LON]})
         ref.close()
         return core.rename_latlon(a.astype("float32"), self.LAT, self.LON)

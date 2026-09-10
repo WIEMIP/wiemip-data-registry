@@ -89,11 +89,12 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         return core.standardize(core.mask_fill(da), self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return self.path("1pctCO2", "bgc", "stable", "baseline", "cVeg")
+
     def _compute_weights(self) -> xr.DataArray:
-        ref = xr.open_dataset(
-            self.path("1pctCO2", "bgc", "stable", "baseline", "cVeg"),
-            decode_times=self.DECODE,
-        )
+        ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
         return cell

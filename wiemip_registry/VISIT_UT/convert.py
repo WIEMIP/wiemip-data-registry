@@ -91,18 +91,13 @@ class VISIT_UT(core.WIEAdapter):
             )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg")
+
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²]."""
-        ref = xr.open_dataset(
-            self.path(
-                "1pctCO2",
-                "bgc",
-                "ukesm",
-                "baseline",
-                "cVeg",
-            ),
-            decode_times=self.DECODE,
-        )
+        ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
         a = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
         return core.rename_latlon(a, self.LAT, self.LON)

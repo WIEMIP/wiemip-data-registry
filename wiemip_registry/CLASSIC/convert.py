@@ -46,14 +46,6 @@ _FACTORIALS = {
     Factorial.noNitrogen.name: ("", "_noNitrogen"),
     Factorial.noFire_noNitrogen.name: ("", "_noFire_noNitrogen"),
 }
-_SFTLF = (
-    _OUTPUT
-    / "1pctCO2"
-    / "output"
-    / "CLASSIC"
-    / "CLASSIC_stable_1pctCO2-BGC"
-    / "CLASSIC_1pctCO2-BGC_land_fraction_ann_1deg.nc"
-)
 
 
 class CLASSIC(core.WIEAdapter):
@@ -129,6 +121,17 @@ class CLASSIC(core.WIEAdapter):
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
+    @property
+    def _area_weight_path(self):
+        return (
+            _OUTPUT
+            / "1pctCO2"
+            / "output"
+            / "CLASSIC"
+            / "CLASSIC_stable_1pctCO2-BGC"
+            / "CLASSIC_1pctCO2-BGC_land_fraction_ann_1deg.nc"
+        )
+
     def _compute_weights(self) -> xr.DataArray:
         """Spherical cell area × static land fraction (sftlf)."""
         ref = xr.open_dataset(
@@ -143,7 +146,7 @@ class CLASSIC(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        sftlf = xr.open_dataset(_SFTLF)["sftlf"]
+        sftlf = xr.open_dataset(self._area_weight_path)["sftlf"]
         return core.rename_latlon(
             (cell * sftlf.values).astype("float32"), self.LAT, self.LON
         )

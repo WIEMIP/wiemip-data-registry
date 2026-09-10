@@ -145,10 +145,14 @@ class CLM(core.WIEAdapter):
             return xr.concat(pools, dim=labels).rename(variable)
         return self._read_one(experiment, simulation, forcing, factorial, variable)
 
+    @property
+    def _area_weight_path(self):
+        return self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg")
+
     def _compute_weights(self) -> xr.DataArray:
         """Land area per cell [m²] from the shipped `area` (km²) and `landfrac`."""
         ref = xr.open_dataset(
-            self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg"),
+            self._area_weight_path,
             decode_times=self.DECODE,
         )
         weights = ref["area"] * 1e6 * ref["landfrac"]
