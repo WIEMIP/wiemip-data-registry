@@ -1,6 +1,4 @@
-"""TEM (TEM-MDM) adapter.
-
-"""
+"""TEM (TEM-MDM) adapter."""
 
 from __future__ import annotations
 

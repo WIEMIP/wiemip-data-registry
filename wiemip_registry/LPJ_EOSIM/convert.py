@@ -41,9 +41,7 @@ class LPJ_EOSIM(core.WIEAdapter):
         return (
             "mon"
             if variable in self.MONTHLY
-            else "yr"
-            if variable in self.ANNUAL or core.is_annual(variable)
-            else "mon"
+            else "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
         )
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
@@ -56,9 +54,15 @@ class LPJ_EOSIM(core.WIEAdapter):
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        run = simulation if simulation in _NO_FORCING_TOKEN else f"{forcing.lower()}_{simulation}"
+        run = (
+            simulation
+            if simulation in _NO_FORCING_TOKEN
+            else f"{forcing.lower()}_{simulation}"
+        )
         fname = f"{_PREFIX}_{run}_{variable}_{self._cadence(variable)}_05.nc"
-        return str(_OUTPUT / "overshoot" / "output" / MODEL / f"{_PREFIX}_{run}" / fname)
+        return str(
+            _OUTPUT / "overshoot" / "output" / MODEL / f"{_PREFIX}_{run}" / fname
+        )
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)

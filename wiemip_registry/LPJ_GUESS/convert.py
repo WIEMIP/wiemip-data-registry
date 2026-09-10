@@ -1,5 +1,4 @@
-"""LPJ-GUESS adapter.
-"""
+"""LPJ-GUESS adapter."""
 
 from __future__ import annotations
 

@@ -1,5 +1,4 @@
-"""JULES adapter.
-"""
+"""JULES adapter."""
 
 from __future__ import annotations
 
