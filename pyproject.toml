@@ -49,5 +49,11 @@ wiemip-data-processing = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.6",
     "wiemip-data-processing",
 ]
+
+[tool.ruff.lint]
+# pyflakes + isort; formatting is black's job.
+select = ["E4", "E7", "E9", "F", "I"]

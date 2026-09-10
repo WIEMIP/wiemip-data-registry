@@ -44,8 +44,8 @@ Below are some helpful links to key functions and objects:
 - [The list of models currently registered](https://wiemip.github.io/docs/api/wiemip_registry/adapters.html#models). Import with `import wiemip_registry as wr; models = wr.models`. Useful for iterating over the set of reviewed models.
 """
 
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
-
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 import wiemip_registry
 
@@ -56,12 +56,14 @@ try:
 except PackageNotFoundError:  # running from a raw source tree, not installed
     __version__ = "0+unknown"
 
-from wiemip_registry.core import WIEFile
-import wiemip_registry.const as const
-from wiemip_registry.adapters import adapters, models
-from wiemip_registry.variables import VARIABLES as variables
-from wiemip_registry.variable_overrides import extra_variables
 import warnings
+
+import wiemip_registry.const as const
+from wiemip_registry import core
+from wiemip_registry.adapters import adapters, models
+from wiemip_registry.core import WIEFile
+from wiemip_registry.variable_overrides import extra_variables
+from wiemip_registry.variables import VARIABLES as variables
 
 one_percent_simulations = [s.name for s in const.OnePctSimulation]
 overshoot_simulations = [s.name for s in const.OvershootSimulation]

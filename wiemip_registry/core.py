@@ -12,8 +12,8 @@ aggregation), all seeded from the proven `extract.py`.
 from __future__ import annotations
 
 import abc
-import os
 import functools
+import os
 from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
@@ -246,8 +246,8 @@ class WIEAdapter(ABC):
         """
         raise NotImplementedError()
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def _area_weight_path(self):
         """
         The path to the raster that contains the spatial weights for each model.

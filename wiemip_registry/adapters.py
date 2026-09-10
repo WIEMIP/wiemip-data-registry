@@ -1,18 +1,16 @@
 from wiemip_registry.BEPS.convert import BEPS
-from wiemip_registry.BiomeE.convert import BiomeE
 from wiemip_registry.CLASSIC.convert import CLASSIC
 from wiemip_registry.CLM.convert import CLM
 from wiemip_registry.CLM_FATES.convert import CLM_FATES
+from wiemip_registry.core import Model
 from wiemip_registry.DLEM.convert import DLEM
 from wiemip_registry.JSBACH.convert import JSBACH
 from wiemip_registry.JULES.convert import JULES
-from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
 from wiemip_registry.LPJ_GUESS.convert import LPJ_GUESS
 from wiemip_registry.LPJmL6.convert import LPJmL6
 from wiemip_registry.LPX_Bern.convert import LPX_Bern
 from wiemip_registry.TEM.convert import TEM
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
-from wiemip_registry.core import Model
 
 adapters = {
     "BEPS": BEPS(),

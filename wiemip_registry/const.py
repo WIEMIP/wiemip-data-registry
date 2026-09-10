@@ -1,6 +1,6 @@
 import os
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 
 # where the data lives. Can overwrite with export WIEMIP_DATA_ROOT=/your/value/here,
 # though you'll have to run it in every session, so you can also add to .bashrc.
@@ -146,7 +146,7 @@ class OnePctSimulation(Enum):
 
 
 class OvershootSimulation(Enum):
-    l = 7
+    l = 7  # noqa: E741 -- the ScenarioMIP "L" scenario, spelled as the protocol does
     hl = 8
     hl_cf = 9
     m = 10
