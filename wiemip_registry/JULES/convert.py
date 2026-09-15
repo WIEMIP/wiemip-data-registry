@@ -71,6 +71,8 @@ class JULES(core.WIEAdapter):
     wiemip_to_jules_variable_mapping = {
         "fFireCveg": "fVegFire",
         "fFireCsoil": "fSoilFire",
+        # JULES spells wetland methane `fwetch4`; the vocab name is `wetCH4`.
+        "wetCH4": "fwetch4",
     }
 
     def _get_variable(self, wiemip_variable: str) -> str:
