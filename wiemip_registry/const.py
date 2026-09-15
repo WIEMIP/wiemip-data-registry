@@ -196,4 +196,7 @@ extra_factorials: tuple[str, ...] = (
     "noNitrogen_noPermafrostC",
     # CLM's second run set (vs the hh baseline)
     "flat",
+    # DVM-DOS-TEM turned its wetland module off, alone and with fire
+    "noWetland",
+    "noFire_noWetland",
 )
