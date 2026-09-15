@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 
 import numpy as np
@@ -149,6 +150,9 @@ class DVM_DOS_TEM(core.WIEAdapter):
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
+        )
+        logging.info(
+            "DVM-DOS-TEM is a boreal, not global, model and as such its results shouldn't be directly compared to global totals from other models."
         )
         ds = self._canonical_grid(ds)
         warnings.warn(
