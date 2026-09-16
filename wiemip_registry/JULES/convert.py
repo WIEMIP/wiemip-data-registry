@@ -5,10 +5,12 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import DATA_ROOT, PG, Factorial
 
 MODEL = "JULES"
 _OUTPUT = DATA_ROOT
+
+_NC_FILL_FLOAT = 9.969209968386869e36
 
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
@@ -67,6 +69,8 @@ class JULES(core.WIEAdapter):
 
     ANNUAL = {"fFireCveg", "fFireCsoil", "fFirepft"}
     MONTHLY = {"wetfrac"}
+
+    _units_seen: dict[str, str] = {}
 
     wiemip_to_jules_variable_mapping = {
         "fFireCveg": "fVegFire",
@@ -130,7 +134,18 @@ class JULES(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
+        da = da.where(da < _NC_FILL_FLOAT)  # undeclared fill, see _NC_FILL_FLOAT
+        self._units_seen[variable] = str(da.attrs.get("units", ""))
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
+
+    def to_pgc(self, total, variable):
+        # line below overrides units
+        units = self._units_seen.get(variable, "").replace(" ", "")
+        if core.kind_of(variable) == "flux" and units.endswith("yr-1"):
+            series = total.to_series() / PG
+            series.name = variable
+            return series
+        return super().to_pgc(total, variable)
 
     @property
     def _area_weight_path(self):
