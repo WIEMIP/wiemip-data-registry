@@ -51,8 +51,8 @@ class DVM_DOS_TEM(core.WIEAdapter):
     }
 
     def land_carbon_variables(self) -> list[str]:
-        """cVeg + cSoil. UNCONFIRMED with the group."""
-        return ["cVeg", "cSoil"]
+        """cVeg + cSoil + cCwd. Confirmed with Elchin."""
+        return ["cVeg", "cSoil", "cCwd"]
 
     def _cadence(self, variable: str) -> str:
         return "yr" if variable in _ANNUAL or core.is_annual(variable) else "mon"
