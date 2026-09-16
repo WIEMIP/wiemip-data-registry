@@ -88,8 +88,6 @@ class DVM_DOS_TEM(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        # Bare sim token for the run dir, and no forcing token anywhere — `forcing` is
-        # accepted and ignored so every pattern resolves to the one uploaded run.
         run = _OVERSHOOT_SIMULATION_TOKENS.get(simulation, simulation)
         cad = self._cadence(variable)
         return str(
@@ -108,21 +106,6 @@ class DVM_DOS_TEM(core.WIEAdapter):
         return ds.rename({"y": self.LAT, "x": self.LON})
 
     def _time(self, ds: xr.Dataset, experiment: str, simulation: str, variable: str):
-        """Synthesize the time axis — the uploaded one is unusable.
-
-        Every file DVM-DOS-TEM uploaded carries a `time` coord whose first element is
-        0.0 and whose every remaining element is NaN, so there is nothing to decode:
-        decoding it yields NaT for all but the first step. The step COUNTS are right
-        though (150/1800 for 1pctCO2, 174/2088 for overshoot hist+controls, 277/3324
-        for the scenarios), so the axis is rebuilt from the count and the protocol
-        start year.
-
-        The declared CF epoch is not used and must not be: the scenarios say
-        `days since 1901-01-01`, which is wrong in the other direction from the
-        1850-hardcoding bug this function exists to avoid (`core.cf_reference_month`).
-        Flagged to the group — once they re-upload a real axis, delete this and decode
-        it like everyone else.
-        """
         if experiment == ONE_PERCENT_CO2_KEY:
             start_year, expected_years = _ONE_PCT_SPAN
         elif simulation in _HISTORICAL_OVERSHOOT_SIMULATIONS:
