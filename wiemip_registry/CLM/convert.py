@@ -42,15 +42,22 @@ _POOL_SPLITS = {
     "rhPools": {p: f"rhPools_{p}" for p in ("cwd", "l1", "l2", "l3", "s1", "s2", "s3")},
 }
 
+# The noNitrogen set spells its run dir with a `noN` token AFTER the pattern
+# (`flat_ukesm_noN_bgc/`) and stamps a year span on every filename inside it
+# (`…_cVeg.1850-2000.nc`). 1pctCO2 only — the overshoot arm is `hh` throughout.
+_FACTORIAL_RUN_TOKENS = {Factorial.noNitrogen.name: "noN"}
+_FACTORIAL_YEAR_SPANS = {Factorial.noNitrogen.name: ".1850-2000"}
+
 
 class CLM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False  # mixed "yr" / noleap "hours since 1850" axis, decoded by hand
-    # The factorial picks the run set: hh (baseline) or flat, CLM's two uploads.
-    # flat's ctrl originally sat loose at the model-dir top (unreachable); moved
-    # into flat_ukesm_ctrl/ on the bucket 2026-08-21, so all runs resolve here.
-    FACTORIALS = {Factorial.baseline.name: "hh", "flat": "flat"}
+    FACTORIALS = {
+        Factorial.baseline.name: "hh",
+        "flat": "flat",
+        Factorial.noNitrogen.name: "flat",
+    }
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -65,8 +72,10 @@ class CLM(core.WIEAdapter):
         # Validated with Will Wieder on 8/17/2026
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         token = forcing.lower() if gcm_forced else "ukesm"
-        run_dir = f"{prefix}_{token}_{simulation}"
-        fname = f"clm6_{prefix}_{token}_{simulation}_{variable}.nc"
+        run_token = _FACTORIAL_RUN_TOKENS.get(factorial, "")
+        run_dir = "_".join(filter(None, (prefix, token, run_token, simulation)))
+        year_span = _FACTORIAL_YEAR_SPANS.get(factorial, "")
+        fname = f"clm6_{run_dir}_{variable}{year_span}.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
 
     def _overshoot_files(self, simulation, forcing, factorial, variable) -> list[str]:

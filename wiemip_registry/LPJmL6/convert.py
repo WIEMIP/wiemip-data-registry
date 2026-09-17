@@ -31,7 +31,7 @@ class LPJmL6(core.WIEAdapter):
         """
         return ["cLitter", "cVeg", "cSoil"]
 
-    yearly = {"alt", "fNHarvest"}
+    yearly = {"alt", "fNHarvest", "cLeafpft", "cRootpft", "cWoodpft"}
 
     def _get_variable(self, wiemip_variable: str) -> str:
         return wiemip_variable

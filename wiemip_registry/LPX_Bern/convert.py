@@ -49,6 +49,8 @@ class LPX_Bern(core.WIEAdapter):
     wiemip_to_lpx_bern_variable_mapping = {
         "fFireLitter": "fFireCLitter",
         "nOrgSoilpft": "nSoilpft",
+        # soil methane uptake (from metadata: ch4 - fCH4Fire - wetCH4)
+        "fch4soil": "ch4soil",
     }
 
     def _get_variable(self, wiemip_variable: str) -> str:

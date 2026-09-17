@@ -11,9 +11,18 @@ MODEL = "LPJ-EOSIM"  # model dir on disk (hyphenated)
 _PREFIX = "LPJ_EOSIM"  # run sub-dir and file prefix (underscored)
 _OUTPUT = DATA_ROOT
 
-# Overshoot runs driven by CRUJRA rather than a GCM pattern: their dir/file names carry
-# no forcing token. Verified for `hist`; ctrl/hist_ctrl are not uploaded yet.
-_NO_FORCING_TOKEN = {"hist", "hist_ctrl", "ctrl"}
+# Overshoot runs driven by CRUJRA rather than a GCM pattern. The run DIR drops the
+# forcing token, but the filenames inside do NOT -- they fill the forcing slot with a
+# repeat of the sim token, and hist_ctrl shortens both halves to `ctrl`:
+#   LPJ_EOSIM_hist/      LPJ_EOSIM_hist_hist_<var>_<cad>_05.nc
+#   LPJ_EOSIM_hist_ctrl/ LPJ_EOSIM_ctrl_ctrl_<var>_<cad>_05.nc
+# Both verified on the 2026-09-16 listing (97 files each). `ctrl` alone is still not
+# uploaded and is grouped with hist_ctrl on the assumption it spells the same way.
+_CRUJRA_FILE_TOKENS = {
+    "hist": "hist_hist",
+    "hist_ctrl": "ctrl_ctrl",
+    "ctrl": "ctrl_ctrl",
+}
 
 
 class LPJ_EOSIM(core.WIEAdapter):
@@ -54,14 +63,13 @@ class LPJ_EOSIM(core.WIEAdapter):
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        run = (
-            simulation
-            if simulation in _NO_FORCING_TOKEN
-            else f"{forcing.lower()}_{simulation}"
-        )
-        fname = f"{_PREFIX}_{run}_{variable}_{self._cadence(variable)}_05.nc"
+        if simulation in _CRUJRA_FILE_TOKENS:
+            run_dir, file_run = simulation, _CRUJRA_FILE_TOKENS[simulation]
+        else:
+            run_dir = file_run = f"{forcing.lower()}_{simulation}"
+        fname = f"{_PREFIX}_{file_run}_{variable}_{self._cadence(variable)}_05.nc"
         return str(
-            _OUTPUT / "overshoot" / "output" / MODEL / f"{_PREFIX}_{run}" / fname
+            _OUTPUT / "overshoot" / "output" / MODEL / f"{_PREFIX}_{run_dir}" / fname
         )
 
     def _time(self, ds: xr.Dataset):

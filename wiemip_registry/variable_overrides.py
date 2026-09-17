@@ -4,4 +4,7 @@ extra_variables = [
     "nep",  # net ecosystem exchange
     "nProduct",  # product-pool N
     "trans",  # transpiration
+    "cLeafpft",
+    "cRootpft",
+    "cWoodpft",
 ]
