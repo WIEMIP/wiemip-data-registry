@@ -59,6 +59,14 @@ class CLM(core.WIEAdapter):
         Factorial.noNitrogen.name: "flat",
     }
 
+    # overshoot band validation: global sums ~1e11 for these, ceiling is 1e6
+    PROVISIONAL_DATA = (
+        ("overshoot", "LWalbedo"),
+        ("overshoot", "albedo"),
+        ("overshoot", "fpar"),
+        ("overshoot", "swalbedo"),
+    )
+
     def land_carbon_variables(self) -> list[str]:
         """
         Confirmed by Will Wieder on 11/08/2026 to be cVeg and cSoil.

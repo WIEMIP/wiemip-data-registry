@@ -11,28 +11,31 @@ MODEL = "LPJ-EOSIM"  # model dir on disk (hyphenated)
 _PREFIX = "LPJ_EOSIM"  # run sub-dir and file prefix (underscored)
 _OUTPUT = DATA_ROOT
 
-# Overshoot runs driven by CRUJRA rather than a GCM pattern. The run DIR drops the
-# forcing token, but the filenames inside do NOT -- they fill the forcing slot with a
-# repeat of the sim token, and hist_ctrl shortens both halves to `ctrl`:
-#   LPJ_EOSIM_hist/      LPJ_EOSIM_hist_hist_<var>_<cad>_05.nc
-#   LPJ_EOSIM_hist_ctrl/ LPJ_EOSIM_ctrl_ctrl_<var>_<cad>_05.nc
-# Both verified on the 2026-09-16 listing (97 files each). `ctrl` alone is still not
-# uploaded and is grouped with hist_ctrl on the assumption it spells the same way.
-_CRUJRA_FILE_TOKENS = {
-    "hist": "hist_hist",
-    "hist_ctrl": "ctrl_ctrl",
-    "ctrl": "ctrl_ctrl",
-}
+# Overshoot runs driven by CRUJRA rather than a GCM pattern: the run dir and the file
+# prefix both drop the forcing token, so dir == file prefix:
+#   LPJ_EOSIM_hist/      LPJ_EOSIM_hist_<var>_<cad>_05.nc
+#   LPJ_EOSIM_hist_ctrl/ LPJ_EOSIM_hist_ctrl_<var>_<cad>_05.nc
+# The 2026-09-15 upload doubled the sim token instead (`hist_hist`, `ctrl_ctrl`); the
+# 2026-09-17 re-upload fixed it but left those 156 files in place, so they are stale
+# duplicates (identical sizes) and deliberately unreachable. `ctrl` alone is still not
+# uploaded and is grouped here on the assumption it spells the same way.
+_CRUJRA_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 
 
 class LPJ_EOSIM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True  # gregorian "days since 1850-01-01" -> datetime64 directly
+    # All five uploaded 2026-09-16. noPermafrost omits the soil-thermal set
+    # (alt/soilIce/soilMoist/soilT) and noFire the fire diagnostics + wind, so those
+    # runs carry 74 / 67 of the 78 variables; noDynVeg exists for stable_bgc,
+    # ukesm_cou and ukesm_rad only.
     FACTORIALS = {
         Factorial.baseline.name: "",
         Factorial.noFire.name: "_noFire",
         Factorial.noNitrogen.name: "_noNitrogen",
+        Factorial.noPermafrost.name: "_noPermafrost",
+        "noDynVeg": "_noDynVeg",
     }
 
     # Cadence overrides of const.ANNUAL (verified on the bucket, 2026-08-28
@@ -63,8 +66,8 @@ class LPJ_EOSIM(core.WIEAdapter):
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        if simulation in _CRUJRA_FILE_TOKENS:
-            run_dir, file_run = simulation, _CRUJRA_FILE_TOKENS[simulation]
+        if simulation in _CRUJRA_SIMULATIONS:
+            run_dir = file_run = simulation
         else:
             run_dir = file_run = f"{forcing.lower()}_{simulation}"
         fname = f"{_PREFIX}_{file_run}_{variable}_{self._cadence(variable)}_05.nc"

@@ -67,6 +67,16 @@ class InvalidExperimentError(Exception):
     pass
 
 
+class ProvisionalDataError(Exception):
+    """Raised when a variable the group has flagged as provisional is read.
+
+    Provisional data is on the bucket but not QA'd, so the registry treats it as
+    absent: `exists()` returns False and the data methods raise this.
+    """
+
+    pass
+
+
 def ensure_valid(method):
     """
     Hand-deny any strange combination of arguments.
@@ -164,6 +174,9 @@ class WIEAdapter(ABC):
     # overshoot configuration (only JULES did).
     OVERSHOOT_FACTORIALS: dict[str, str] = {}
 
+    # data this group still needs to QA or debug
+    PROVISIONAL_DATA: tuple[tuple[str, str], ...] = ()
+
     def land_carbon_variables(self) -> list[str]:
         """The variables that make up each model's land carbon stock. Usually some combination
         of cVeg, cSoil, cLitter, and cOther.
@@ -175,6 +188,13 @@ class WIEAdapter(ABC):
         """The factorial names this model accepts (drives namespace validation
         and tab-completion of the factorial axis)."""
         return tuple(self.FACTORIALS)
+
+    @property
+    def provisional_data(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self.PROVISIONAL_DATA)
+
+    def is_provisional(self, experiment: str, variable: str) -> bool:
+        return (experiment, variable) in self.provisional_data
 
     @abc.abstractmethod
     def one_pct_path(
@@ -469,6 +489,9 @@ def cache_csv(method):
 
     @functools.wraps(method)
     def wrapper(self, start=None, end=None, overwrite=False):
+        # Before the cache, not after: a CSV written before the group flagged the
+        # variable would otherwise be served without read() ever being called.
+        self._check_provisional()
         srcs = [Path(p) for p in self.paths]  # pure transform == what read() opens
         out = _csv_path(srcs[0], start, end)
         if (
@@ -546,7 +569,11 @@ class WIEFile:
         Raises whatever opening the file raises (FileNotFoundError for a combo
         that wasn't uploaded): read() is the single source of truth for what
         exists, so the caller can catch and report it. path() never pre-judges.
+        Provisional data raises `ProvisionalDataError` — the file is there, but
+        the group has not QA'd it.
         """
+
+        self._check_provisional()
 
         if not self.exists():
             if self.invalid_combination:
@@ -583,9 +610,26 @@ class WIEFile:
             da = self.read()
         return self._adapter.weight_dataarray(da)
 
+    def _check_provisional(self) -> None:
+        """Raise if this model has flagged this variable as provisional.
+
+        The flag is per (experiment, variable) on the adapter's `PROVISIONAL_DATA`,
+        so it applies to every simulation/forcing/factorial of that variable without
+        touching the adapter's own code."""
+        if self._adapter.is_provisional(self.experiment, self.variable):
+            raise ProvisionalDataError(
+                f"{self.model} {self.variable} ({self.experiment}) is PROVISIONAL: "
+                f"the group has flagged it as not yet QA'd, so the registry treats it "
+                f"as missing. Ask the group before using it."
+            )
+
     @ensure_valid
     def exists(self):
-        """Does the file exist? Also returns false if a model hasn't been implemented yet in the registry."""
+        """Does the file exist? Also returns false if a model hasn't been implemented
+        yet in the registry, or if the variable is flagged provisional — unQA'd data
+        counts as absent, and exists() stays the non-raising probe."""
+        if self._adapter.is_provisional(self.experiment, self.variable):
+            return False
         try:
             pths = self.paths
         except (MissingFactorialError, NotImplementedError):

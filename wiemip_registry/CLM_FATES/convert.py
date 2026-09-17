@@ -40,6 +40,12 @@ class CLM_FATES(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
 
+    # overshoot band validation: global sums ~3e6 Pg yr-1 for these, ceiling is 1e6
+    PROVISIONAL_DATA = (
+        ("overshoot", "fRootLitter"),
+        ("overshoot", "fWoodLitter"),
+    )
+
     # CLM-FATES uploads wetland fraction monthly even though const.ANNUAL lists
     # wetfrac as annual
     MONTHLY = {"wetfrac"}
