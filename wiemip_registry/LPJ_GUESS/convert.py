@@ -19,6 +19,8 @@ _OUTPUT = DATA_ROOT
 _DIR_SIM_TOKENS = {"ctrl": "CRTL"}
 _FILE_SIM_TOKENS = {"ctrl": "control"}
 
+_GCM_FORCED = {"cou", "rad"}
+
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
     """Return the (run-dir, file-prefix) sim tokens for a simulation."""
@@ -65,11 +67,17 @@ class LPJ_GUESS(core.WIEAdapter):
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         base = simulation.partition("_")[0]
         run_sim, file_sim = _sim_tokens(simulation)
-        run = f"{_DIR}_{forcing}_1pctCO2-{run_sim}"
-        dir_style = (
-            base in self._DIR_STYLE_SIMULATIONS and variable in self._DIR_STYLE_PREFIX
-        )
-        prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
+        if base in _GCM_FORCED:
+            gcm = forcing.upper()
+            run = f"{MODEL}_{gcm}_1pctCO2-{run_sim}"
+            prefix = f"{_DIR}_{gcm}_1pctCO2_{file_sim}"
+        else:
+            run = f"{_DIR}_{forcing}_1pctCO2-{run_sim}"
+            dir_style = (
+                base in self._DIR_STYLE_SIMULATIONS
+                and variable in self._DIR_STYLE_PREFIX
+            )
+            prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
         name, cad = self._FILENAME_OVERRIDES.get((base, variable), (variable, None))
         cad = cad or ("yr" if core.is_annual(variable) else "mon")
         return str(

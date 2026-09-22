@@ -11,7 +11,8 @@ MODEL = "CLM-FATES"
 _OUTPUT = DATA_ROOT
 
 _FACTORIALS = {
-    Factorial.baseline.name: ("", ""),
+    Factorial.baseline.name: "",
+    Factorial.noFire.name: "nofire",
 }
 # Only ukesm was submitted for the GCM-forced sims (cou/rad), which must still spell
 # the *requested* pattern — this used to be a flat `FATES_ukesm` prefix that ignored
@@ -87,8 +88,10 @@ class CLM_FATES(core.WIEAdapter):
             vegtype = "u"
         return vegtype
 
-    def _fname(self, token: str, simulation: str, variable: str) -> str:
-        """`FATES_<token>_<sim>_land.<VAR>.tavg-<level>-hxy-<vegtype>.<cad>.glb_1.nc`
+    def _fname(
+        self, token: str, simulation: str, variable: str, factorial_token: str = ""
+    ) -> str:
+        """`FATES_<token>_<sim>_land.<VAR>.tavg-<level>-hxy-<vegtype>.<cad>.glb[_<fact>]_1.nc`
         — the same grammar in both experiments."""
         cad = (
             "mon"
@@ -106,9 +109,10 @@ class CLM_FATES(core.WIEAdapter):
 
         variable = self._get_variable(wiemip_variable=variable)
         vegtype = self._vegtype(variable)
+        fact = f"_{factorial_token}" if factorial_token else ""
         return (
             f"{_PREFIX}_{token}_{simulation}_land.{variable}"
-            f".tavg-{level}-hxy-{vegtype}.{cad}.glb_1.nc"
+            f".tavg-{level}-hxy-{vegtype}.{cad}.glb{fact}_1.nc"
         )
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
@@ -118,7 +122,7 @@ class CLM_FATES(core.WIEAdapter):
             / "1pctCO2"
             / "output"
             / MODEL
-            / self._fname(token, simulation, variable)
+            / self._fname(token, simulation, variable, self.FACTORIALS[factorial])
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
