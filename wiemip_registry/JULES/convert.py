@@ -78,7 +78,7 @@ class JULES(core.WIEAdapter):
         # JULES spells wetland methane `fwetch4`; the vocab name is `wetCH4`.
         "wetCH4": "fwetch4",
         "landCoverFrac": "pftfrac",
-        "fN2O": "fNgas",
+        # "fN2O": "fNgas",
     }
 
     def _get_variable(self, wiemip_variable: str) -> str:
