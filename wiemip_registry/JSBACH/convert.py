@@ -2,8 +2,10 @@
 
 Naming (verified on the bucket): nested run dirs holding same-named files.
 bgc/ctrl carry a `stable_` tag (`JSBACH_stable_<sim>`), cou carries the GCM
-(`JSBACH_<forcing>_cou`); the factorial is a trailing suffix. path() is a pure
-transform — what exists is decided by read() opening the file.
+(`JSBACH_<forcing>_cou`); the factorial is a trailing suffix, except the dynamic
+vegetation runs (2026-09-23), which put a `dynveg` token before the sim in the
+filename and a suffix on the dir only. path() is a pure transform — what exists is
+decided by read() opening the file.
 """
 
 from __future__ import annotations
@@ -20,14 +22,13 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
 
+_OVERSHOOT_RUN_TOKENS = {"baseline": "", "dynVeg": "dynveg"}
 
-def _stem(simulation, forcing, run_suf: str) -> str:
-    """The JSBACH run token (file prefix); the dir additionally carries `post`.
-    ndep is a simulation (bgc_ndep/cou_ndep), so the sim token already carries the
-    `_ndep`; the GCM tag keys on the BASE sim (cou/rad are the GCM-forced ones)."""
+
+def _stem(simulation, forcing, run_token: str = "") -> str:
     if simulation.split("_")[0] in ("cou", "rad"):
-        return f"JSBACH_{forcing}_{simulation}{run_suf}"
-    return f"JSBACH_stable_{simulation}{run_suf}"  # bgc, ctrl (+ _ndep)
+        return f"JSBACH_{forcing}_{run_token}{simulation}"
+    return f"JSBACH_stable_{run_token}{simulation}"  # bgc, ctrl (+ _ndep)
 
 
 class JSBACH(core.WIEAdapter):
@@ -35,10 +36,13 @@ class JSBACH(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = {
-        Factorial.baseline.name: ("", ""),
-        Factorial.noNitrogen.name: ("", "_noNitrogen"),
-        Factorial.noFire.name: ("", "_noFire"),
+        Factorial.baseline.name: ("", "", ""),
+        Factorial.noNitrogen.name: ("_noNitrogen", "", "_noNitrogen"),
+        Factorial.noFire.name: ("_noFire", "", "_noFire"),
+        "dynVeg_noNitrogen": ("_dynveg_noNitrogen", "dynveg_", ""),
+        "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
     }
+    OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -49,31 +53,38 @@ class JSBACH(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        run_suf, post = self.FACTORIALS[factorial]
-        stem = _stem(simulation, forcing, run_suf)
+        dir_suf, run_token, post = self.FACTORIALS[factorial]
         cad = "yr" if core.is_annual(variable) else "mon"
         return str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / "JSBACH"
-            / f"{stem}{post}"
-            / f"{stem}_{variable}_{cad}{post}_1.nc"
+            / f"{_stem(simulation, forcing)}{dir_suf}"
+            / f"{_stem(simulation, forcing, run_token)}_{variable}_{cad}{post}_1.nc"
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        # Run dir is the bare simulation token; no factorial axis.
+        # Run dir is the bare simulation token, `_dynveg`-suffixed for that factorial.
+        run_token = self.OVERSHOOT_FACTORIALS.get(factorial or Factorial.baseline.name)
+        if run_token is None:
+            raise core.MissingFactorialError(
+                f"{MODEL} ran no '{factorial}' overshoot config "
+                f"(has: {sorted(self.OVERSHOOT_FACTORIALS)})"
+            )
         forcing_token = (
             _CRUJRA_TOKEN if simulation in _CRUJRA_FORCED_SIMULATIONS else forcing
         )
+        run_dir = f"{simulation}_{run_token}" if run_token else simulation
+        file_token = f"{run_token}_{simulation}" if run_token else simulation
         cadence = "yr" if core.is_annual(variable) else "mon"
         return str(
             _OUTPUT
             / "overshoot"
             / "output"
             / "JSBACH"
-            / simulation
-            / f"JSBACH_{forcing_token}_{simulation}_{variable}_{cadence}_1.nc"
+            / run_dir
+            / f"JSBACH_{forcing_token}_{file_token}_{variable}_{cadence}_1.nc"
         )
 
     def _time(self, ds: xr.Dataset):

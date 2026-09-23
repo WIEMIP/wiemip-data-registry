@@ -281,7 +281,7 @@ def retrieve_overshoot_variable(
     Retrieve an overshoot variable from the WIEMIP Wasabi bucket. Forcing can be one of ukesm/ipsl/gfdl,
     simulation can be one of hist/ctrl/vl/ml/ml_cf and so on. See const.py for Enum classes containing the
     overshoot simulations.
-    Factorial is always None except for models like JULES which have submitted custom factorials with
+    Factorial is always None except for models like JULES and JSBACH which have submitted custom factorials with
     unique names. In this case, the name of the factorial will be passed through to the path() method
     without checking against the WIEMIP vocabulary.
     """
@@ -291,8 +291,6 @@ def retrieve_overshoot_variable(
 
     _sanity_check(model, forcing, simulation, variable)
 
-    # Only JULES repeated the overshoot scenarios under several configurations; every
-    # other group ran one, so the factorial stays None and their adapters ignore it.
     if factorial is not None:
         _warn_factorial(model, forcing, simulation, factorial, variable)
 

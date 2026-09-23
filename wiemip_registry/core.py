@@ -166,12 +166,9 @@ class WIEAdapter(ABC):
     _weights_cache: xr.DataArray | None = None
 
     # Per-model factorial vocabulary: canonical bucket -> however THIS model spells
-    # the factorial
-    # either overriden or set in the adapter subclass
+    # the factorial. either overriden or set in the adapter subclass
     FACTORIALS: dict[str, str] = {"baseline": ""}
 
-    # Same idea for the overshoot arm, empty unless the group ran more than one
-    # overshoot configuration (only JULES did).
     OVERSHOOT_FACTORIALS: dict[str, str] = {}
 
     # data this group still needs to QA or debug
@@ -222,8 +219,8 @@ class WIEAdapter(ABC):
         — what exists is decided by `read()`.
 
         Most groups ran a single overshoot configuration, so `factorial` is None by
-        default and those adapters ignore it. JULES is the exception: it repeated the
-        whole scenario set under five fire configs, so the factorial picks the run."""
+        default and those adapters ignore it. However factorials can pass through to overshoots by name.
+        """
         raise NotImplementedError(f"overshoot paths not yet mapped for {self.model}")
 
     def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
