@@ -1,0 +1,88 @@
+name: uncovered
+
+# Every morning, list the WIEMIP bucket and report the model-output files no legal
+# registry request reaches (.github/workflows/_uncovered.py). Files NEW since the last
+# run open an issue assigned to colligant, so the assignment email carries the list.
+#
+# The previous run's uncovered.txt lives in the actions cache, not in a commit: a push
+# to main would trigger deploy-to-hub. A cache miss (first run, or 7 days idle) seeds
+# the list and opens no issue.
+#
+# Secrets (Settings -> Secrets and variables -> Actions), READ-ONLY Wasabi keys:
+#   WASABI_READ_ACCESS_KEY_ID
+#   WASABI_READ_SECRET_ACCESS_KEY
+
+on:
+  schedule:
+    - cron: "0 13 * * *"    # 13:00 UTC = 07:00 Mountain (daylight time)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["wiemip_registry/**"]   # an adapter change can un-reach files
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uncovered
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # hatch-vcs derives the version from git tags
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the registry at this commit
+        run: pip install --quiet .
+
+      - name: List the bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_READ_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_READ_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          aws s3 ls s3://wiemip/ --recursive --endpoint-url https://s3.us-east-2.wasabisys.com > /tmp/bucket_listing.txt
+          echo "$(wc -l < /tmp/bucket_listing.txt) keys listed"
+          test "$(wc -l < /tmp/bucket_listing.txt)" -gt 1000   # a near-empty listing means the keys are wrong, not that the bucket is
+
+      - name: Restore the previous uncovered list
+        uses: actions/cache/restore@v4
+        with:
+          path: previous
+          key: uncovered-${{ github.run_id }}
+          restore-keys: uncovered-
+
+      - name: Find uncovered files
+        run: python .github/workflows/_uncovered.py /tmp/bucket_listing.txt previous/uncovered.txt
+
+      - name: Save this run's uncovered list
+        run: mkdir -p previous && cp uncovered.txt previous/
+
+      - uses: actions/cache/save@v4
+        with:
+          path: previous
+          key: uncovered-${{ github.run_id }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uncovered
+          path: uncovered.txt
+
+      - name: Open an issue for new uncovered files
+        if: hashFiles('issue.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> issue.md
+          gh issue create --assignee colligant \
+            --title "$(cat issue_title.txt) ($(date -u +%Y-%m-%d))" \
+            --body-file issue.md
