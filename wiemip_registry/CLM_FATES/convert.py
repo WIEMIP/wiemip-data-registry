@@ -14,20 +14,20 @@ _FACTORIALS = {
     Factorial.baseline.name: "",
     Factorial.noFire.name: "nofire",
 }
-# Only ukesm was submitted for the GCM-forced sims (cou/rad), which must still spell
-# the *requested* pattern — this used to be a flat `FATES_ukesm` prefix that ignored
-# `forcing` entirely, so an ipsl or gfdl request silently returned ukesm data
-# (identical global sums, no error) instead of raising for a run that was never
-# submitted. The 1pct constant-climate runs (bgc/ctrl) should be `stable` — confirmed
-# with the CLM-FATES team on 2026-08-17 — but as of that date the files on disk are
-# still labelled `ukesm` (renaming issue on their end, like BiomeE's bgc), so `stable`
-# paths correctly raise at read() until CLM-FATES re-uploads them.
 _PREFIX = "FATES"
 _GCM_FORCED = ("cou", "rad")
 
 # The counterfactual overshoot sims are hyphenated on disk (vl_cf/hl_cf uploaded
 # 2026-08, after ml_cf).
 _OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf", "vl_cf": "vl-cf", "hl_cf": "hl-cf"}
+
+# WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
+# only. FATES' own wetlandCH4 covers just the inundated fraction and it uploaded no
+# fch4soil, so both come from the net soil flux ch4, split by sign per cell and
+# timestep: wetCH4 = pos(ch4), fch4soil = neg(ch4). The wetlandCH4 upload goes
+# unread. From Juliette Bernard's script, agreed with Jessica Needham and Will
+# Wieder 2026-09-21.
+_CH4_SPLIT = ("wetCH4", "fch4soil")
 
 
 class CLM_FATES(core.WIEAdapter):
@@ -58,7 +58,6 @@ class CLM_FATES(core.WIEAdapter):
         "tair": "tas",
         "tveg": "tran",
         "firerosTotal": "fireosTotal",
-        "wetCH4": "wetlandCH4",
         "wetfrac": "wetlandFrac",
     }
 
@@ -136,12 +135,29 @@ class CLM_FATES(core.WIEAdapter):
             / self._fname(forcing.lower(), simulation, variable)
         )
 
+    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        if variable in _CH4_SPLIT:
+            return [self.path(experiment, simulation, forcing, factorial, "ch4")]
+        return super().paths(experiment, simulation, forcing, factorial, variable)
+
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)
 
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
+        if variable in _CH4_SPLIT:
+            ch4 = self.read(experiment, simulation, forcing, factorial, "ch4")
+            if variable == "wetCH4":
+                split = ch4.where(ch4 > 0, 0)
+            else:
+                split = ch4.where(ch4 < 0, 0)
+            # where() zero-fills NaN, so re-mask the ocean
+            return (
+                split.where(ch4.isel(time=0, drop=True).notnull())
+                .rename(variable)
+                .assign_attrs(units=ch4.attrs["units"])
+            )
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
