@@ -10,6 +10,29 @@ transform — what exists is decided by read() opening the file.
 The bgc family is a third grammar: CLASSIC re-ran it with the *stable*
 (constant-climate) driver rather than a GCM pattern, and dropped the forcing token
 from the file prefix — see `_STABLE_BGC`.
+Here are our 20 layers in CLASSIC. The top 15 layers are permeable soil layer (4 m), the remaining 5 (58 m) are bed rock.
+
+depth_bnds =
+  0, 0.1,
+  0.1, 0.2,
+  0.2, 0.3,
+  0.3, 0.4,
+  0.4, 0.5,
+  0.5, 0.6,
+  0.6, 0.7,
+  0.7, 0.8,
+  0.8, 0.9,
+  0.9, 1,
+  1, 1.2,
+  1.2, 1.6,
+  1.6, 2.2,
+  2.2, 3,
+  3, 4,
+  4, 7,
+  7, 12,
+  12, 22,
+  22, 42,
+  42, 62 ;
 """
 
 from __future__ import annotations
@@ -32,12 +55,6 @@ _SIM = {
     "ctrl_ndep": "CTRL-Ndep",
 }
 
-# The bgc runs were redone with the stable (constant-climate) driver — the right
-# forcing for a biogeochemically-coupled run, so there is only ONE bgc run and every
-# requested GCM pattern resolves to it. Dir `CLASSIC_stable_1pctCO2-BGC<ndep><post>/`
-# holds `CLASSIC_1pctCO2-BGC<ndep>_<var>_<cad><post>_1deg.nc` — note the file prefix
-# carries no forcing token at all. This deliberately orphans the superseded
-# `CLASSIC_UKESM_1pctCO2-BGC*` dirs: they are no longer addressable.
 _STABLE_BGC = {"bgc", "bgc_ndep"}
 
 _FACTORIALS = {
@@ -46,6 +63,11 @@ _FACTORIALS = {
     Factorial.noNitrogen.name: ("", "_noNitrogen"),
     Factorial.noFire_noNitrogen.name: ("", "_noFire_noNitrogen"),
 }
+
+# The fN2O upload (2026-08-24) is fN2Onit + fN2Odenit + fN2OFire, but WIEMIP's fN2O
+# is the soil flux only, so it is rebuilt from the two soil terms and the upload
+# itself goes unread because it includes fire emissions. Agreed with Juliette Bernard 2026-09-23.
+_FN2O_TERMS = ("fN2Onit", "fN2Odenit")
 
 
 class CLASSIC(core.WIEAdapter):
@@ -108,12 +130,26 @@ class CLASSIC(core.WIEAdapter):
         )
         return z
 
+    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        if variable == "fN2O":
+            return [
+                self.path(experiment, simulation, forcing, factorial, term)
+                for term in _FN2O_TERMS
+            ]
+        return super().paths(experiment, simulation, forcing, factorial, variable)
+
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)
 
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
+        if variable == "fN2O":
+            nit, denit = (
+                self.read(experiment, simulation, forcing, factorial, term)
+                for term in _FN2O_TERMS
+            )
+            return (nit + denit).rename(variable).assign_attrs(units=nit.attrs["units"])
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
