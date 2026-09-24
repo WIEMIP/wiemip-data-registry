@@ -48,6 +48,15 @@ _POOL_SPLITS = {
 _FACTORIAL_RUN_TOKENS = {Factorial.noNitrogen.name: "noN"}
 _FACTORIAL_YEAR_SPANS = {Factorial.noNitrogen.name: ".1850-2000"}
 
+# WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
+# only, but CLM splits its CH4 by inundation: wetCH4 is the net flux from the
+# inundated fraction and fch4soil the net flux from the rest
+# pos(wetCH4) + pos(fch4soil), fch4soil = neg(wetCH4) +
+# neg(fch4soil).
+# From Juliette Bernard's script, agreed with Will Wieder and Jessica Needham
+# 2026-09-21.
+_CH4_SPLIT = ("wetCH4", "fch4soil")
+
 
 class CLM(core.WIEAdapter):
     model = MODEL
@@ -113,18 +122,26 @@ class CLM(core.WIEAdapter):
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         return self._overshoot_files(simulation, forcing, factorial, variable)[0]
 
-    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
-        if variable in _POOL_SPLITS:
-            return [
-                path
-                for file_var in _POOL_SPLITS[variable].values()
-                for path in self.paths(
-                    experiment, simulation, forcing, factorial, file_var
-                )
-            ]
+    def _files(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        """The file(s) one on-disk variable lives in: time chunks on the overshoot arm."""
         if experiment == "overshoot":
             return self._overshoot_files(simulation, forcing, factorial, variable)
-        return super().paths(experiment, simulation, forcing, factorial, variable)
+        return [self.path(experiment, simulation, forcing, factorial, variable)]
+
+    def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
+        if variable in _POOL_SPLITS:
+            file_vars = _POOL_SPLITS[variable].values()
+        elif variable in _CH4_SPLIT:
+            file_vars = _CH4_SPLIT  # each re-split variable reads both files
+        else:
+            file_vars = (variable,)
+        return [
+            path
+            for file_var in file_vars
+            for path in self._files(
+                experiment, simulation, forcing, factorial, file_var
+            )
+        ]
 
     def _time(self, ds: xr.Dataset):
         t = ds["time"]
@@ -141,7 +158,7 @@ class CLM(core.WIEAdapter):
     ) -> xr.DataArray:
         """One on-disk variable: its (possibly time-chunked) files, concatenated."""
         chunks = []
-        for path in self.paths(experiment, simulation, forcing, factorial, variable):
+        for path in self._files(experiment, simulation, forcing, factorial, variable):
             ds = xr.open_dataset(path, decode_times=self.DECODE)
             da = core.mask_fill(ds[variable])
             chunks.append(core.standardize(da, self.LAT, self.LON, self._time(ds)))
@@ -160,6 +177,23 @@ class CLM(core.WIEAdapter):
             ]
             labels = xr.DataArray(list(split), dims="pool", name="pool")
             return xr.concat(pools, dim=labels).rename(variable)
+        if variable in _CH4_SPLIT:
+            wet, soil = (
+                self._read_one(experiment, simulation, forcing, factorial, file_var)
+                for file_var in _CH4_SPLIT
+            )
+            if variable == "wetCH4":
+                own = wet
+                split = wet.where(wet > 0, 0) + soil.where(soil > 0, 0)
+            else:
+                own = soil
+                split = wet.where(wet < 0, 0) + soil.where(soil < 0, 0)
+            # where() zero-fills NaN, so re-mask the ocean from the variable's own file
+            return (
+                split.where(own.isel(time=0, drop=True).notnull())
+                .rename(variable)
+                .assign_attrs(units=own.attrs["units"])
+            )
         return self._read_one(experiment, simulation, forcing, factorial, variable)
 
     @property
