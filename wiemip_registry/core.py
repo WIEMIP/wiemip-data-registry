@@ -490,7 +490,8 @@ def cache_csv(method):
         # variable would otherwise be served without read() ever being called.
         self._check_provisional()
         srcs = [Path(p) for p in self.paths]  # pure transform == what read() opens
-        out = _csv_path(srcs[0], start, end)
+        # use self.path because it maps to the variable actually requested.
+        out = _csv_path(Path(self.path), start, end)
         if (
             not overwrite
             and out.exists()
