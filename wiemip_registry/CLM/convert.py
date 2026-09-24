@@ -50,10 +50,9 @@ _FACTORIAL_YEAR_SPANS = {Factorial.noNitrogen.name: ".1850-2000"}
 
 # WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
 # only, but CLM splits its CH4 by inundation: wetCH4 is the net flux from the
-# inundated fraction and fch4soil the net flux from the rest, which is mostly a
-# source (saturated but not inundated soil). So both are re-split by sign, per cell
-# and timestep: wetCH4 = pos(wetCH4) + pos(fch4soil), fch4soil = neg(wetCH4) +
-# neg(fch4soil). Their sum is unchanged (it matches ch4 globally, not cell by cell).
+# inundated fraction and fch4soil the net flux from the rest
+# pos(wetCH4) + pos(fch4soil), fch4soil = neg(wetCH4) +
+# neg(fch4soil).
 # From Juliette Bernard's script, agreed with Will Wieder and Jessica Needham
 # 2026-09-21.
 _CH4_SPLIT = ("wetCH4", "fch4soil")
