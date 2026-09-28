@@ -58,7 +58,6 @@ class LPX_Bern(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     wiemip_to_lpx_bern_variable_mapping = {
-        "fFireLitter": "fFireCLitter",
         "nOrgSoilpft": "nSoilpft",
     }
 

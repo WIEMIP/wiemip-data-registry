@@ -14,7 +14,7 @@ name: uncovered
 
 on:
   schedule:
-    - cron: "0 13 * * *"    # 13:00 UTC = 07:00 Mountain (daylight time)
+    - cron: "23 6 * * *"    # GitHub starts this ~5-6 h late here -> lands ~11:00-12:30 UTC (5-6:30 am Mountain)
   workflow_dispatch:
   push:
     branches: [main]

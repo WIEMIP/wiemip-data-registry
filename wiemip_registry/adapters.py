@@ -5,6 +5,7 @@ from wiemip_registry.CLM_FATES.convert import CLM_FATES
 from wiemip_registry.core import Model
 from wiemip_registry.DLEM.convert import DLEM
 from wiemip_registry.DVM_DOS_TEM.convert import DVM_DOS_TEM
+from wiemip_registry.EDv3.convert import EDv3
 from wiemip_registry.JSBACH.convert import JSBACH
 from wiemip_registry.JULES.convert import JULES
 from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
@@ -22,6 +23,7 @@ adapters = {
     "CLM_FATES": CLM_FATES(),
     "DLEM": DLEM(),
     "DVM_DOS_TEM": DVM_DOS_TEM(),
+    "EDv3": EDv3(),
     "JSBACH": JSBACH(),
     "JULES": JULES(),
     "LPJ_EOSIM": LPJ_EOSIM(),

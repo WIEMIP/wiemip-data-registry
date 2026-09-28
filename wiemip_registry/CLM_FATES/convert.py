@@ -59,6 +59,7 @@ class CLM_FATES(core.WIEAdapter):
         "tveg": "tran",
         "firerosTotal": "fireosTotal",
         "wetfrac": "wetlandFrac",
+        "soilT": "tsl",
     }
 
     def land_carbon_variables(self) -> list[str]:
@@ -99,7 +100,7 @@ class CLM_FATES(core.WIEAdapter):
         )
         if variable in ("cSoilAbove1m", "cSoilBelow1m"):
             level = "d100cm"
-        elif variable in ("cSoilLayers", "soilIce", "soilRh"):
+        elif variable in ("cSoilLayers", "soilIce", "soilRh", "soilT"):
             level = "sl"
         elif variable == "tas":
             level = "h2m"
