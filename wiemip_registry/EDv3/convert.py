@@ -16,7 +16,7 @@ class EDv3(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True
-    FACTORIALS = {Factorial.baseline.name: ""}
+    FACTORIALS = {Factorial.baseline.name: "", Factorial.noFire.name: "_nofire"}
 
     wiemip_to_edv3_variable_mapping = {
         "tveg": "tran",
@@ -31,7 +31,10 @@ class EDv3(core.WIEAdapter):
         )
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        return str(_OUTPUT / "1pctCO2" / "output" / MODEL / "null" / variable)
+        run = f"{forcing}_{simulation}{self.FACTORIALS[factorial]}"
+        cadence = "yr" if core.is_annual(variable) else "mon"
+        fname = f"{MODEL}_{run}_{self._get_variable(variable)}_{cadence}_05.nc"
+        return str(_OUTPUT / "1pctCO2" / "output" / MODEL / f"1ptco2_{run}" / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         forcing_token = (
