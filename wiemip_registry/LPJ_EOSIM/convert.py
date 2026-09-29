@@ -43,6 +43,12 @@ class LPJ_EOSIM(core.WIEAdapter):
     MONTHLY = {"wetfrac", "nInorgSoil"}
     ANNUAL = {"docFlux"}
 
+    # band validation: firerosTotal means reach 8e6 m s-1 (cells up to 2.5e10), ceiling is 1e6
+    PROVISIONAL_DATA = (
+        ("1pctCO2", "firerosTotal"),
+        ("overshoot", "firerosTotal"),
+    )
+
     def land_carbon_variables(self) -> list[str]:
         return ["cLitter", "cVeg", "cSoil"]
 
