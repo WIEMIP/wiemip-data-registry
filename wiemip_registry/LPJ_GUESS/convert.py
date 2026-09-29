@@ -13,19 +13,18 @@ _DIR = "LPJ-GUESS"
 _OUTPUT = DATA_ROOT
 
 
-# The ctrl run (uploaded 2026-09-14) carries two spelling slips: the run dir says
-# CRTL and the file prefix says `control`, where every other run repeats the dir's
-# sim token. Flagged to the group for a rename on the bucket.
 _DIR_SIM_TOKENS = {"ctrl": "CRTL"}
 _FILE_SIM_TOKENS = {"ctrl": "control"}
 
 _GCM_FORCED = {"cou", "rad"}
 
+_NDEP_EXPERIMENT_TOKENS = {"bgc": "1pctCo2"}
+
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
     """Return the (run-dir, file-prefix) sim tokens for a simulation."""
     base, _, ndep = simulation.partition("_")
-    suffix = "-Ndep" if ndep else ""
+    suffix = "-ndep" if ndep else ""
     run = _DIR_SIM_TOKENS.get(base, base.upper()) + suffix
     fil = _FILE_SIM_TOKENS.get(base, base.upper()) + suffix
     return run, fil
@@ -41,17 +40,20 @@ class LPJ_GUESS(core.WIEAdapter):
     _DIR_STYLE_PREFIX = {"cLitterpft", "landCoverFrac"}
     _DIR_STYLE_SIMULATIONS = {"bgc"}
 
-    # Per-run filename slips: (sim, wiemip variable) -> (name token, cadence token
-    # or None to take const.ANNUAL). ctrl mistypes two names in the FILENAME only -
-    # the fields inside are spelled right - so this maps the name, not the read;
-    # drop those two once the group re-uploads. bgc names the same PFT-cover field
-    # by LPJ-GUESS's own `fpc_pft`, on an `ann` cadence token, where ctrl renamed it
-    # to the vocab's landCoverFrac. Both hold the same 42 `fpc_<PFT>` fields.
     _FILENAME_OVERRIDES = {
-        ("bgc", "landCoverFrac"): ("fpc_pft", "ann"),
-        ("ctrl", "landCoverFrac"): ("landCOverFrac", None),
-        ("ctrl", "nLitter"): ("nLiter", None),
+        ("bgc", "landCoverFrac"): "fpc_pft_ann_05deg",
+        ("ctrl", "landCoverFrac"): "landCOverFrac_yr_05deg",
+        ("ctrl", "nLitter"): "nLiter_yr_05deg",
+        ("bgc_ndep", "gpp"): "gpp_mon_05eg",
+        ("bgc_ndep", "cLitterpft"): "cLitterpft-yr_05deg",
+        ("bgc_ndep", "nLitterpft"): "nLitterpft_mon_05deg",
+        ("bgc_ndep", "nVegpft"): "nVegpgt_yr_05deg",
+        ("bgc_ndep", "rh"): "rh_05deg",
+        ("cou_ndep", "gpppft"): "gpppfr_mon_05deg",
+        ("cou_ndep", "nVegpft"): "nVegpft_05deg",
     }
+
+    _FIELD_NAMES = {"ch4": "mch4"}
 
     _PFT_STEMS = {
         "cVegpft": "cmass",
@@ -59,16 +61,23 @@ class LPJ_GUESS(core.WIEAdapter):
         "nVegpft": "nmass",
         "nLitterpft": "nlitter",
         "landCoverFrac": "fpc",
+        "gpppft": "mgpp",
+        "laipft": "mlai",
+        "evapotranspft": "maet",
     }
 
     def land_carbon_variables(self) -> list[str]:
         return ["cLitter", "cSoil", "cVeg"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        base = simulation.partition("_")[0]
+        base, _, ndep = simulation.partition("_")
         run_sim, file_sim = _sim_tokens(simulation)
-        if base in _GCM_FORCED:
-            gcm = forcing.upper()
+        gcm = forcing.upper() if base in _GCM_FORCED else forcing
+        if ndep:
+            run = f"{MODEL}_{gcm}_{run_sim}"
+            experiment = _NDEP_EXPERIMENT_TOKENS.get(base, "1pctCO2")
+            prefix = f"{_DIR}_{gcm}_{experiment}_{file_sim}"
+        elif base in _GCM_FORCED:
             run = f"{MODEL}_{gcm}_1pctCO2-{run_sim}"
             prefix = f"{_DIR}_{gcm}_1pctCO2_{file_sim}"
         else:
@@ -78,16 +87,11 @@ class LPJ_GUESS(core.WIEAdapter):
                 and variable in self._DIR_STYLE_PREFIX
             )
             prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
-        name, cad = self._FILENAME_OVERRIDES.get((base, variable), (variable, None))
-        cad = cad or ("yr" if core.is_annual(variable) else "mon")
-        return str(
-            _OUTPUT
-            / "1pctCO2"
-            / "output"
-            / _DIR
-            / run
-            / f"{prefix}_{name}_{cad}_05deg.nc"
+        cadence = "yr" if core.is_annual(variable) else "mon"
+        name = self._FILENAME_OVERRIDES.get(
+            (simulation, variable), f"{variable}_{cadence}_05deg"
         )
+        return str(_OUTPUT / "1pctCO2" / "output" / _DIR / run / f"{prefix}_{name}.nc")
 
     def _time(self, ds: xr.Dataset):
         tu = ds["time"].attrs.get("units", "")
@@ -120,7 +124,7 @@ class LPJ_GUESS(core.WIEAdapter):
         da = (
             self._stack_pfts(ds, variable)
             if variable in self._PFT_STEMS
-            else ds[variable]
+            else ds[self._FIELD_NAMES.get(variable, variable)]
         )
         return core.standardize(core.mask_fill(da), self.LAT, self.LON, self._time(ds))
 
