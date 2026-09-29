@@ -31,7 +31,7 @@ class EDv3(core.WIEAdapter):
         )
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        raise NotImplementedError(f"{MODEL} has not uploaded 1pctCO2 output")
+        return str(_OUTPUT / "1pctCO2" / "output" / MODEL / "null" / variable)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         forcing_token = (
