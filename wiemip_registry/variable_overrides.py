@@ -4,6 +4,7 @@ extra_variables = [
     "nep",  # net ecosystem exchange
     "nProduct",  # product-pool N
     "trans",  # transpiration
+    "cHarvest",  # harvest carbon loss
     "cLeafpft",
     "cRootpft",
     "cWoodpft",
