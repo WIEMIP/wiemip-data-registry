@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT
+from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "LPJ_GUESS"
 _DIR = "LPJ-GUESS"
@@ -40,17 +40,25 @@ class LPJ_GUESS(core.WIEAdapter):
     _DIR_STYLE_PREFIX = {"cLitterpft", "landCoverFrac"}
     _DIR_STYLE_SIMULATIONS = {"bgc"}
 
+    FACTORIALS = {
+        Factorial.baseline.name: ("", ""),
+        Factorial.noFire.name: ("-NoFire", "-Nofire"),
+    }
+
     _FILENAME_OVERRIDES = {
-        ("bgc", "landCoverFrac"): "fpc_pft_ann_05deg",
-        ("ctrl", "landCoverFrac"): "landCOverFrac_yr_05deg",
-        ("ctrl", "nLitter"): "nLiter_yr_05deg",
-        ("bgc_ndep", "gpp"): "gpp_mon_05eg",
-        ("bgc_ndep", "cLitterpft"): "cLitterpft-yr_05deg",
-        ("bgc_ndep", "nLitterpft"): "nLitterpft_mon_05deg",
-        ("bgc_ndep", "nVegpft"): "nVegpgt_yr_05deg",
-        ("bgc_ndep", "rh"): "rh_05deg",
-        ("cou_ndep", "gpppft"): "gpppfr_mon_05deg",
-        ("cou_ndep", "nVegpft"): "nVegpft_05deg",
+        ("bgc", "baseline", "landCoverFrac"): "fpc_pft_ann_05deg",
+        ("ctrl", "baseline", "landCoverFrac"): "landCOverFrac_yr_05deg",
+        ("ctrl", "baseline", "nLitter"): "nLiter_yr_05deg",
+        ("bgc_ndep", "baseline", "gpp"): "gpp_mon_05eg",
+        ("bgc_ndep", "baseline", "cLitterpft"): "cLitterpft-yr_05deg",
+        ("bgc_ndep", "baseline", "nLitterpft"): "nLitterpft_mon_05deg",
+        ("bgc_ndep", "baseline", "nVegpft"): "nVegpgt_yr_05deg",
+        ("bgc_ndep", "baseline", "rh"): "rh_05deg",
+        ("cou_ndep", "baseline", "gpppft"): "gpppfr_mon_05deg",
+        ("cou_ndep", "baseline", "nVegpft"): "nVegpft_05deg",
+        ("bgc", "noFire", "mrro"): "mrro_mon_yr_05deg",
+        ("cou", "noFire", "cLitterpft"): "clitterpft_yr_05deg",
+        ("cou", "noFire", "laipft"): "laipft_yr_05deg",
     }
 
     _FIELD_NAMES = {"ch4": "mch4"}
@@ -72,8 +80,13 @@ class LPJ_GUESS(core.WIEAdapter):
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         base, _, ndep = simulation.partition("_")
         run_sim, file_sim = _sim_tokens(simulation)
+        run_factorial, file_factorial = self.FACTORIALS[factorial]
         gcm = forcing.upper() if base in _GCM_FORCED else forcing
-        if ndep:
+        if factorial != Factorial.baseline.name:
+            gcm = "Stable" if gcm == "stable" else gcm
+            run = f"{MODEL}_{gcm}_{run_sim}{run_factorial}"
+            prefix = f"{_DIR}_{gcm}_1pctCO2_{file_sim}{file_factorial}"
+        elif ndep:
             run = f"{MODEL}_{gcm}_{run_sim}"
             experiment = _NDEP_EXPERIMENT_TOKENS.get(base, "1pctCO2")
             prefix = f"{_DIR}_{gcm}_{experiment}_{file_sim}"
@@ -89,7 +102,7 @@ class LPJ_GUESS(core.WIEAdapter):
             prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
         cadence = "yr" if core.is_annual(variable) else "mon"
         name = self._FILENAME_OVERRIDES.get(
-            (simulation, variable), f"{variable}_{cadence}_05deg"
+            (simulation, factorial, variable), f"{variable}_{cadence}_05deg"
         )
         return str(_OUTPUT / "1pctCO2" / "output" / _DIR / run / f"{prefix}_{name}.nc")
 
