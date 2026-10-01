@@ -1,4 +1,9 @@
-"""ELM (E3SM Land Model) adapter."""
+"""ELM (E3SM Land Model) adapter.
+
+Flat layout, `ELM_<forcing>_<sim>[_nofire]_<VAR>_mon_05.nc`. The 2026-09-30 upload
+re-labelled bgc/ctrl `stable` and added `_ndep` and `nofire` runs; the older
+`ELM_ukesm_bgc_*`/`ELM_ukesm_ctrl_*` (2026-09-28) are superseded and unreachable.
+"""
 
 from __future__ import annotations
 
@@ -11,11 +16,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "ELM"
 _OUTPUT = DATA_ROOT
 
-_CONSTANT_CLIMATE_SIMULATIONS = ("bgc", "ctrl")
-# provisional - reached out to Qing Zhu about if stable was actually used
-# to drive bgc and ctrl
-_CONSTANT_CLIMATE_TOKEN = "ukesm"
-
 _UNDECLARED_FILL = 1e20
 
 
@@ -23,7 +23,10 @@ class ELM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False
-    FACTORIALS = {Factorial.baseline.name: ""}
+    FACTORIALS = {
+        Factorial.baseline.name: "",
+        Factorial.noFire.name: "_nofire",  # trails the sim token
+    }
 
     wiemip_to_elm_variable_mapping = {
         "gpp": "GPP",
@@ -46,10 +49,9 @@ class ELM(core.WIEAdapter):
         return self.wiemip_to_elm_variable_mapping.get(wiemip_variable, wiemip_variable)
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        if simulation.partition("_")[0] in _CONSTANT_CLIMATE_SIMULATIONS:
-            forcing = _CONSTANT_CLIMATE_TOKEN
         fname = (
-            f"{MODEL}_{forcing}_{simulation}_{self._get_variable(variable)}_mon_05.nc"
+            f"{MODEL}_{forcing}_{simulation}{self.FACTORIALS[factorial]}_"
+            f"{self._get_variable(variable)}_mon_05.nc"
         )
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / fname)
 
