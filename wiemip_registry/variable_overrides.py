@@ -8,4 +8,5 @@ extra_variables = [
     "cLeafpft",
     "cRootpft",
     "cWoodpft",
+    "fvegHeightpft",  # per-PFT canopy height (BiomeE)
 ]

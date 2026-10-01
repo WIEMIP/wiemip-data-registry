@@ -1,15 +1,4 @@
-"""BiomeE adapter.
-
-Naming (verified on the bucket): flat layout
-`BiomeE_<forcing>_<sim>_<var>_<cad>_05.nc` (lowercase forcing + sim tokens).
-path() is a pure transform — what exists is decided by read() opening the file.
-
-BiomeE's constant-climate runs (bgc/ctrl, incl. their fact_ variants) are `stable`
-on disk — confirmed with the BiomeE team. Baseline ctrl was already re-uploaded as
-`BiomeE_stable_ctrl_*`, superseding `BiomeE_ukesm_ctrl_*`. bgc is still `ukesm`-only
-on disk as of 2026-08-17 pending their re-upload, so `stable` bgc paths raise at
-read() until that lands — that's the correct signal, not a bug in this adapter.
-"""
+"""BiomeE adapter."""
 
 from __future__ import annotations
 
@@ -20,6 +9,7 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
+_RUN_SUFFIX = "_noCH4"  # trails the grid token on every file of the 2026-09-30 upload
 
 
 class BiomeE(core.WIEAdapter):
@@ -30,7 +20,8 @@ class BiomeE(core.WIEAdapter):
         Factorial.baseline.name: "",
         Factorial.noFire.name: "noFire",
         Factorial.noNitrogen.name: "noNitrogen",
-    }  # only the bare run was submitted
+    }
+    ANNUAL = {"cOther", "fvegHeightpft"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -39,19 +30,17 @@ class BiomeE(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
-        cad = "yr" if core.is_annual(variable) else "mon"
+        cad = "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
         is_fact = factorial != Factorial.baseline.name and factorial in self.FACTORIALS
 
-        # cou/rad carry the GCM pattern; bgc/ctrl (and their fact_ variants) are
-        # constant-climate and labelled "stable" on disk. Confirmed with BiomeE team
-        # on 2026-08-17.
         if simulation.split("_")[0] not in ("cou", "rad"):
+
             forcing = "stable"
 
         if is_fact:
-            fname = f"BiomeE_{forcing}_fact_{simulation}_{self.FACTORIALS[factorial]}_{variable}_{cad}_05.nc"
+            fname = f"BiomeE_{forcing}_fact_{simulation}_{self.FACTORIALS[factorial]}_{variable}_{cad}_05{_RUN_SUFFIX}.nc"
         else:
-            fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05.nc"
+            fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05{_RUN_SUFFIX}.nc"
 
         return str(_OUTPUT / "1pctCO2" / "output" / "BiomeE" / fname)
 
