@@ -59,6 +59,14 @@ class LPJ_GUESS(core.WIEAdapter):
         ("bgc", "noFire", "mrro"): "mrro_mon_yr_05deg",
         ("cou", "noFire", "cLitterpft"): "clitterpft_yr_05deg",
         ("cou", "noFire", "laipft"): "laipft_yr_05deg",
+        ("ctrl", "noFire", "evapotranspft"): "evapotranspft_mon_yr_05deg",
+    }
+
+    _RUN_OVERRIDES = {
+        ("ctrl", "noFire"): (
+            "LPJ_GUESS_Stable_1pctCO2_Control-Nofire",
+            "LPJ-GUESS_Stable_1pctCO2_Control_Nofire",
+        ),
     }
 
     _FIELD_NAMES = {"ch4": "mch4"}
@@ -82,7 +90,9 @@ class LPJ_GUESS(core.WIEAdapter):
         run_sim, file_sim = _sim_tokens(simulation)
         run_factorial, file_factorial = self.FACTORIALS[factorial]
         gcm = forcing.upper() if base in _GCM_FORCED else forcing
-        if factorial != Factorial.baseline.name:
+        if (simulation, factorial) in self._RUN_OVERRIDES:
+            run, prefix = self._RUN_OVERRIDES[(simulation, factorial)]
+        elif factorial != Factorial.baseline.name:
             gcm = "Stable" if gcm == "stable" else gcm
             run = f"{MODEL}_{gcm}_{run_sim}{run_factorial}"
             prefix = f"{_DIR}_{gcm}_1pctCO2_{file_sim}{file_factorial}"
