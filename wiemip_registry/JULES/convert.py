@@ -32,7 +32,6 @@ _FACTORIALS = {
 }
 
 
-# Overshoot fire configs, keyed by the 1pct factorial name they correspond to.
 _OVERSHOOT_CONFIGS = {
     Factorial.baseline.name: "noFire",
     "Fire0005": "FireP0005",
