@@ -163,6 +163,8 @@ class CLM_FATES(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
+        if variable == "wetfrac":
+            ds = ds * 100
         da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
