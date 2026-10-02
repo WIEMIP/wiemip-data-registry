@@ -10,6 +10,7 @@ decided by read() opening the file.
 
 from __future__ import annotations
 
+import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
@@ -22,7 +23,7 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
 
-_OVERSHOOT_RUN_TOKENS = {"baseline": "", "dynVeg": "dynveg"}
+_OVERSHOOT_RUN_TOKENS = {"baseline": ""}
 
 
 def _stem(simulation, forcing, run_token: str = "") -> str:
@@ -98,6 +99,8 @@ class JSBACH(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if "pool" in da.dims:
+            da = da.assign_coords(pool=np.arange(1, da.sizes["pool"] + 1))
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
