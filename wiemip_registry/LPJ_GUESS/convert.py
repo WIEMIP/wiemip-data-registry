@@ -69,6 +69,8 @@ class LPJ_GUESS(core.WIEAdapter):
         ),
     }
 
+    PROVISIONAL_DATA = (("1pctCO2", "isopr"),)
+
     _FIELD_NAMES = {"ch4": "mch4"}
 
     _PFT_STEMS = {
