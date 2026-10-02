@@ -422,9 +422,8 @@ def cf_reference_month(units: str) -> np.datetime64:
 def years_to_datetime(values) -> np.ndarray:
     """Numeric (possibly fractional) *calendar* years -> `datetime64[M]`, keeping
     sub-annual resolution: year = floor(v), month = floor(frac * 12 + 0.25) clamped
-    0..11, so start-of-month and mid-month stamps both land in their own month.
-    Annual data (frac == 0) maps to January of each year. Used by the models whose
-    time axis is a bare numeric year (LPX-Bern, VISIT-UT)."""
+    0..11. Annual data (frac == 0) maps to January of each year. Used by the models
+    whose time axis is a bare numeric year (LPX-Bern, VISIT-UT)."""
     v = np.asarray(values, dtype="float64")
     years = np.floor(v).astype("int64")
     months = np.clip(np.floor((v - years) * 12 + 0.25).astype("int64"), 0, 11)

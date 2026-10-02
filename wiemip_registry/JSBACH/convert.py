@@ -23,7 +23,7 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
 
-_OVERSHOOT_RUN_TOKENS = {"baseline": "", "dynVeg": "dynveg"}
+_OVERSHOOT_RUN_TOKENS = {"baseline": ""}
 
 
 def _stem(simulation, forcing, run_token: str = "") -> str:
@@ -44,8 +44,6 @@ class JSBACH(core.WIEAdapter):
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
-
-    PROVISIONAL_DATA = (("overshoot", "cSoilPools"),)
 
     def land_carbon_variables(self) -> list[str]:
         """
