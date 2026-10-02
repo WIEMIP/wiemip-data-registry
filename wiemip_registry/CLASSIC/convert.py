@@ -94,6 +94,8 @@ class CLASSIC(core.WIEAdapter):
         "fch4soil": "fCh4Soil",
     }
 
+    _FIELD_NAMES = {"nOrgSoil": "nSoil"}
+
     def _get_variable(self, wiemip_variable: str) -> str:
         if wiemip_variable in self.wiemip_to_classic_variable_mapping:
             return self.wiemip_to_classic_variable_mapping[wiemip_variable]
@@ -156,7 +158,8 @@ class CLASSIC(core.WIEAdapter):
         )
         if variable == "fch4soil":
             ds = ds * -1
-        da = core.mask_fill(ds[self._get_variable(variable)])
+        name = self._FIELD_NAMES.get(variable, self._get_variable(variable))
+        da = core.mask_fill(ds[name])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
