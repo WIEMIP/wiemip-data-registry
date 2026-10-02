@@ -10,6 +10,7 @@ decided by read() opening the file.
 
 from __future__ import annotations
 
+import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
@@ -43,6 +44,8 @@ class JSBACH(core.WIEAdapter):
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
+
+    PROVISIONAL_DATA = (("overshoot", "cSoilPools"),)
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -98,6 +101,8 @@ class JSBACH(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if "pool" in da.dims:
+            da = da.assign_coords(pool=np.arange(1, da.sizes["pool"] + 1))
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
