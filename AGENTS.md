@@ -165,7 +165,7 @@ factorial grammar and which variables exist all vary. Each lives in
 | **LPJmL6** | `latitude`/`longitude` | datetime | computed spherical | nested; baseline/noNitrogen (uploaded 2026-08) — token suffixes the run dir AND trails the cadence (`ukesm_cou_noNitrogen/LPJmL6_ukesm_cou_<var>_<cad>_noNitrogen_05.nc`) | `alt`/`fNHarvest` forced annual; `overshoot` stub returns `"null"` |
 | **LPX_Bern** ⚠️ | 1°, `latitude`/`longitude` | `decode_times=False`, numeric years → floor (`years_to_datetime`) | provided `gridcell_area.nc` | flat; **factorials are (prefix,suffix) pairs** — lowercase `nofire`/`nopermafrost` **before** the sim token, suffix after | high fire (~15–23 Pg C/yr) but **real**; **overshoot implemented**; **the `fch4soil` -> `ch4soil` alias was REMOVED 2026-09-22** — the group re-uploaded all 57 files under the protocol name that day (57 `ch4soil` keys deleted, 57 `fch4soil` written; the variable inside the file is `fch4soil` too, checked on the header). Do not re-add it. The `fFireLitter -> fFireCLitter` alias went the same way on 2026-09-28, after the group re-uploaded those 57 files under the protocol name on 09-24/25. The model is now at **2 unreached**, both the `gridcell_area.nc` weight rasters |
 | **TEM** | 0.5°, `latitude`/`longitude`, dims `(lon,lat,time)` | `decode_times=False`, noleap days-since-1850 by hand | computed spherical | nested, run dir = `SIM.upper()`; baseline only; **overshoot implemented** — JSBACH's overshoot grammar verbatim (bare sim dir, `crujra3` for hist/ctrl, GCM for the 8 scenarios), 10 runs x 11 vars uploaded 2026-09-01 | file prefix `TEM-MDM`; `nbp` sign/units look off |
-| **VISIT_UT** | 0.5°, `lat`/`lon` | `decode_times=False`, "years since AD 0" fractional → floor | computed spherical | nested; baseline/noBVOC/noFire `post` suffix | **always monthly** (`mon` hardcoded); `fFire` mis-scaled — adapter warns; **overshoot implemented**, incl. ml/ml_cf; overshoot control is the one run where dir and file tokens disagree (dir `…_control/`, files `…_CTRL_…`) |
+| **VISIT_UT** | 0.5°, `lat`/`lon` | `decode_times=False`, "years since AD 0" fractional → floor | computed spherical | nested; baseline/noBVOC/noFire `post` suffix | **always monthly** (`mon` hardcoded); `fFire` mis-scaled — adapter warns; **overshoot implemented**, incl. ml/ml_cf; overshoot control is the one run where dir and file tokens disagree (dir `…_control/`, files `…_CTRL_…`); **overshoot `hist` uploaded 2026-10-03, reachable since 2026-10-05**: 28 files, `VISIT-UT_hist/VISIT-UT_hist_<var>_mon_05.nc` with no forcing token, so every pattern reads the same run. It is stamped 1851-2023 (2,076 steps) but holds 1850-2022 — see the flag below. The scenarios and controls run 1850-2300 (5,412 steps, historical period included) |
 
 `overshoot_path` is a real implementation for **CLM, CLM_FATES, DLEM, DVM_DOS_TEM, EDv3,
 JSBACH, JULES, LPJ_EOSIM, LPX_Bern, TEM, VISIT_UT** (DLEM + TEM added 2026-09-02, from
@@ -402,6 +402,14 @@ submitted `hist_ctrl`.
   reported `cSoil`. Unconfirmed with either group — a cross-model comparison that hinges
   on an explicit litter pool should treat those two totals with care. (CLM likewise
   declares only cVeg + cSoil.)
+- **VISIT-UT's overshoot `hist` (2026-10-03) is stamped one year late.** Its 2,076 steps are
+  labelled Jan 1851 to Dec 2023, but each month is byte-identical to the scenario files' month
+  one year EARLIER (checked on `cVeg` against `ukesm_l` at hist Jan 1851, 1951 and 2023, which
+  equal the scenario's 1850, 1950 and 2022). So the data are 1850-2022 under shifted stamps,
+  and 2023 is missing. The registry returns the stamps as written, so a hist series joined to
+  a scenario at 2023/2024 is off by a year. Every VISIT-UT scenario and control file already
+  carries 1850-2023 on the right stamps, so prefer those for the historical period. **Ask
+  Akihiko Ito** whether the stamps are shifted and whether 2023 is missing.
 - **VISIT-UT overshoot `gfdl_ml_cf/`** contains `albedo` + `burntArea` misnamed with the
   `ml` prefix. Flag to Akihiko Ito. (The duplicate hyphen-spelled `VISIT-UT_ukesm_ml-cf/`
   dir noted earlier is gone as of 2026-08-28.)

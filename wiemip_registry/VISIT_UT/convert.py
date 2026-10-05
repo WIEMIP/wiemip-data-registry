@@ -63,9 +63,14 @@ class VISIT_UT(core.WIEAdapter):
         # (the 1pct spelling). Without both, all 3 control runs are unreachable.
         # Note there is also a duplicate `ml-cf` (hyphen) dir that this deliberately
         # does not name; `ml_cf` is the one to use.
+        # `hist` (uploaded 2026-10-03) carries no forcing token in dir or file
+        # (`VISIT-UT_hist/VISIT-UT_hist_<var>_mon_05.nc`), so every pattern reads it.
         sim = simulation.lower()
-        run = f"VISIT-UT_{forcing.lower()}_{'control' if sim == 'ctrl' else sim}"
-        prefix = f"VISIT-UT_{forcing.lower()}_{'CTRL' if sim == 'ctrl' else sim}"
+        if sim == "hist":
+            run = prefix = "VISIT-UT_hist"
+        else:
+            run = f"VISIT-UT_{forcing.lower()}_{'control' if sim == 'ctrl' else sim}"
+            prefix = f"VISIT-UT_{forcing.lower()}_{'CTRL' if sim == 'ctrl' else sim}"
         fname = f"{prefix}_{variable}_mon_05.nc"
         return str(_OUTPUT / "overshoot" / "output" / "VISIT-UT" / run / fname)
 
