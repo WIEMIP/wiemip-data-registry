@@ -20,6 +20,29 @@ _GCM_FORCED = {"cou", "rad"}
 
 _NDEP_EXPERIMENT_TOKENS = {"bgc": "1pctCo2"}
 
+# Overshoot (uploaded 2026-10-05): sim -> (run-dir token, file-prefix token), each
+# after `LPJ_GUESS_<forcing>_` / `LPJ-GUESS_<forcing>_`. No two runs share a grammar.
+# Sims not listed here had not landed yet; they fall back to a guess.
+_OVERSHOOT_RUN_TOKENS = {
+    "hist": ("historical", "Overshoot_Historical"),
+    "ctrl": ("Overshoot_control", "Control"),
+    "l": ("Overshoot_low", "Overshoot_Low"),
+    "m": ("Overshoot_med", "Overshoot_M"),
+}
+_CRUJRA_FORCED_SIMULATIONS = {"hist", "hist_ctrl", "ctrl"}
+_CRUJRA_TOKEN = "CRUJRA3"
+
+# Overshoot filename slips: (run dir, variable) -> the file's full basename.
+_OVERSHOOT_FILENAME_OVERRIDES = {
+    ("LPJ_GUESS_CRUJRA3_historical", "nVeg"): (
+        "LPJ-GUESS_CRUJRA3_Overshoot_Historical_nVeg.yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_CRUJRA3_Overshoot_control", "terp"): (
+        "LPJ-GUESS_CRUJRA3_Control_tero_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_low", "cSoil"): "Soilc_future.nc",
+}
+
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
     """Return the (run-dir, file-prefix) sim tokens for a simulation."""
@@ -117,6 +140,21 @@ class LPJ_GUESS(core.WIEAdapter):
             (simulation, factorial, variable), f"{variable}_{cadence}_05deg"
         )
         return str(_OUTPUT / "1pctCO2" / "output" / _DIR / run / f"{prefix}_{name}.nc")
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        if simulation in _CRUJRA_FORCED_SIMULATIONS:
+            gcm = _CRUJRA_TOKEN
+        else:
+            gcm = forcing.upper()
+        run_token, file_token = _OVERSHOOT_RUN_TOKENS.get(
+            simulation, (f"Overshoot_{simulation}", f"Overshoot_{simulation.upper()}")
+        )
+        run = f"{MODEL}_{gcm}_{run_token}"
+        cadence = "yr" if core.is_annual(variable) else "mon"
+        fname = _OVERSHOOT_FILENAME_OVERRIDES.get(
+            (run, variable), f"{_DIR}_{gcm}_{file_token}_{variable}_{cadence}_05deg.nc"
+        )
+        return str(_OUTPUT / "overshoot" / "output" / _DIR / run / fname)
 
     def _time(self, ds: xr.Dataset):
         tu = ds["time"].attrs.get("units", "")
