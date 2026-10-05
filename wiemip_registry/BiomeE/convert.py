@@ -65,4 +65,4 @@ class BiomeE(core.WIEAdapter):
         """Provided vegetated-area raster [m²] (BiomeE README recipe)."""
         a = xr.open_dataset(self._area_weight_path)["veg_area"]
         a = a.drop_vars("time", errors="ignore")
-        return core.rename_latlon(a, self.LAT, self.LON).astype("float32")
+        return core.rename_latlon(a, self.LAT, self.LON)

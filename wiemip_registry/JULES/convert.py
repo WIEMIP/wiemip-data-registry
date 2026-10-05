@@ -12,6 +12,8 @@ _OUTPUT = DATA_ROOT
 
 _NC_FILL_FLOAT = 9.969209968386869e36
 
+_SOIL_LAYER_DEPTHS = (0.05, 0.175, 0.36, 0.635, 1.05, 1.67, 2.59, 3.96, 6.005, 9.06)
+
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
     Factorial.baseline.name: "Nitrogen_DynVeg_Permafrost_noFire",
@@ -136,6 +138,8 @@ class JULES(core.WIEAdapter):
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _NC_FILL_FLOAT)  # undeclared fill, see _NC_FILL_FLOAT
+        if "depth" in da.dims and not da.indexes["depth"].is_unique:
+            da = da.assign_coords(depth=list(_SOIL_LAYER_DEPTHS))
         self._units_seen[variable] = str(da.attrs.get("units", ""))
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
