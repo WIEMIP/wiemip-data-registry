@@ -5,34 +5,15 @@ from pathlib import Path
 # where the data lives. Can overwrite with export WIEMIP_DATA_ROOT=/your/value/here,
 # though you'll have to run it in every session, so you can also add to .bashrc.
 DATA_ROOT = Path(os.environ.get("WIEMIP_DATA_ROOT", "/mnt/wiemip"))
-# Cached latitudinal-sum series are written here (a "csv/" mirror of the bucket
-# tree). Defaults to a shared, world-readable dir on the JupyterHub so every user
-# reuses the same cache instead of recomputing; override with the WIEMIP_CSV_PATH
-# environment variable (e.g. point it at a local dir when running off the hub).
-# Bucket persistence is deferred.
+
 CSV_ROOT = Path(os.environ.get("WIEMIP_CSV_PATH", "/srv/wiemip-csv"))
 
 
-SPY = 365.25 * 86400.0  # seconds per year: flux rate -> annual integral
+SPY = 365 * 86400.0  # seconds per year: flux rate -> annual integral
 PG = 1e12  # 1 Pg = 1e12 kg
 FILL_FLOOR = -1e3  # no physical stock/flux is below this; sentinel fills
 # (BiomeE -1e5, JULES -9999, stray -99999) -> NaN.
 
-# Variable names that are a per-m2 AMOUNT rather than a per-second RATE. This is the
-# only thing `core.kind_of` decides: an amount is integrated as `sum(x*area)/PG`, a rate
-# as `sum(x*area)*SPY/PG`. Membership was set from the `units` attribute of the real
-# uploads (one file per model x variable) — `kg <X> m-2` is here, `kg <X> m-2 s-1` is
-# not — so the `n` prefix is not a guide: nVeg/nSoil are nitrogen POOLS, while
-# nbp/npp are carbon FLUXES.
-#
-# The integral is Pg for the carbon pools, Pg N for the nitrogen pools and Gt for the
-# water pools; `PG = 1e12` is just kg -> Pg and carries no species.
-#
-# NOT here, and deliberately: the intensive variables (albedo, lai, tas/soilT, wetfrac,
-# landCoverFrac, burntArea, snowDepth/wtd/alt, the W m-2 energy terms). They are not
-# rates, but an area-weighted SUM is the wrong reduction for them regardless — they want
-# a mean, which `latitudinal_sum` does not offer. Leaving them out keeps them visibly
-# wrong rather than plausibly wrong.
 STOCKS = {
     # carbon pools [kg C m-2]
     "cVeg",
