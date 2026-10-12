@@ -51,7 +51,7 @@ class CLM_FATES(core.WIEAdapter):
 
     # CLM-FATES uploads wetland fraction monthly even though const.ANNUAL lists
     # wetfrac as annual
-    MONTHLY = {"wetfrac"}
+    MONTHLY = {"wetfrac", "cSoilLayers"}
     wiemip_to_clm_fates_variable_mapping = {
         "alt": "ALT",
         "burntArea": "burntFractionAll",

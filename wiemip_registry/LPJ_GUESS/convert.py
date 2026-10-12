@@ -41,6 +41,18 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
         "LPJ-GUESS_CRUJRA3_Control_tero_mon_05deg.nc"
     ),
     ("LPJ_GUESS_UKESM_Overshoot_low", "cSoil"): "Soilc_future.nc",
+    ("LPJ_GUESS_UKESM_Overshoot_med", "burntArea"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_burnetArea_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "cLitter"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_cLitter+yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "gpppft"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_gpppft_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "landCoverFrac"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_landCOverFrac_yr_05deg.nc"
+    ),
 }
 
 
