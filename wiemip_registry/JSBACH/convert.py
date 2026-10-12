@@ -23,13 +23,23 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
 
-_OVERSHOOT_RUN_TOKENS = {"baseline": ""}
+_OVERSHOOT_RUN_TOKENS = {"baseline": "", "dynVeg": "dynveg"}
+
+_DYNVEG_FILE_FORCING = "ukesm"
+
+_RUN_DIR_OVERRIDES = {
+    ("cou", "ipsl", "dynVeg_noFire_noNitrogen"): (
+        "wiemip_1pctCO2_dynveg_ipsl_nofire_cou_pftlevel"
+    ),
+}
 
 
-def _stem(simulation, forcing, run_token: str = "") -> str:
+def _stem(
+    simulation, forcing, run_token: str = "", stable_token: str = "stable"
+) -> str:
     if simulation.split("_")[0] in ("cou", "rad"):
         return f"JSBACH_{forcing}_{run_token}{simulation}"
-    return f"JSBACH_stable_{run_token}{simulation}"  # bgc, ctrl (+ _ndep)
+    return f"JSBACH_{stable_token}_{run_token}{simulation}"  # bgc, ctrl (+ _ndep)
 
 
 class JSBACH(core.WIEAdapter):
@@ -55,14 +65,19 @@ class JSBACH(core.WIEAdapter):
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         dir_suf, run_token, post = self.FACTORIALS[factorial]
+        run_dir = _RUN_DIR_OVERRIDES.get(
+            (simulation, forcing, factorial), f"{_stem(simulation, forcing)}{dir_suf}"
+        )
+        stable_token = _DYNVEG_FILE_FORCING if run_token else "stable"
+        file_stem = _stem(simulation, forcing, run_token, stable_token)
         cad = "yr" if core.is_annual(variable) else "mon"
         return str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / "JSBACH"
-            / f"{_stem(simulation, forcing)}{dir_suf}"
-            / f"{_stem(simulation, forcing, run_token)}_{variable}_{cad}{post}_1.nc"
+            / run_dir
+            / f"{file_stem}_{variable}_{cad}{post}_1.nc"
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
@@ -73,9 +88,9 @@ class JSBACH(core.WIEAdapter):
                 f"{MODEL} ran no '{factorial}' overshoot config "
                 f"(has: {sorted(self.OVERSHOOT_FACTORIALS)})"
             )
-        forcing_token = (
-            _CRUJRA_TOKEN if simulation in _CRUJRA_FORCED_SIMULATIONS else forcing
-        )
+        forcing_token = forcing
+        if simulation in _CRUJRA_FORCED_SIMULATIONS:
+            forcing_token = _DYNVEG_FILE_FORCING if run_token else _CRUJRA_TOKEN
         run_dir = f"{simulation}_{run_token}" if run_token else simulation
         file_token = f"{run_token}_{simulation}" if run_token else simulation
         cadence = "yr" if core.is_annual(variable) else "mon"
