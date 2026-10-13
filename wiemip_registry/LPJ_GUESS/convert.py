@@ -26,7 +26,7 @@ _NDEP_EXPERIMENT_TOKENS = {"bgc": "1pctCo2"}
 _OVERSHOOT_RUN_TOKENS = {
     "hist": ("historical", "Overshoot_Historical"),
     "ctrl": ("Overshoot_control", "Control"),
-    "l": ("Overshoot_low", "Overshoot_Low"),
+    "l": ("Overshoot_low", "Overshoot_L"),
     "m": ("Overshoot_med", "Overshoot_M"),
 }
 _CRUJRA_FORCED_SIMULATIONS = {"hist", "hist_ctrl", "ctrl"}
@@ -40,7 +40,15 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
     ("LPJ_GUESS_CRUJRA3_Overshoot_control", "terp"): (
         "LPJ-GUESS_CRUJRA3_Control_tero_mon_05deg.nc"
     ),
-    ("LPJ_GUESS_UKESM_Overshoot_low", "cSoil"): "Soilc_future.nc",
+    ("LPJ_GUESS_UKESM_Overshoot_low", "cLitter"): (
+        "LPJ-GUESS_UKESM_Overshoot_L_cLitter_yr-05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_low", "isopr"): (
+        "LPJ-GUESS_UKESM_Overshoot_L_ispor_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_low", "landCoverFrac"): (
+        "LPJ-GUESS_UKESM_Overshoot_L_landCOverFrac_yr_05deg.nc"
+    ),
     ("LPJ_GUESS_UKESM_Overshoot_med", "burntArea"): (
         "LPJ-GUESS_UKESM_Overshoot_M_burnetArea_mon_05deg.nc"
     ),
