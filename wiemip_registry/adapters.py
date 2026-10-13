@@ -3,6 +3,7 @@ from wiemip_registry.BiomeE.convert import BiomeE
 from wiemip_registry.CLASSIC.convert import CLASSIC
 from wiemip_registry.CLM.convert import CLM
 from wiemip_registry.CLM_FATES.convert import CLM_FATES
+from wiemip_registry.CoLM.convert import CoLM
 from wiemip_registry.core import Model
 from wiemip_registry.DLEM.convert import DLEM
 from wiemip_registry.DVM_DOS_TEM.convert import DVM_DOS_TEM
@@ -23,6 +24,7 @@ adapters = {
     "CLASSIC": CLASSIC(),
     "CLM": CLM(),
     "CLM_FATES": CLM_FATES(),
+    "CoLM": CoLM(),
     "DLEM": DLEM(),
     "DVM_DOS_TEM": DVM_DOS_TEM(),
     "EDv3": EDv3(),
