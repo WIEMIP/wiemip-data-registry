@@ -21,6 +21,13 @@ _OUTPUT = DATA_ROOT
 # uploaded and is grouped here on the assumption it spells the same way.
 _CRUJRA_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 
+# soilT stacks mtsoil_top (a 0-50 cm mean, dropped) then the point temperatures
+# mtsoil_0 ... mtsoil_200; depths from the output names, in m
+_SOIL_T_DEPTHS = (0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0)
+# soilIce/soilMoist are per layer; middles of LPJ's Dz_soil (permafrost.c: 100, 100,
+# 100, 200, 200, 300, 500, 500 mm)
+_SOIL_LAYER_DEPTHS = (0.05, 0.15, 0.25, 0.4, 0.6, 0.85, 1.25, 1.75)
+
 
 class LPJ_EOSIM(core.WIEAdapter):
     model = MODEL
@@ -40,6 +47,8 @@ class LPJ_EOSIM(core.WIEAdapter):
 
     # Cadence overrides of const.ANNUAL (verified on the bucket, 2026-08-28
     # upload): wetfrac and nInorgSoil arrive monthly, docFlux annual.
+    LAYERED_VARIABLES = {"soilT", "soilIce", "soilMoist"}
+
     MONTHLY = {"wetfrac", "nInorgSoil"}
     ANNUAL = {"docFlux"}
 
@@ -92,6 +101,14 @@ class LPJ_EOSIM(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if variable == "soilT":
+            da = da.isel(pool=slice(1, None)).assign_coords(
+                pool=("pool", list(_SOIL_T_DEPTHS), {"units": "m"})
+            )
+        elif variable in self.LAYERED_VARIABLES:
+            da = da.assign_coords(
+                layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
