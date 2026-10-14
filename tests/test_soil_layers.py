@@ -57,6 +57,14 @@ def test_raises_unless_depth_increases():
         _file()._standardize_layers(_layered(depths=(1.0, 0.3, 0.05)))
 
 
+def test_float32_depths_come_back_exact_float64():
+    float32_depths = np.array([0.05, 0.15, 0.4], dtype="float32")
+    da = _file()._standardize_layers(_layered(depths=float32_depths))
+    assert da["soil"].dtype == "float64"
+    assert da["soil"].values.tolist() == [0.05, 0.15, 0.4]
+    assert da["soil"].attrs["units"] == "m"
+
+
 class _StubAdapter(core.WIEAdapter):
     model = "STUB"
     LAYERED_VARIABLES = {"soilT"}

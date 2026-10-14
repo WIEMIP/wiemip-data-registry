@@ -718,6 +718,11 @@ class WIEFile:
             raise ValueError(
                 f"{self!r}: soil depth units are {depth.attrs.get('units')!r}, need 'm'"
             )
+        # float32 depths (LPX-Bern soilT) don't align with float64 ones (its
+        # mrsoLayer), so pin every model's depths to float64 at micrometre precision
+        exact = np.round(depth.values.astype("float64"), 6)
+        da = da.assign_coords(soil=("soil", exact, depth.attrs))
+        depth = da["soil"]
         if not (np.diff(depth.values) > 0).all():
             raise ValueError(f"{self!r}: soil depths do not increase downward")
         return da
