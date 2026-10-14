@@ -67,6 +67,15 @@ class JULES(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
     OVERSHOOT_FACTORIALS = _OVERSHOOT_CONFIGS
+    LAYERED_VARIABLES = {
+        "soilT",
+        "soilIce",
+        "mrsoLayer",
+        "cSoilLayers",
+        "rhLayers",
+        "nOrgSoilLayer",
+        "nInorgSoilLayer",
+    }
 
     ANNUAL = {"fFireCveg", "fFireCsoil", "fFirepft"}
     MONTHLY = {"wetfrac"}
@@ -139,7 +148,9 @@ class JULES(core.WIEAdapter):
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _NC_FILL_FLOAT)  # undeclared fill, see _NC_FILL_FLOAT
         if "depth" in da.dims and not da.indexes["depth"].is_unique:
-            da = da.assign_coords(depth=list(_SOIL_LAYER_DEPTHS))
+            da = da.assign_coords(
+                depth=("depth", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         self._units_seen[variable] = str(da.attrs.get("units", ""))
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 

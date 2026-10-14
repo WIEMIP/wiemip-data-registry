@@ -40,6 +40,7 @@ class CLM_FATES(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = _FACTORIALS
+    LAYERED_VARIABLES = {"soilT", "soilIce", "soilRh", "cSoilLayers"}
 
     # overshoot band validation: global sums ~3e6 Pg yr-1 for these, ceiling is 1e6
     PROVISIONAL_DATA = (
