@@ -68,6 +68,16 @@ class CLM(core.WIEAdapter):
         Factorial.noNitrogen.name: "flat",
     }
 
+    # per-layer output: 1pctCO2 puts it in `<run>_deep/` dirs, overshoot in the ordinary run dirs
+    LAYERED_VARIABLES = {
+        "soilT",
+        "soilIce",
+        "soilMoist",
+        "mrsoLayer",
+        "soilRh",
+        "cPoolVr",
+    }
+
     # overshoot band validation: global sums ~1e11 for these, ceiling is 1e6
     PROVISIONAL_DATA = (
         ("overshoot", "LWalbedo"),
@@ -93,7 +103,9 @@ class CLM(core.WIEAdapter):
         run_dir = "_".join(filter(None, (prefix, token, run_token, simulation)))
         year_span = _FACTORIAL_YEAR_SPANS.get(factorial, "")
         fname = f"clm6_{run_dir}_{variable}{year_span}.nc"
-        return str(_OUTPUT / "1pctCO2" / "output" / MODEL / run_dir / fname)
+        # layered variables sit in a `_deep` twin of the run dir; the filename keeps the plain run token
+        deep = "_deep" if variable in self.LAYERED_VARIABLES else ""
+        return str(_OUTPUT / "1pctCO2" / "output" / MODEL / f"{run_dir}{deep}" / fname)
 
     def _overshoot_files(self, simulation, forcing, factorial, variable) -> list[str]:
         """The chunk files for one overshoot variable, oldest first."""
