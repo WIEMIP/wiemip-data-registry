@@ -85,3 +85,27 @@ def test_read_standardizes_listed_variables_only(monkeypatch):
     )
     assert "soil" in listed.read().dims
     assert "levgrnd" in unlisted.read().dims
+
+
+def test_calculate_alt_matches_function_alt():
+    time = pd.date_range("1850-01-01", periods=24, freq="MS")
+    temps = np.empty((24, 3, 1, 3))
+    for t in range(24):
+        july = t % 12 == 6
+        temps[t, :, 0, 0] = [275.0, 271.0, 270.0] if july else [270.0, 270.0, 270.0]
+        temps[t, :, 0, 1] = [270.0, 270.0, 270.0]  # top layer frozen all year
+        temps[t, :, 0, 2] = [280.0, 280.0, 280.0]  # whole column thawed
+    da = xr.DataArray(
+        temps,
+        dims=("time", "soil", "lat", "lon"),
+        coords={
+            "time": time,
+            "soil": [0.5, 1.5, 2.5],
+            "lat": [65.0],
+            "lon": [0.0, 1.0, 2.0],
+        },
+    )
+    alt = core.calculate_alt(da)
+    assert alt.name == "alt"
+    assert alt.dims == ("year", "lat", "lon")
+    np.testing.assert_allclose(alt.values[:, 0, :], [[0.9625, 0.0, 2.5]] * 2)

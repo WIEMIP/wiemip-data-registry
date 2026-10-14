@@ -435,6 +435,95 @@ def years_to_datetime(values) -> np.ndarray:
     return np.datetime64("1970-01", "M") + total_months.astype("timedelta64[M]")
 
 
+def calculate_alt(da):
+    """
+    Calculate annual Active Layer Thickness (ALT) from soil temperatures.
+
+    The function identifies the depth at which soil temperature crosses
+    the freezing point (273.15 K), interpolating between adjacent soil
+    layers to estimate the zero-degree crossing.
+
+    For each time step, the first transition from above freezing to at
+    or below freezing is used to estimate the thaw depth. Two edge cases
+    are handled explicitly:
+        - If the uppermost soil layer is frozen, ALT is set to zero.
+        - If all soil layers are above freezing, ALT is set to the
+          maximum soil depth.
+
+    The annual ALT is calculated as the maximum ALT across all time
+    steps within each calendar year.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Soil temperature data. Must contain:
+            - 'soil': soil depth coordinate/dimension, increasing
+              downwards from the surface.
+            - 'time': time coordinate. Must be sub-annual.
+        Temperatures must be expressed in Kelvin.
+
+    Returns
+    -------
+    xarray.DataArray
+        Annual maximum Active Layer Thickness, named 'alt'.
+        The time dimension is replaced by a 'year' dimension.
+
+    Notes
+    -----
+    The zero-degree crossing is estimated using linear interpolation
+    between adjacent soil layers.
+
+    The function assumes that the soil coordinate represents physical
+    depth.
+    """
+
+    # Freezing point of water in Kelvin
+    T_freeze = 273.15
+
+    # Initialize ALT with NaN for each time step and horizontal location
+    alt = xr.full_like(da.isel(soil=0), np.nan)
+
+    # Search for the first downward temperature crossing of 0°C
+    for k in range(len(da.soil) - 1):
+
+        # Temperatures in two adjacent soil layers
+        T1 = da.isel(soil=k)
+        T2 = da.isel(soil=k + 1)
+
+        # Identify the first transition from thawed to frozen soil
+        mask = (T1 > T_freeze) & (T2 <= T_freeze) & alt.isnull()
+
+        # Depths of the two adjacent soil layers
+        z1 = da["soil"][k]
+        z2 = da["soil"][k + 1]
+
+        # Temperature difference between adjacent layers
+        dT = T2 - T1
+
+        # Avoid division by zero or near-zero temperature differences
+        dT = xr.where(np.abs(dT) < 1e-6, np.nan, dT)
+
+        # Linearly interpolate the depth of the freezing-point crossing
+        alt_interp = z1 + (T_freeze - T1) * (z2 - z1) / dT
+
+        # Retain the first detected crossing
+        alt = xr.where(mask, alt_interp, alt)
+
+    # Edge case 1: the uppermost soil layer is frozen
+    first_layer_frozen = da.isel(soil=0) <= T_freeze
+    alt = xr.where(first_layer_frozen, 0, alt)
+
+    # Edge case 2: all soil layers are above freezing
+    fully_thawed = (da > T_freeze).all(dim="soil")
+    alt = xr.where(fully_thawed, da.soil.max(), alt)
+
+    # Calculate annual maximum ALT
+    da_alt = alt.groupby("time.year").max(dim="time")
+    da_alt = da_alt.rename("alt")
+
+    return da_alt
+
+
 def _csv_path(src: Path, start: float | None, end: float | None) -> Path:
     """Cache path for a source .nc + latitude band: the source path mirrored under
     `const.CSV_ROOT` (the `csv/` prefix), '.nc' -> '.csv', suffixed with the band
