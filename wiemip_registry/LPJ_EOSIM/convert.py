@@ -21,11 +21,7 @@ _OUTPUT = DATA_ROOT
 # uploaded and is grouped here on the assumption it spells the same way.
 _CRUJRA_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 
-# soilT stacks mtsoil_top (a 0-50 cm mean, dropped) then the point temperatures
-# mtsoil_0 ... mtsoil_200; depths from the output names, in m
 _SOIL_T_DEPTHS = (0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0)
-# soilIce/soilMoist are per layer; middles of LPJ's Dz_soil (permafrost.c: 100, 100,
-# 100, 200, 200, 300, 500, 500 mm)
 _SOIL_LAYER_DEPTHS = (0.05, 0.15, 0.25, 0.4, 0.6, 0.85, 1.25, 1.75)
 
 

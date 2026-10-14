@@ -7,7 +7,6 @@ from wiemip_registry.JULES.convert import _SOIL_LAYER_DEPTHS, JULES
 
 
 def test_jules_overshoot_sclayer_gets_the_soil_depths(tmp_path, monkeypatch):
-    # overshoot soil C/N layer files index the 10 layers on `sclayer` (1-10, no units)
     path = tmp_path / "cSoilLayers.nc"
     xr.Dataset(
         {

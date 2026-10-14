@@ -16,7 +16,6 @@ def test_clm_layered_variables_resolve_to_deep_dirs():
 def test_clm_nonitrogen_layered_variables_stay_in_the_plain_run_dir():
     from wiemip_registry.CLM.convert import CLM
 
-    # the noNitrogen set uploaded its layered output beside everything else (no _deep dir)
     assert (
         CLM()
         .path("1pctCO2", "bgc", "stable", "noNitrogen", "soilT")

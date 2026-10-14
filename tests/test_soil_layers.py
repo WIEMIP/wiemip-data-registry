@@ -101,8 +101,8 @@ def test_calculate_alt_matches_function_alt():
     for t in range(24):
         july = t % 12 == 6
         temps[t, :, 0, 0] = [275.0, 271.0, 270.0] if july else [270.0, 270.0, 270.0]
-        temps[t, :, 0, 1] = [270.0, 270.0, 270.0]  # top layer frozen all year
-        temps[t, :, 0, 2] = [280.0, 280.0, 280.0]  # whole column thawed
+        temps[t, :, 0, 1] = [270.0, 270.0, 270.0]
+        temps[t, :, 0, 2] = [280.0, 280.0, 280.0]
     da = xr.DataArray(
         temps,
         dims=("time", "soil", "lat", "lon"),

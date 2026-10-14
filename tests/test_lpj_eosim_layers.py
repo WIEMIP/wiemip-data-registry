@@ -7,7 +7,6 @@ from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
 
 
 def _upload(tmp_path, monkeypatch, variable, level, size):
-    """A tiny file shaped like the upload: (level, time, latitude, longitude), bare int index."""
     path = tmp_path / f"{variable}.nc"
     data = np.arange(size, dtype="float32")[:, None, None, None] * np.ones(
         (size, 2, 1, 1)
@@ -36,7 +35,6 @@ def test_soilT_drops_the_top_mean_and_gets_point_depths(tmp_path, monkeypatch):
     da = _standardized("soilT")
     assert da["soil"].values.tolist() == [0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0]
     assert da["soil"].attrs["units"] == "m"
-    # level 0 (the 0-50 cm mean) is gone: the first kept value is the old level 1
     assert float(da.isel(soil=0, time=0).squeeze()) == 1.0
 
 

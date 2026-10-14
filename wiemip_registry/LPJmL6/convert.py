@@ -24,8 +24,6 @@ class LPJmL6(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = _FACTORIALS
-    # `depth` (0.1, 0.35, 0.75, 1.5, 2.5 m) has no bounds; taken as layer middles,
-    # unconfirmed with the group (2026-10-14)
     LAYERED_VARIABLES = {
         "soilT",
         "mrsoLayer",

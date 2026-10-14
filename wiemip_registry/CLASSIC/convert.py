@@ -45,8 +45,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "CLASSIC"
 _OUTPUT = DATA_ROOT
 
-# layer bounds from the group (module docstring): 15 soil layers to 4 m,
-# then 5 bedrock to 62 m
 _SOIL_LAYER_BOUNDS = (
     0,
     0.1,

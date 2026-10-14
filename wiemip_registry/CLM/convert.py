@@ -68,7 +68,6 @@ class CLM(core.WIEAdapter):
         Factorial.noNitrogen.name: "flat",
     }
 
-    # per-layer output: 1pctCO2 puts it in `<run>_deep/` dirs, overshoot in the ordinary run dirs
     LAYERED_VARIABLES = {
         "soilT",
         "soilIce",
@@ -103,8 +102,6 @@ class CLM(core.WIEAdapter):
         run_dir = "_".join(filter(None, (prefix, token, run_token, simulation)))
         year_span = _FACTORIAL_YEAR_SPANS.get(factorial, "")
         fname = f"clm6_{run_dir}_{variable}{year_span}.nc"
-        # layered variables sit in a `_deep` twin of the run dir; the filename keeps the plain run token
-        # (the noNitrogen set has no _deep dirs: its layered files sit in the plain run dir)
         deep = (
             "_deep"
             if variable in self.LAYERED_VARIABLES

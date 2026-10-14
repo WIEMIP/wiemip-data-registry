@@ -19,8 +19,6 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT
 
-# layer middles from the group's README (1pctCO2/output/LPX-Bern/README.md, 2026-10-11),
-# which says they apply to mrsoLayer too; soilT ships them in its own `layer` coord
 _SOIL_LAYER_DEPTHS = (0.05, 0.15, 0.25, 0.4, 0.6, 0.85, 1.25, 1.75)
 
 # canonical bucket -> (prefix before sim, suffix after sim) in LPX's own spelling.

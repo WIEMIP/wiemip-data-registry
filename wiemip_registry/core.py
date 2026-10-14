@@ -174,8 +174,6 @@ class WIEAdapter(ABC):
     # data this group still needs to QA or debug
     PROVISIONAL_DATA: tuple[tuple[str, str], ...] = ()
 
-    # variables served on a soil-layer axis; WIEFile.read() renames the level dim to
-    # `soil`. The adapter's read() must leave layer-middle depths in m on that coord.
     LAYERED_VARIABLES: set[str] = set()
 
     def land_carbon_variables(self) -> list[str]:
@@ -718,8 +716,6 @@ class WIEFile:
             raise ValueError(
                 f"{self!r}: soil depth units are {depth.attrs.get('units')!r}, need 'm'"
             )
-        # float32 depths (LPX-Bern soilT) don't align with float64 ones (its
-        # mrsoLayer), so pin every model's depths to float64 at micrometre precision
         exact = np.round(depth.values.astype("float64"), 6)
         da = da.assign_coords(soil=("soil", exact, depth.attrs))
         depth = da["soil"]
