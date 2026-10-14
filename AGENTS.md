@@ -580,7 +580,11 @@ submitted `hist_ctrl`.
   runs' `soilT` also carries — **ask Eleanor Burke** to confirm `sclayer` is those 10 layers. **LPX-Bern**: `mrsoLayer` carries
   indices 1-8 where the README says the `soilT` depths apply (the file predates the
   2026-09-23 `soilT` re-upload). **CLASSIC**: indices 1-20, depths only in the group's
-  email.
+  email. **CLM-FATES**: the 7 annual `cSoilLayers` twins uploaded 2026-10-14
+  (`…cSoilLayers.tavg-sl-hxy-lnd.yr.glb[_nofire]_1.nc`, 3 MB each against 1.9 GB monthly)
+  are **all fill**: 0 finite values of 166M in every one, though the header is complete
+  (150 years × 20 depths). The adapter keeps reading the monthly files (`MONTHLY`), so the
+  7 stay unreached on purpose — **ask the group** to re-upload them or delete them.
 - **macOS AppleDouble junk** (`._<name>.nc` sidecars) is scattered through VISIT-UT
   (1pct + overshoot). Harmless, but it inflates uncovered counts.
 - Known-unreachable-by-design leftovers: 9 odd top-level `hh_<run>.nc` stubs in
