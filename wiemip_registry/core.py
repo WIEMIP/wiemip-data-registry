@@ -174,6 +174,10 @@ class WIEAdapter(ABC):
     # data this group still needs to QA or debug
     PROVISIONAL_DATA: tuple[tuple[str, str], ...] = ()
 
+    # variables served on a soil-layer axis; WIEFile.read() renames the level dim to
+    # `soil`. The adapter's read() must leave layer-middle depths in m on that coord.
+    LAYERED_VARIABLES: set[str] = set()
+
     def land_carbon_variables(self) -> list[str]:
         """The variables that make up each model's land carbon stock. Usually some combination
         of cVeg, cSoil, cLitter, and cOther.
@@ -568,7 +572,8 @@ class WIEFile:
         that wasn't uploaded): read() is the single source of truth for what
         exists, so the caller can catch and report it. path() never pre-judges.
         Provisional data raises `ProvisionalDataError` — the file is there, but
-        the group has not QA'd it.
+        the group has not QA'd it. A variable in the adapter's `LAYERED_VARIABLES`
+        comes back with its level dim renamed to `soil` (layer-middle depths in m).
         """
 
         self._check_provisional()
@@ -591,13 +596,42 @@ class WIEFile:
                     f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
                 )
 
-        return self._adapter.read(
+        da = self._adapter.read(
             self.experiment,
             self.simulation,
             self.forcing,
             self.factorial,
             self.variable,
         )
+        if self.variable in self._adapter.LAYERED_VARIABLES:
+            da = self._standardize_layers(da)
+        return da
+
+    def _standardize_layers(self, da: xr.DataArray) -> xr.DataArray:
+        """Put a layered variable on the standard `soil` axis: its one level dim
+        renamed to `soil`, holding layer-middle depths in m that increase downward.
+        The adapter's read() supplies the depths; this renames and checks."""
+        levels = [d for d in da.dims if d not in ("time", "lat", "lon")]
+        if len(levels) != 1:
+            raise ValueError(
+                f"{self!r}: a layered variable needs exactly one level dim besides "
+                f"time/lat/lon, found {levels}"
+            )
+        if levels[0] not in da.coords:
+            raise ValueError(
+                f"{self!r}: level dim {levels[0]!r} has no depth coordinate"
+            )
+        da = da.rename({levels[0]: "soil"})
+        depth = da["soil"]
+        if not np.issubdtype(depth.dtype, np.number):
+            raise ValueError(f"{self!r}: soil depths are not numeric ({depth.dtype})")
+        if depth.attrs.get("units") != "m":
+            raise ValueError(
+                f"{self!r}: soil depth units are {depth.attrs.get('units')!r}, need 'm'"
+            )
+        if not (np.diff(depth.values) > 0).all():
+            raise ValueError(f"{self!r}: soil depths do not increase downward")
+        return da
 
     def weighted_dataarray(
         self, da: xr.DataArray | None = None
