@@ -140,10 +140,10 @@ in every listed model (units attr and data range), so nothing converts it.
 
 | model | listed variables | level dim on disk | depths from |
 |---|---|---|---|
-| CLM | `soilT`; `soilIce`, `soilMoist`, `mrsoLayer`, `soilRh`, `cPoolVr` | `levgrnd` 25 (to 42 m, bedrock included); `levsoi` 20 (to 8.03 m) | file, no bounds; values equal FATES's bounded middles. 1pctCO2 output sits in `<run>_deep/` dirs (10 runs × 6 files, filenames without the `_deep` token); overshoot in the ordinary run dirs |
+| CLM | `soilT`; `soilIce`, `soilMoist`, `mrsoLayer`, `soilRh`, `cPoolVr` | `levgrnd` 25 (to 42 m, bedrock included); `levsoi` 20 (to 8.03 m) | file, no bounds; values equal FATES's bounded middles. 1pctCO2 output sits in `<run>_deep/` dirs (10 runs × 6 files, filenames without the `_deep` token); overshoot in the ordinary run dirs, and so does the 3-run noNitrogen set |
 | CLM_FATES | `soilT` (`tsl`), `soilIce`, `soilRh`, `cSoilLayers` | `depth` 25 / 20 | file, with bounds |
 | CoLM | `soilT`, `soilIce` (dim `nsoil`), `mrsoLayer`, `cSoilLayers` | `layer` 15 (to 35 m) | file ("soil layer center depth") |
-| JULES | `soilT`, `soilIce`, `mrsoLayer`, `cSoilLayers`, `rhLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 10 (to 9.06 m) | file; `nInorgSoilLayer`'s coord is integer-truncated on disk, so the adapter replaces it with `_SOIL_LAYER_DEPTHS` |
+| JULES | `soilT`, `soilIce`, `mrsoLayer`, `cSoilLayers`, `rhLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 10 (to 9.06 m) | file; `nInorgSoilLayer`'s coord is integer-truncated on disk, so the adapter replaces it with `_SOIL_LAYER_DEPTHS`. In overshoot, `cSoilLayers`/`rhLayers`/`nOrgSoilLayer`/`nInorgSoilLayer` sit on `sclayer` (1-10, no units) and get the same depths, **assumed, unconfirmed with the group** |
 | LPJmL6 | `soilT`, `mrsoLayer`, `cSoilLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 5 (0.1-2.5 m) | file, no bounds; taken as middles, **unconfirmed with the group** |
 | LPX_Bern | `soilT`, `mrsoLayer` | `layer` 8 (0.05-1.75 m) | `soilT` file; `mrsoLayer` carries indices 1-8, so the adapter assigns the group's README depths |
 | CLASSIC | `soilT`, `mrsoLayer` | `layer` 20 (indices, `units = "layer"`) | group bounds (Vivek Arora, 2026-09-23) in the adapter docstring; middles 0.05-52 m, layers 16-20 bedrock |
@@ -574,7 +574,10 @@ submitted `hist_ctrl`.
   unconfirmed — ask Sibyll Schaphoff alongside the `land_area` question; its
   `nInorgSoilLayer` is labelled NH4 but its history shows NH4 + NO3. **JULES**:
   `nInorgSoilLayer`'s depth coord is integer-truncated (0,0,0,0,1,1,2,3,6,9), and
-  `rhLayers` has a `_mon_` token over 150 annual steps. **LPX-Bern**: `mrsoLayer` carries
+  `rhLayers` has a `_mon_` token over 150 annual steps. In overshoot, `cSoilLayers`,
+  `rhLayers`, `nOrgSoilLayer` and `nInorgSoilLayer` (520 files) index their layers on
+  `sclayer` 1-10 with no depths; the adapter assigns the 1pctCO2 depths, which the same
+  runs' `soilT` also carries — **ask Eleanor Burke** to confirm `sclayer` is those 10 layers. **LPX-Bern**: `mrsoLayer` carries
   indices 1-8 where the README says the `soilT` depths apply (the file predates the
   2026-09-23 `soilT` re-upload). **CLASSIC**: indices 1-20, depths only in the group's
   email.

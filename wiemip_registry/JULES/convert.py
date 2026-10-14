@@ -147,6 +147,12 @@ class JULES(core.WIEAdapter):
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _NC_FILL_FLOAT)  # undeclared fill, see _NC_FILL_FLOAT
+        # overshoot's soil C/N layer variables index the same 10 layers on `sclayer`
+        # (1-10, no units); the group's 1pctCO2 files and each run's soilT carry the depths
+        if "sclayer" in da.dims:
+            da = da.rename({"sclayer": "depth"}).assign_coords(
+                depth=("depth", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         if "depth" in da.dims and not da.indexes["depth"].is_unique:
             da = da.assign_coords(
                 depth=("depth", list(_SOIL_LAYER_DEPTHS), {"units": "m"})

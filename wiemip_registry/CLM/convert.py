@@ -104,7 +104,13 @@ class CLM(core.WIEAdapter):
         year_span = _FACTORIAL_YEAR_SPANS.get(factorial, "")
         fname = f"clm6_{run_dir}_{variable}{year_span}.nc"
         # layered variables sit in a `_deep` twin of the run dir; the filename keeps the plain run token
-        deep = "_deep" if variable in self.LAYERED_VARIABLES else ""
+        # (the noNitrogen set has no _deep dirs: its layered files sit in the plain run dir)
+        deep = (
+            "_deep"
+            if variable in self.LAYERED_VARIABLES
+            and factorial not in _FACTORIAL_RUN_TOKENS
+            else ""
+        )
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / f"{run_dir}{deep}" / fname)
 
     def _overshoot_files(self, simulation, forcing, factorial, variable) -> list[str]:
