@@ -83,6 +83,18 @@ Requests are validated against the vocabularies exported at the top level (`wr.m
 - **Baseline vs factorial:** a run/file with no `no<Process>` token is the baseline
   (comparable across models); a `_noFire`/`noNitrogen`/… token marks a sensitivity run.
   `_ndep` means N-deposition **on** — a simulation, not a "no" factorial.
+- **Layered soil variables come back on one `soil` axis** (issue #40, 2026-10-14). An
+  adapter lists them in `LAYERED_VARIABLES`; `WIEFile.read()` renames the one dim beyond
+  (time, lat, lon) to `soil` and raises unless it holds numeric, strictly increasing
+  **layer-middle depths in m** (`units = "m"`), pinned to float64 at micrometre
+  precision so float32 and float64 depths align. The adapter's own `read()` supplies the
+  depths, from the file or assigned from what the group sent. A model whose depths are
+  unknown stays off the list and its variable keeps its native level dim.
+  `core.calculate_alt(da)` takes a standardized monthly `soilT` (K) and returns the
+  annual maximum active-layer thickness on a `year` dim. It is `function_alt.py`
+  verbatim, so a column thawed top to bottom returns the deepest layer's depth, bedrock
+  included (CLASSIC 52 m, CLM 42 m). Which model's depths come from where: "Layered soil
+  variables" below.
 
 ### Units & global integral
 - `const.STOCKS` is every per-m² **amount**: the carbon pools (`kg C m⁻²`), the nitrogen
@@ -121,6 +133,34 @@ Requests are validated against the vocabularies exported at the top level (`wr.m
   off the file; LPX-Bern and VISIT-UT decode absolute calendar years, so neither was
   exposed. Sanity rule for any overshoot series: hist and both controls span
   **1850-2023**, every scenario spans **2024-2300**.
+
+### Layered soil variables
+Depth sources, from a header read of every candidate file on 2026-10-14. `soilT` is `K`
+in every listed model (units attr and data range), so nothing converts it.
+
+| model | listed variables | level dim on disk | depths from |
+|---|---|---|---|
+| CLM | `soilT`; `soilIce`, `soilMoist`, `mrsoLayer`, `soilRh`, `cPoolVr` | `levgrnd` 25 (to 42 m, bedrock included); `levsoi` 20 (to 8.03 m) | file, no bounds; values equal FATES's bounded middles. 1pctCO2 output sits in `<run>_deep/` dirs (10 runs × 6 files, filenames without the `_deep` token); overshoot in the ordinary run dirs |
+| CLM_FATES | `soilT` (`tsl`), `soilIce`, `soilRh`, `cSoilLayers` | `depth` 25 / 20 | file, with bounds |
+| CoLM | `soilT`, `soilIce` (dim `nsoil`), `mrsoLayer`, `cSoilLayers` | `layer` 15 (to 35 m) | file ("soil layer center depth") |
+| JULES | `soilT`, `soilIce`, `mrsoLayer`, `cSoilLayers`, `rhLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 10 (to 9.06 m) | file; `nInorgSoilLayer`'s coord is integer-truncated on disk, so the adapter replaces it with `_SOIL_LAYER_DEPTHS` |
+| LPJmL6 | `soilT`, `mrsoLayer`, `cSoilLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 5 (0.1-2.5 m) | file, no bounds; taken as middles, **unconfirmed with the group** |
+| LPX_Bern | `soilT`, `mrsoLayer` | `layer` 8 (0.05-1.75 m) | `soilT` file; `mrsoLayer` carries indices 1-8, so the adapter assigns the group's README depths |
+| CLASSIC | `soilT`, `mrsoLayer` | `layer` 20 (indices, `units = "layer"`) | group bounds (Vivek Arora, 2026-09-23) in the adapter docstring; middles 0.05-52 m, layers 16-20 bedrock |
+
+Not listed, so their layered variables keep the native level dim: **LPJ_EOSIM** (no
+depths in file; `soilT` level 0 is a 0-50 cm mean), **JSBACH** and **BEPS** (no depths in
+file; asked 2026-09-22, no reply), **BiomeE** (see the flag below). A cached CSV for a
+layered variable written before 2026-10-14 still carries the old level-dim name: delete
+it under `const.CSV_ROOT`.
+
+ALT cross-check (2026-10-14, 1pctCO2 bgc, 1850, cells where both the upload and
+`calculate_alt` stay above the deepest layer): **LPJmL6** 17,770 cells, median difference
+0.00 m, 98% within 0.5 m, which backs reading its `depth` as middles; **CLASSIC** 3,543
+cells, median 0.02 m, 98% within 0.5 m (99% in 1900). CLASSIC uploads `alt` **monthly**
+("Mean active layer depth"), so compare against its annual max. Outside permafrost each
+model reports its own column depth (CLASSIC 62 m, LPJmL6 13 m), so whole-grid
+differences say nothing about the method.
 
 ### Paths & CSV cache
 - Files resolve under `const.DATA_ROOT` (`/mnt/wiemip`) as
@@ -263,8 +303,8 @@ submitted `hist_ctrl`.
   same 84 runs and chunks again as the protocol's `wetCH4` (2026-08-17), sizes within
   ~3 KB. The registry resolved the vocab name to the newer, correctly-named copy and
   deliberately carries **no `wetCH4 -> fwetch4` alias**; keep it that way — JULES's alias
-  would have been exactly wrong here. CLM is now down to its by-design leftovers (60
-  `_deep`, 19 loose top-level bundles/stubs).
+  would have been exactly wrong here. CLM is now down to its by-design leftovers (19
+  loose top-level bundles/stubs; the 60 `_deep` files became reachable 2026-10-14).
 - **CLM-FATES replaced its ENTIRE 1pctCO2 arm on 2026-09-14** (all 292 files
   delete-marked at 11:39 UTC, re-uploaded 11:43-11:57; overshoot untouched). Two
   consequences: **bgc/ctrl are finally labelled `stable`** on disk, so those runs are
@@ -526,11 +566,23 @@ submitted `hist_ctrl`.
   **Its ctrl is not spun up**: land carbon (cVeg + cLitter + cSoil, 30.5-89.5 N) rises
   1,898 -> 2,018 Pg C (deepsoc) and 1,764 -> 1,879 (no_deepsoc) over 1850-1999, cVeg +21%.
   bgc reaches 2,496 / 2,355 and cou 2,380 / 2,294 (`plot_orchidee_land_carbon.py`, 2026-10-12).
+- **Layered soil metadata gaps** (header check 2026-10-14, issue #40). **BiomeE**:
+  `soilT` has no layer dim at all (long_name says "per layer"), and `mrsoLayer`'s level
+  values sit in a variable named `Soil Layer` (5, 25, 50, 100, 120) with no units, so
+  BiomeE is off `LAYERED_VARIABLES` — **ask the group** for the per-layer `soilT` and the
+  `Soil Layer` units. **LPJmL6**: `depth` has no bounds, so middles vs bottoms is
+  unconfirmed — ask Sibyll Schaphoff alongside the `land_area` question; its
+  `nInorgSoilLayer` is labelled NH4 but its history shows NH4 + NO3. **JULES**:
+  `nInorgSoilLayer`'s depth coord is integer-truncated (0,0,0,0,1,1,2,3,6,9), and
+  `rhLayers` has a `_mon_` token over 150 annual steps. **LPX-Bern**: `mrsoLayer` carries
+  indices 1-8 where the README says the `soilT` depths apply (the file predates the
+  2026-09-23 `soilT` re-upload). **CLASSIC**: indices 1-20, depths only in the group's
+  email.
 - **macOS AppleDouble junk** (`._<name>.nc` sidecars) is scattered through VISIT-UT
   (1pct + overshoot). Harmless, but it inflates uncovered counts.
-- Known-unreachable-by-design leftovers: CLM's `<run>_deep/` per-layer output (60
-  files, up to ~9.4 GB each — deliberately unmapped until an analysis needs per-layer
-  data), 9 odd top-level `hh_<run>.nc` stubs in its overshoot dir, and 10 loose
+- Known-unreachable-by-design leftovers: 9 odd top-level `hh_<run>.nc` stubs in
+  CLM's overshoot dir (its `<run>_deep/` per-layer output, 60 files, was mapped
+  2026-10-14 for the layered soil variables), and 10 loose
   top-level `<set>_<forcing>_<run>.nc` bundles (~471 MB each, 2026-08-18) in its 1pct
   dir; CLM-FATES's monthly duplicates of annual stocks (41 in 1pctCO2 — incl. a few
   hist/hl-named strays in the 1pct dir — and 110 in overshoot = 11 vars × 10 sims)
@@ -623,6 +675,14 @@ Run against a machine that has the model-output bucket available at `const.DATA_
   upload and out-of-vocab `fpc_pft`), both file-prefix spellings, the by-hand time decode
   (1850-2000 on 151 annual / 1812 monthly steps), the 42-PFT stack, and physical global
   integrals. Prints `all checks passed` or the failures.
+- **`remote_read.py`** — read one registry variable straight off the bucket from the
+  laptop (s3fs + h5netcdf, no `/mnt/wiemip`), first `REMOTE_STEPS` time steps only,
+  through the real adapter and `WIEFile.read()`. netCDF4 files only (LPJmL6 is netCDF3).
+  `uv run --with s3fs --with h5netcdf --with h5py python debug/remote_read.py CLM soilT`.
+- **`verify_soil_layers.py`** — every listed layered variable reads on a `soil` axis
+  (increasing, m; `soilT` in K), CLM overshoot included, held models untouched,
+  `calculate_alt` on a year of `soilT` per model, and the CLASSIC ALT cross-check against
+  its own `alt`. Imports `remote_read.py`'s patches. LPJmL6 is checked on Hellgate.
 - **`regen_land_carbon_stocks.py`** — every model × registered factorial × valid
   sim/forcing through `wr.land_carbon_stock()`; one CSV per combo plus `summary.csv`
   under `/tmp/wiemip/land_carbon/`, and it re-warms `const.CSV_ROOT` as a side effect.
