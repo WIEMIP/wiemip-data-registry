@@ -147,18 +147,22 @@ in every listed model (units attr and data range), so nothing converts it.
 | LPJmL6 | `soilT`, `mrsoLayer`, `cSoilLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 5 (0.1-2.5 m) | file, no bounds; taken as middles, **unconfirmed with the group** |
 | LPX_Bern | `soilT`, `mrsoLayer` | `layer` 8 (0.05-1.75 m) | `soilT` file; `mrsoLayer` carries indices 1-8, so the adapter assigns the group's README depths |
 | CLASSIC | `soilT`, `mrsoLayer` | `layer` 20 (indices, `units = "layer"`) | group bounds (Vivek Arora, 2026-09-23) in the adapter docstring; middles 0.05-52 m, layers 16-20 bedrock |
+| LPJ_EOSIM | `soilT`, `soilIce`, `soilMoist` | `soilT` on `pool` 9, the others on `layer` 8 (indices) | the group (Tom, 2026-10-14). `soilT` level 0 is `mtsoil_top`, a 0-50 cm mean, and is dropped; levels 1-8 are the point temperatures `mtsoil_0`…`mtsoil_200`, so their depths (0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0 m) are points, not layer middles. `soilIce`/`soilMoist`: middles of `Dz_soil` (100, 100, 100, 200, 200, 300, 500, 500 mm), 0.05-1.75 m |
 
-Not listed, so their layered variables keep the native level dim: **LPJ_EOSIM** (no
-depths in file; `soilT` level 0 is a 0-50 cm mean), **JSBACH** and **BEPS** (no depths in
-file; asked 2026-09-22, no reply), **BiomeE** (see the flag below). A cached CSV for a
+Not listed, so their layered variables keep the native level dim: **JSBACH** and
+**BEPS** (no depths in file; asked 2026-09-22, no reply), **BiomeE** (see the flag below). A cached CSV for a
 layered variable written before 2026-10-14 still carries the old level-dim name: delete
 it under `const.CSV_ROOT`.
 
 ALT cross-check (2026-10-14, 1pctCO2 bgc, 1850, cells where both the upload and
 `calculate_alt` stay above the deepest layer): **LPJmL6** 17,770 cells, median difference
 0.00 m, 98% within 0.5 m, which backs reading its `depth` as middles; **CLASSIC** 3,543
-cells, median 0.02 m, 98% within 0.5 m (99% in 1900). CLASSIC uploads `alt` **monthly**
-("Mean active layer depth"), so compare against its annual max. Outside permafrost each
+cells, median 0.02 m, 98% within 0.5 m (99% in 1900); **LPJ-EOSIM** 12,057 cells, median -0.07 m, 100% within 0.5 m.
+LPJ-EOSIM also has 2,830 cells where `calculate_alt` gives 1.7-1.95 m but its own `alt`
+is the 2.0 m column bottom: the 2 m point's warmest monthly mean sits just below 0 °C
+(median 272.5 K), and LPJ computes `alt` daily, so a few thaw days count in the upload but
+not in monthly means. CLASSIC and LPJ-EOSIM upload `alt` **monthly**
+(CLASSIC's long_name is "Mean active layer depth"), so compare against the annual max. Outside permafrost each
 model reports its own column depth (CLASSIC 62 m, LPJmL6 13 m), so whole-grid
 differences say nothing about the method.
 
