@@ -652,12 +652,12 @@ class WIEFile:
         ]
 
     def read(self) -> xr.DataArray:
-        """Standardized, *lazy* DataArray for this variable (canonical dims,
-        pandas-datetime time coord at native cadence, NaN fills, native units).
+        """Standardized, *lazy* DataArray for this variable.
 
         Raises whatever opening the file raises (FileNotFoundError for a combo
         that wasn't uploaded): read() is the single source of truth for what
-        exists, so the caller can catch and report it. path() never pre-judges.
+        exists, so the caller can catch and report it.
+
         Provisional data raises `ProvisionalDataError` — the file is there, but
         the group has not QA'd it. A variable in the adapter's `LAYERED_VARIABLES`
         comes back with its level dim renamed to `soil` (layer-middle depths in m).
