@@ -28,9 +28,10 @@ does not include e.g. fire to an estimated gamma_land and beta_land if the ESM d
 For the overshoot runs, the required simulations are spinup, historical (using a version
 of CRUJRA that has been downscaled to 6-hourly using the JULES weather generator), and
 various future scenarios derived from CMIP7's ScenarioMIP. The required future simulations
-are L, HL, HL-counterfactual (a custom wiemip simulation) and M, though data is provided
-for the rest of the ScenarioMIP simulations along with some more counterfactuals (e.g.,
-ML-CF). The future runs extend from 2024-2300. Land use fractions are fixed at 2023 values 
+are L, HL, HL-CTAP (a custom wiemip simulation, called HL-CF until 2026-10-15) and M,
+though data is provided for the rest of the ScenarioMIP simulations along with some
+more CTAP runs (e.g., ML-CTAP). VL-CF-PolMIP is a different kind of run, not a CTAP
+run, and keeps its CF name. The future runs extend from 2024-2300. Land use fractions are fixed at 2023 values 
 from spinup, to historical, to future to reduce the impact of land use change.
 
 This file is hosted on a Jupyterhub that is a shared space for analyzing WIEMIP

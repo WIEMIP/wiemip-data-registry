@@ -22,11 +22,11 @@ def test_hist_ctrl_has_no_forcing_token():
 
 
 def test_scenario_spells_the_requested_pattern():
-    f = wr.retrieve_overshoot_variable("DVM_DOS_TEM", "ukesm", "hl_cf", "cVeg")
+    f = wr.retrieve_overshoot_variable("DVM_DOS_TEM", "ukesm", "hl_ctap", "cVeg")
     assert f.path.endswith(
         ROOT + "DVM-DOS-TEM_ukesm_hl_cf/DVM-DOS-TEM_ukesm_hl_cf_cVeg_yr_05.nc"
     )
-    g = wr.retrieve_overshoot_variable("DVM_DOS_TEM", "gfdl", "hl_cf", "cVeg")
+    g = wr.retrieve_overshoot_variable("DVM_DOS_TEM", "gfdl", "hl_ctap", "cVeg")
     assert g.path != f.path
 
 

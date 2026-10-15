@@ -13,7 +13,7 @@ def test_hist_landcoverfrac_spells_fx():
 
 
 def test_scenario_landcoverfrac_spells_fx():
-    f = wr.retrieve_overshoot_variable("TEM", "ipsl", "hl_cf", "landCoverFrac")
+    f = wr.retrieve_overshoot_variable("TEM", "ipsl", "hl_ctap", "landCoverFrac")
     assert f.path.endswith(ROOT + "hl_cf/TEM-MDM_ipsl_hl_cf_landCoverFrac_fx_05.nc")
 
 

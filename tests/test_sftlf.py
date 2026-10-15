@@ -71,7 +71,7 @@ OVERSHOOT_PATHS = [
     (
         "CoLM",
         "ukesm",
-        "hl_cf",
+        "hl_ctap",
         None,
         "CoLM/CoLM_ukesm_hl_cf/CoLM_ukesm_hl_cf_sftlf_fx_1.nc",
     ),

@@ -67,6 +67,8 @@ from wiemip_registry.variables import VARIABLES as variables
 
 one_percent_simulations = [s.name for s in const.OnePctSimulation]
 overshoot_simulations = [s.name for s in const.OvershootSimulation]
+# The CTAP runs' names before the 2026-10-15 rename, still accepted on request.
+_OLD_CTAP_NAMES = {old: new for new, old in const.CTAP_DISK_TOKENS.items()}
 gcm_patterns = [m.name for m in const.GCMPattern]
 variables = list(dict.fromkeys([*variables, *extra_variables]))
 factorials = [f.name for f in const.Factorial]
@@ -279,8 +281,8 @@ def retrieve_overshoot_variable(
 ) -> WIEFile:
     """
     Retrieve an overshoot variable from the WIEMIP Wasabi bucket. Forcing can be one of ukesm/ipsl/gfdl,
-    simulation can be one of hist/ctrl/vl/ml/ml_cf and so on. See const.py for Enum classes containing the
-    overshoot simulations.
+    simulation can be one of hist/ctrl/vl/ml/ml_ctap and so on. See const.py for Enum classes containing the
+    overshoot simulations. The old counterfactual names (hl_cf/ml_cf/vl_cf) still work, with a warning.
     Factorial is always None except for models like JULES and JSBACH which have submitted custom factorials with
     unique names. In this case, the name of the factorial will be passed through to the path() method
     without checking against the WIEMIP vocabulary.
@@ -288,6 +290,15 @@ def retrieve_overshoot_variable(
 
     simulation = simulation.lower()
     forcing = forcing.lower()
+
+    if simulation in _OLD_CTAP_NAMES:
+        warnings.warn(
+            f"'{simulation}' was renamed '{_OLD_CTAP_NAMES[simulation]}' on 2026-10-15;"
+            " use the new name.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        simulation = _OLD_CTAP_NAMES[simulation]
 
     _sanity_check(model, forcing, simulation, variable)
 

@@ -177,6 +177,12 @@ class WIEAdapter(ABC):
 
     LAYERED_VARIABLES: set[str] = set()
 
+    def disk_simulation(self, simulation: str) -> str:
+        """The simulation token this model's files were written under. The CTAP runs
+        were uploaded as `_cf` counterfactuals before the 2026-10-15 rename, so every
+        adapter is handed the old token. Override if a group re-uploads as `_ctap`."""
+        return const.CTAP_DISK_TOKENS.get(simulation, simulation)
+
     def land_carbon_variables(self) -> list[str]:
         """The variables that make up each model's land carbon stock. Usually some combination
         of cVeg, cSoil, cLitter, and cOther.
@@ -631,12 +637,18 @@ class WIEFile:
         return self.read().attrs.get("units", "")
 
     @property
+    def disk_simulation(self) -> str:
+        """The simulation token the files were written under, which is what the adapter
+        is handed. Differs from `simulation` only for the renamed CTAP runs."""
+        return self._adapter.disk_simulation(self.simulation)
+
+    @property
     def path(self) -> str:
         """Resolved bucket path, delegated to the model's adapter."""
         return str(
             self._adapter.path(
                 self.experiment,
-                self.simulation,
+                self.disk_simulation,
                 self.forcing,
                 self.factorial,
                 self.variable,
@@ -650,7 +662,7 @@ class WIEFile:
             str(p)
             for p in self._adapter.paths(
                 self.experiment,
-                self.simulation,
+                self.disk_simulation,
                 self.forcing,
                 self.factorial,
                 self.variable,
@@ -678,20 +690,13 @@ class WIEFile:
                     f"{self.factorial}, and {self.variable} does not exist in the WIEMIP protocol."
                 )
             else:
-                pth = self._adapter.path(
-                    self.experiment,
-                    self.simulation,
-                    self.forcing,
-                    self.factorial,
-                    self.variable,
-                )
                 raise FileNotFoundError(
-                    f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
+                    f"Missing file for {self.path}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
                 )
 
         da = self._adapter.read(
             self.experiment,
-            self.simulation,
+            self.disk_simulation,
             self.forcing,
             self.factorial,
             self.variable,

@@ -11,7 +11,7 @@ def test_every_overshoot_run_spells_the_loose_file():
     for forcing, simulation in (
         ("ukesm", "hist"),
         ("ukesm", "ctrl"),
-        ("ipsl", "hl_cf"),
+        ("ipsl", "hl_ctap"),
     ):
         f = wr.retrieve_overshoot_variable("DLEM", forcing, simulation, "landCoverFrac")
         assert f.path.endswith(LOOSE_FILE)
