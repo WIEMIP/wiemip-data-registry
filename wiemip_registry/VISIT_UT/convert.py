@@ -29,6 +29,8 @@ _UNITS_NOTE = {
     "vs physical ~1.08 Pg C/yr). g->kg label slip, flagged for A. Ito.",
 }
 
+_OVERSHOOT_VARIABLE_NAMES = {"fch4soil": "fch4soilnat"}
+
 
 def _bare_run(simulation, forcing) -> str:
     """The factorial-free run token (file prefix). The factorial is NOT here —
@@ -54,10 +56,6 @@ class VISIT_UT(core.WIEAdapter):
         suf = self.FACTORIALS[factorial]  # "" | "_noBVOC" | "_noFire"
         bare = _bare_run(simulation, forcing)
         run = f"{bare}{suf}"  # dir carries the factorial
-
-        if variable == "fch4soil":
-            variable = "fch4soilnat"
-
         fname = f"{bare}_{variable}_mon{suf}_05.nc"  # file: factorial AFTER cadence
         return str(_OUTPUT / "1pctCO2" / "output" / "VISIT-UT" / run / fname)
 
@@ -68,9 +66,7 @@ class VISIT_UT(core.WIEAdapter):
         else:
             run = f"VISIT-UT_{forcing.lower()}_{'control' if sim == 'ctrl' else sim}"
             prefix = f"VISIT-UT_{forcing.lower()}_{'CTRL' if sim == 'ctrl' else sim}"
-
-        if variable == "fch4soil":
-            variable = "fch4soilnat"
+        variable = _OVERSHOOT_VARIABLE_NAMES.get(variable, variable)
         fname = f"{prefix}_{variable}_mon_05.nc"
         return str(_OUTPUT / "overshoot" / "output" / "VISIT-UT" / run / fname)
 
@@ -85,8 +81,11 @@ class VISIT_UT(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        da = core.mask_fill(ds[variable])
-        file_units = ds[variable].attrs.get("units", "")
+        name = variable
+        if experiment == "overshoot":
+            name = _OVERSHOOT_VARIABLE_NAMES.get(variable, variable)
+        da = core.mask_fill(ds[name])
+        file_units = ds[name].attrs.get("units", "")
         da.attrs["units"] = file_units
         if variable in _UNITS_NOTE:
             warnings.warn(
