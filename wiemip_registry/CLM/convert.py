@@ -95,7 +95,8 @@ class CLM(core.WIEAdapter):
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are
         # still labelled "ukesm" on disk, so that's the token for anything else.
-        # Validated with Will Wieder on 8/17/2026
+        # Validated with Will Wieder on 8/17/2026 "I just mislabeled the ctrl cases.
+        # These were run with the stable climate forcings (as were the ukesm_bgc simulations)."
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         token = forcing.lower() if gcm_forced else "ukesm"
         run_token = _FACTORIAL_RUN_TOKENS.get(factorial, "")
