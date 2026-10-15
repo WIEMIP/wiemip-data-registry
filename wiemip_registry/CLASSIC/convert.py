@@ -45,6 +45,34 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "CLASSIC"
 _OUTPUT = DATA_ROOT
 
+_SOIL_LAYER_BOUNDS = (
+    0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1,
+    1.2,
+    1.6,
+    2.2,
+    3,
+    4,
+    7,
+    12,
+    22,
+    42,
+    62,
+)
+_SOIL_LAYER_DEPTHS = tuple(
+    (top + bottom) / 2
+    for top, bottom in zip(_SOIL_LAYER_BOUNDS[:-1], _SOIL_LAYER_BOUNDS[1:])
+)
+
 _SIM = {
     "bgc": "BGC",
     "cou": "COU",
@@ -82,6 +110,7 @@ class CLASSIC(core.WIEAdapter):
     LAT, LON = "latitude", "longitude"
     DECODE = True
     FACTORIALS = _FACTORIALS
+    LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
 
     # Per-PFT carbon that CLASSIC writes monthly even though the bulk-grid pools
     # are annual (model-specific cadence override of const.ANNUAL).
@@ -160,6 +189,10 @@ class CLASSIC(core.WIEAdapter):
             ds = ds * -1
         name = self._FIELD_NAMES.get(variable, self._get_variable(variable))
         da = core.mask_fill(ds[name])
+        if variable in self.LAYERED_VARIABLES:
+            da = da.assign_coords(
+                layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property

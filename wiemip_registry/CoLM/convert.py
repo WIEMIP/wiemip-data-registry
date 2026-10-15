@@ -17,6 +17,7 @@ class CoLM(core.WIEAdapter):
     LAT, LON = "latitude", "longitude"
     DECODE = True
     FACTORIALS = {Factorial.baseline.name: ""}
+    LAYERED_VARIABLES = {"soilT", "soilIce", "mrsoLayer", "cSoilLayers"}
 
     # annual on disk but not in const.ANNUAL
     ANNUAL = {"burntArea"}

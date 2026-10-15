@@ -24,6 +24,13 @@ class LPJmL6(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = _FACTORIALS
+    LAYERED_VARIABLES = {
+        "soilT",
+        "mrsoLayer",
+        "cSoilLayers",
+        "nOrgSoilLayer",
+        "nInorgSoilLayer",
+    }
 
     def land_carbon_variables(self) -> list[str]:
         """

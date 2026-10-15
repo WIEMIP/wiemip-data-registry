@@ -174,6 +174,8 @@ class WIEAdapter(ABC):
     # data this group still needs to QA or debug
     PROVISIONAL_DATA: tuple[tuple[str, str], ...] = ()
 
+    LAYERED_VARIABLES: set[str] = set()
+
     def land_carbon_variables(self) -> list[str]:
         """The variables that make up each model's land carbon stock. Usually some combination
         of cVeg, cSoil, cLitter, and cOther.
@@ -431,6 +433,95 @@ def years_to_datetime(values) -> np.ndarray:
     return np.datetime64("1970-01", "M") + total_months.astype("timedelta64[M]")
 
 
+def calculate_alt(da):
+    """
+    Calculate annual Active Layer Thickness (ALT) from soil temperatures.
+
+    The function identifies the depth at which soil temperature crosses
+    the freezing point (273.15 K), interpolating between adjacent soil
+    layers to estimate the zero-degree crossing.
+
+    For each time step, the first transition from above freezing to at
+    or below freezing is used to estimate the thaw depth. Two edge cases
+    are handled explicitly:
+        - If the uppermost soil layer is frozen, ALT is set to zero.
+        - If all soil layers are above freezing, ALT is set to the
+          maximum soil depth.
+
+    The annual ALT is calculated as the maximum ALT across all time
+    steps within each calendar year.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Soil temperature data. Must contain:
+            - 'soil': soil depth coordinate/dimension, increasing
+              downwards from the surface.
+            - 'time': time coordinate. Must be sub-annual.
+        Temperatures must be expressed in Kelvin.
+
+    Returns
+    -------
+    xarray.DataArray
+        Annual maximum Active Layer Thickness, named 'alt'.
+        The time dimension is replaced by a 'year' dimension.
+
+    Notes
+    -----
+    The zero-degree crossing is estimated using linear interpolation
+    between adjacent soil layers.
+
+    The function assumes that the soil coordinate represents physical
+    depth.
+    """
+
+    # Freezing point of water in Kelvin
+    T_freeze = 273.15
+
+    # Initialize ALT with NaN for each time step and horizontal location
+    alt = xr.full_like(da.isel(soil=0), np.nan)
+
+    # Search for the first downward temperature crossing of 0°C
+    for k in range(len(da.soil) - 1):
+
+        # Temperatures in two adjacent soil layers
+        T1 = da.isel(soil=k)
+        T2 = da.isel(soil=k + 1)
+
+        # Identify the first transition from thawed to frozen soil
+        mask = (T1 > T_freeze) & (T2 <= T_freeze) & alt.isnull()
+
+        # Depths of the two adjacent soil layers
+        z1 = da["soil"][k]
+        z2 = da["soil"][k + 1]
+
+        # Temperature difference between adjacent layers
+        dT = T2 - T1
+
+        # Avoid division by zero or near-zero temperature differences
+        dT = xr.where(np.abs(dT) < 1e-6, np.nan, dT)
+
+        # Linearly interpolate the depth of the freezing-point crossing
+        alt_interp = z1 + (T_freeze - T1) * (z2 - z1) / dT
+
+        # Retain the first detected crossing
+        alt = xr.where(mask, alt_interp, alt)
+
+    # Edge case 1: the uppermost soil layer is frozen
+    first_layer_frozen = da.isel(soil=0) <= T_freeze
+    alt = xr.where(first_layer_frozen, 0, alt)
+
+    # Edge case 2: all soil layers are above freezing
+    fully_thawed = (da > T_freeze).all(dim="soil")
+    alt = xr.where(fully_thawed, da.soil.max(), alt)
+
+    # Calculate annual maximum ALT
+    da_alt = alt.groupby("time.year").max(dim="time")
+    da_alt = da_alt.rename("alt")
+
+    return da_alt
+
+
 def _csv_path(src: Path, start: float | None, end: float | None) -> Path:
     """Cache path for a source .nc + latitude band: the source path mirrored under
     `const.CSV_ROOT` (the `csv/` prefix), '.nc' -> '.csv', suffixed with the band
@@ -561,14 +652,15 @@ class WIEFile:
         ]
 
     def read(self) -> xr.DataArray:
-        """Standardized, *lazy* DataArray for this variable (canonical dims,
-        pandas-datetime time coord at native cadence, NaN fills, native units).
+        """Standardized, *lazy* DataArray for this variable.
 
         Raises whatever opening the file raises (FileNotFoundError for a combo
         that wasn't uploaded): read() is the single source of truth for what
-        exists, so the caller can catch and report it. path() never pre-judges.
+        exists, so the caller can catch and report it.
+
         Provisional data raises `ProvisionalDataError` — the file is there, but
-        the group has not QA'd it.
+        the group has not QA'd it. A variable in the adapter's `LAYERED_VARIABLES`
+        comes back with its level dim renamed to `soil` (layer-middle depths in m).
         """
 
         self._check_provisional()
@@ -591,13 +683,43 @@ class WIEFile:
                     f"Missing file for {pth}. Requested: {self.experiment}, {self.simulation}, {self.forcing}, {self.factorial}, {self.variable}"
                 )
 
-        return self._adapter.read(
+        da = self._adapter.read(
             self.experiment,
             self.simulation,
             self.forcing,
             self.factorial,
             self.variable,
         )
+        if self.variable in self._adapter.LAYERED_VARIABLES:
+            da = self._standardize_layers(da)
+        return da
+
+    def _standardize_layers(self, da: xr.DataArray) -> xr.DataArray:
+        """This function ingests a layered variable and renames whatever the layer dim is called to "soil"."""
+        levels = [d for d in da.dims if d not in ("time", "lat", "lon")]
+        if len(levels) != 1:
+            raise ValueError(
+                f"{self!r}: a layered variable needs exactly one level dim besides "
+                f"time/lat/lon, found {levels}"
+            )
+        if levels[0] not in da.coords:
+            raise ValueError(
+                f"{self!r}: level dim {levels[0]!r} has no depth coordinate"
+            )
+        da = da.rename({levels[0]: "soil"})
+        depth = da["soil"]
+        if not np.issubdtype(depth.dtype, np.number):
+            raise ValueError(f"{self!r}: soil depths are not numeric ({depth.dtype})")
+        if depth.attrs.get("units") != "m":
+            raise ValueError(
+                f"{self!r}: soil depth units are {depth.attrs.get('units')!r}, need 'm'"
+            )
+        exact = np.round(depth.values.astype("float64"), 6)
+        da = da.assign_coords(soil=("soil", exact, depth.attrs))
+        depth = da["soil"]
+        if not (np.diff(depth.values) > 0).all():
+            raise ValueError(f"{self!r}: soil depths do not increase downward")
+        return da
 
     def weighted_dataarray(
         self, da: xr.DataArray | None = None

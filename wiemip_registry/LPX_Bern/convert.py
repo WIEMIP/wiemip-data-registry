@@ -19,6 +19,8 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 MODEL = "LPX-Bern"
 _OUTPUT = DATA_ROOT
 
+_SOIL_LAYER_DEPTHS = (0.05, 0.15, 0.25, 0.4, 0.6, 0.85, 1.25, 1.75)
+
 # canonical bucket -> (prefix before sim, suffix after sim) in LPX's own spelling.
 _FACTORIALS = {
     Factorial.baseline.name: ("", ""),
@@ -38,6 +40,7 @@ class LPX_Bern(core.WIEAdapter):
     as nOrgSoil. nSoil was deprecated in the variable request after upload.
     By default, we'll skip nSoil.
     """
+    LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
 
     # overshoot band validation: global sums ~1e13 Pg for these, ceiling is 1e6
     PROVISIONAL_DATA = (
@@ -106,6 +109,10 @@ class LPX_Bern(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
+        if variable == "mrsoLayer":
+            da = da.assign_coords(
+                layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
