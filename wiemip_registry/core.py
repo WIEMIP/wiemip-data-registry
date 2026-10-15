@@ -695,9 +695,7 @@ class WIEFile:
         return da
 
     def _standardize_layers(self, da: xr.DataArray) -> xr.DataArray:
-        """Put a layered variable on the standard `soil` axis: its one level dim
-        renamed to `soil`, holding layer-middle depths in m that increase downward.
-        The adapter's read() supplies the depths; this renames and checks."""
+        """This function ingests a layered variable and renames whatever the layer dim is called to "soil"."""
         levels = [d for d in da.dims if d not in ("time", "lat", "lon")]
         if len(levels) != 1:
             raise ValueError(
