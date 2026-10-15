@@ -85,12 +85,21 @@ class LPJmL6(core.WIEAdapter):
 
     @property
     def _area_weight_path(self):
-        return self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg")
+        return (
+            _OUTPUT
+            / "1pctCO2"
+            / "output"
+            / "LPJmL6"
+            / "stable_bgc"
+            / "LPJmL6_stable_bgc_land_area_yr_05.nc"
+        )
 
     def _compute_weights(self) -> xr.DataArray:
-        """Computed spherical cell area [m²]; ocean cells drop out via the data's
-        NaN mask (no land-fraction raster shipped)."""
+        """Provided land-area raster [m²], 1850 slice. Every run ships the same
+        `land_area` file; it shrinks 0.2% by 2000 (132.04 -> 131.79 Mkm²) the same
+        way in every run, so one static slice serves them all. Weights cVeg 1850
+        at 800 Pg C where the full spherical cell area gave 904."""
         ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
-        a = core.spherical_area(ref, self.LAT, self.LON)
+        a = ref["land_area"].isel(time=0).drop_vars("time").load()
         ref.close()
         return core.rename_latlon(a, self.LAT, self.LON)

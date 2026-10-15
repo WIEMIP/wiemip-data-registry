@@ -17,16 +17,13 @@ _FACTORIALS = {
 _PREFIX = "FATES"
 _GCM_FORCED = ("cou", "rad")
 
-# The counterfactual overshoot sims are hyphenated on disk (vl_cf/hl_cf uploaded
-# 2026-08, after ml_cf).
-_OVERSHOOT_SIMULATION_TOKENS = {"ml_cf": "ml-cf", "vl_cf": "vl-cf", "hl_cf": "hl-cf"}
+_OVERSHOOT_SIMULATION_TOKENS = {
+    "ml_cf": "ml-cf",
+    "vl_cf": "vl-cf",
+    "hl_cf": "hl-cf",
+    "hl": "h",
+}
 
-# WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
-# only. FATES' own wetlandCH4 covers just the inundated fraction and it uploaded no
-# fch4soil, so both come from the net soil flux ch4, split by sign per cell and
-# timestep: wetCH4 = pos(ch4), fch4soil = neg(ch4). The wetlandCH4 upload goes
-# unread. From Juliette Bernard's script, agreed with Jessica Needham and Will
-# Wieder 2026-09-21.
 _CH4_SPLIT = ("wetCH4", "fch4soil")
 
 

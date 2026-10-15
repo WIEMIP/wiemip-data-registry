@@ -47,13 +47,14 @@ _UNFORCED_OVERSHOOT_SIMS = {"hist": "hist", "ctrl": "ctl"}
 
 
 def _sim_tok(simulation, forcing) -> str:
-    if simulation == "cou":
-        return f"{forcing}_cou"
-    if simulation == "rad":
-        return f"{forcing}_rad"
-    if simulation == "ctrl":
-        return "ctl"
-    return "bgc"
+    base, _, suffix = simulation.partition("_")
+    if base in ("cou", "rad"):
+        tok = f"{forcing}_{base}"
+    elif base == "ctrl":
+        tok = "ctl"
+    else:
+        tok = base
+    return f"{tok}_{suffix}" if suffix else tok
 
 
 class JULES(core.WIEAdapter):

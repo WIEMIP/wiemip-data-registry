@@ -33,6 +33,10 @@ _RUN_DIR_OVERRIDES = {
     ),
 }
 
+# Layer middles [m] from the bucket README's 5-layer table, whose "depth" column is the
+# layer bottom (0.065, 0.319, 1.232, 4.134, 9.834). The files carry bare indices.
+_SOIL_LAYER_DEPTHS = (0.0325, 0.192, 0.7755, 2.683, 6.984)
+
 
 def _stem(
     simulation, forcing, run_token: str = "", stable_token: str = "stable"
@@ -54,6 +58,7 @@ class JSBACH(core.WIEAdapter):
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
+    LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -116,6 +121,10 @@ class JSBACH(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         if "pool" in da.dims:
             da = da.assign_coords(pool=np.arange(1, da.sizes["pool"] + 1))
+        if variable in self.LAYERED_VARIABLES:
+            da = da.assign_coords(
+                layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
+            )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
