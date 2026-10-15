@@ -143,6 +143,32 @@ class OvershootSimulation(Enum):
     # ScenarioMIP and both LPX-Bern and VISIT-UT submitted ml (+ VISIT-UT ml_cf).
     ml = 16
     ml_cf = 17
+    # VL variants, added 2026-10-15
+    vl_1p5_ctap = 18
+    vl_cf_polmip = 19
+
+
+# Line colors for the overshoot runs. The scenario hexes are the ScenarioMIP-CMIP7
+# paper's own (van Vuuren et al. 2026, GMD 19:2627; `scenario_colors` in
+# github.com/chrisroadmap/cmip7-scenariomip scripts/plotting.py). A counterfactual
+# shares its scenario's color, so draw `_cf` runs dashed to tell them apart.
+# hist and the controls are not ScenarioMIP scenarios: black and grey.
+SCENARIO_COLORS = {
+    "vl": "#16188F",
+    "vl_cf": "#16188F",
+    # VL variants, not in ScenarioMIP's palette: lighter blues off VL's navy.
+    "vl_1p5_ctap": "#3f6fd8",
+    "vl_cf_polmip": "#6cb4ee",
+    "l": "#20A359",
+    "ml": "#dec820",
+    "ml_cf": "#dec820",
+    "m": "#fc7b03",
+    "hl": "#E744F6",
+    "hl_cf": "#E744F6",
+    "hist": "#000000",
+    "hist_ctrl": "#9a9993",
+    "ctrl": "#9a9993",
+}
 
 
 class Factorial(Enum):
