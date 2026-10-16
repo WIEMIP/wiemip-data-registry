@@ -37,7 +37,11 @@ class ELM(core.WIEAdapter):
         "lai": "LAI",
         "fNnetmin": "fNetmin",
         "fNHarvest": "fnHarvest",
+        "sftlf": "landfrac",
     }
+
+    # fixed fields: one raster at the model dir top serves every run
+    FIXED = {"sftlf"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -49,6 +53,8 @@ class ELM(core.WIEAdapter):
         return self.wiemip_to_elm_variable_mapping.get(wiemip_variable, wiemip_variable)
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        if variable in self.FIXED:
+            return self.area_weight_path
         fname = (
             f"{MODEL}_{forcing}_{simulation}{self.FACTORIALS[factorial]}_"
             f"{self._get_variable(variable)}_mon_05.nc"
@@ -68,6 +74,8 @@ class ELM(core.WIEAdapter):
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _UNDECLARED_FILL)
+        if variable in self.FIXED:
+            return core.rename_latlon(da, self.LAT, self.LON)
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property

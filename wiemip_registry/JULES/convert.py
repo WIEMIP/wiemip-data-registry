@@ -80,6 +80,8 @@ class JULES(core.WIEAdapter):
 
     ANNUAL = {"fFireCveg", "fFireCsoil", "fFirepft"}
     MONTHLY = {"wetfrac"}
+    # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
+    FIXED = {"sftlf"}
 
     _units_seen: dict[str, str] = {}
 
@@ -90,6 +92,7 @@ class JULES(core.WIEAdapter):
         "wetCH4": "fwetch4",
         "landCoverFrac": "pftfrac",
         # "fN2O": "fNgas",
+        "sftlf": "land",
     }
 
     def _get_variable(self, wiemip_variable: str) -> str:
@@ -111,6 +114,8 @@ class JULES(core.WIEAdapter):
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        if variable in self.FIXED:
+            return str(self.area_weight_path)
         config = self.FACTORIALS[factorial]
         tok = _sim_tok(simulation, forcing)
         run = f"JULESwiemipV2_{tok}_{config}"
@@ -125,6 +130,8 @@ class JULES(core.WIEAdapter):
                 f"{MODEL} ran no '{factorial}' overshoot config "
                 f"(has: {sorted(self.OVERSHOOT_FACTORIALS)})"
             )
+        if variable in self.FIXED:
+            return str(self.area_weight_path)
         # The counterfactual scenarios are hyphenated on disk (hl-cf, not hl_cf).
         tok = _UNFORCED_OVERSHOOT_SIMS.get(
             simulation, f"{forcing}_{simulation.replace('_cf', '-cf')}"
@@ -148,6 +155,8 @@ class JULES(core.WIEAdapter):
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _NC_FILL_FLOAT)  # undeclared fill, see _NC_FILL_FLOAT
+        if variable in self.FIXED:
+            return core.rename_latlon(da, self.LAT, self.LON)
         if "sclayer" in da.dims:
             da = da.rename({"sclayer": "depth"}).assign_coords(
                 depth=("depth", list(_SOIL_LAYER_DEPTHS), {"units": "m"})

@@ -22,7 +22,11 @@ class EDv3(core.WIEAdapter):
 
     wiemip_to_edv3_variable_mapping = {
         "tveg": "tran",
+        "sftlf": "landFrac",
     }
+
+    # fixed fields, `_fx_` on disk and no time axis
+    FIXED = {"sftlf"}
 
     def land_carbon_variables(self) -> list[str]:
         return ["cVeg", "cSoil"]
@@ -32,9 +36,14 @@ class EDv3(core.WIEAdapter):
             wiemip_variable, wiemip_variable
         )
 
+    def _cadence(self, variable: str) -> str:
+        if variable in self.FIXED:
+            return "fx"
+        return "yr" if core.is_annual(variable) else "mon"
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         run = f"{forcing}_{simulation}{self.FACTORIALS[factorial]}"
-        cadence = "yr" if core.is_annual(variable) else "mon"
+        cadence = self._cadence(variable)
         fname = f"{MODEL}_{run}_{self._get_variable(variable)}_{cadence}_05.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / f"1ptco2_{run}" / fname)
 
@@ -45,7 +54,7 @@ class EDv3(core.WIEAdapter):
             else forcing.lower()
         )
         run = f"{forcing_token}_{simulation}"
-        cadence = "yr" if core.is_annual(variable) else "mon"
+        cadence = self._cadence(variable)
         fname = f"{MODEL}_{run}_{self._get_variable(variable)}_{cadence}_05.nc"
         return str(
             _OUTPUT / "overshoot" / "output" / MODEL / f"overshoot_{run}" / fname
@@ -59,6 +68,8 @@ class EDv3(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
+        if variable in self.FIXED:
+            return core.rename_latlon(da, self.LAT, self.LON).transpose("lat", "lon")
         return core.standardize(da, self.LAT, self.LON, ds["time"].values)
 
     @property

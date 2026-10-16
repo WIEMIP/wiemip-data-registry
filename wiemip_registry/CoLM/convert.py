@@ -21,6 +21,8 @@ class CoLM(core.WIEAdapter):
 
     # annual on disk but not in const.ANNUAL
     ANNUAL = {"burntArea"}
+    # fixed fields, `_fx_` on disk and no time axis
+    FIXED = {"sftlf"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -29,6 +31,8 @@ class CoLM(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     def _cadence(self, variable: str) -> str:
+        if variable in self.FIXED:
+            return "fx"
         return "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
 
     def _fname(self, run: str, variable: str) -> str:
@@ -74,6 +78,8 @@ class CoLM(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if variable in self.FIXED:
+            return core.rename_latlon(da, self.LAT, self.LON)
         return core.standardize(da, self.LAT, self.LON, self._time(ds, variable))
 
     @property

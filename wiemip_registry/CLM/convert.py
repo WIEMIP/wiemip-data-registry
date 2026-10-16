@@ -77,6 +77,9 @@ class CLM(core.WIEAdapter):
         "cPoolVr",
     }
 
+    # fixed fields: every file carries `landfrac`, served from the weights' cVeg file
+    FIXED = {"sftlf"}
+
     # overshoot band validation: global sums ~1e11 for these, ceiling is 1e6
     PROVISIONAL_DATA = (
         ("overshoot", "LWalbedo"),
@@ -92,6 +95,8 @@ class CLM(core.WIEAdapter):
         return ["cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        if variable in self.FIXED:
+            return self.area_weight_path
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are
         # still labelled "ukesm" on disk, so that's the token for anything else.
@@ -118,6 +123,8 @@ class CLM(core.WIEAdapter):
             raise core.MissingFactorialError(
                 f"{MODEL} has no '{factorial}' factorial (has: {sorted(self.FACTORIALS)})"
             )
+        if variable in self.FIXED:
+            return [self.area_weight_path]
         if simulation in _UNFORCED_OVERSHOOT_SIMS:
             run = f"{prefix}_{simulation}"
         else:
@@ -185,6 +192,14 @@ class CLM(core.WIEAdapter):
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
+        if variable in self.FIXED:
+            ds = xr.open_dataset(
+                self.path(experiment, simulation, forcing, factorial, variable),
+                decode_times=self.DECODE,
+            )
+            return core.rename_latlon(
+                core.mask_fill(ds["landfrac"]), self.LAT, self.LON
+            )
         if variable in _POOL_SPLITS:
             split = _POOL_SPLITS[variable]
             pools = [

@@ -59,6 +59,8 @@ class JSBACH(core.WIEAdapter):
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
+    # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
+    FIXED = {"sftlf"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -69,6 +71,8 @@ class JSBACH(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        if variable in self.FIXED:
+            return str(self.area_weight_path)
         dir_suf, run_token, post = self.FACTORIALS[factorial]
         run_dir = _RUN_DIR_OVERRIDES.get(
             (simulation, forcing, factorial), f"{_stem(simulation, forcing)}{dir_suf}"
@@ -93,6 +97,8 @@ class JSBACH(core.WIEAdapter):
                 f"{MODEL} ran no '{factorial}' overshoot config "
                 f"(has: {sorted(self.OVERSHOOT_FACTORIALS)})"
             )
+        if variable in self.FIXED:
+            return str(self.area_weight_path)
         forcing_token = forcing
         if simulation in _CRUJRA_FORCED_SIMULATIONS:
             forcing_token = _DYNVEG_FILE_FORCING if run_token else _CRUJRA_TOKEN
@@ -119,6 +125,9 @@ class JSBACH(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if variable in self.FIXED:
+            # the raster spells latitude/longitude, unlike JSBACH's output
+            return core.rename_latlon(da, "latitude", "longitude")
         if "pool" in da.dims:
             da = da.assign_coords(pool=np.arange(1, da.sizes["pool"] + 1))
         if variable in self.LAYERED_VARIABLES:
