@@ -78,8 +78,6 @@ class _StubAdapter(core.WIEAdapter):
     def read(self, experiment, simulation, forcing, factorial, variable):
         return self.da
 
-    _area_weight_path = None
-
     def _compute_weights(self):
         raise NotImplementedError
 
