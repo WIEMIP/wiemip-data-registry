@@ -115,15 +115,18 @@ class CLASSIC(core.WIEAdapter):
     # Per-PFT carbon that CLASSIC writes monthly even though the bulk-grid pools
     # are annual (model-specific cadence override of const.ANNUAL).
     MONTHLY = {"cVegpft"}
+    # fixed fields: no time axis, though the land fraction file is spelled `_ann_`
+    FIXED = {"sftlf"}
     wiemip_to_classic_variable_mapping = {
         "fCH4Fire": "fCh4Fire",
         "fN2OFire": "fN2oFire",
         "soilR": "soilr",
         "wetCH4": "wetch4",
         "fch4soil": "fCh4Soil",
+        "sftlf": "land_fraction",
     }
 
-    _FIELD_NAMES = {"nOrgSoil": "nSoil"}
+    _FIELD_NAMES = {"nOrgSoil": "nSoil", "sftlf": "sftlf"}
 
     def _get_variable(self, wiemip_variable: str) -> str:
         if wiemip_variable in self.wiemip_to_classic_variable_mapping:
@@ -138,7 +141,9 @@ class CLASSIC(core.WIEAdapter):
         cad = (
             "mon"
             if variable in self.MONTHLY
-            else ("ann" if core.is_annual(variable) else "mon")
+            else (
+                "ann" if variable in self.FIXED or core.is_annual(variable) else "mon"
+            )
         )
         if simulation == "ctrl":  # ctrl has no ndep variant
             run = f"CLASSIC_stable_piControl{post}"
@@ -189,6 +194,8 @@ class CLASSIC(core.WIEAdapter):
             ds = ds * -1
         name = self._FIELD_NAMES.get(variable, self._get_variable(variable))
         da = core.mask_fill(ds[name])
+        if variable in self.FIXED:
+            return core.rename_latlon(da, self.LAT, self.LON)
         if variable in self.LAYERED_VARIABLES:
             da = da.assign_coords(
                 layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
