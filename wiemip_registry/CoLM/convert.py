@@ -77,7 +77,7 @@ class CoLM(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds, variable))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return str(
             _OUTPUT
             / "1pctCO2"
@@ -89,7 +89,7 @@ class CoLM(core.WIEAdapter):
 
     def _compute_weights(self) -> xr.DataArray:
         """Spherical cell area × land fraction (`sftlf`, shipped in %)."""
-        ref = xr.open_dataset(self._area_weight_path)
+        ref = xr.open_dataset(self.area_weight_path)
         cell = core.spherical_area(ref, self.LAT, self.LON)
         weights = (cell * ref["sftlf"] / 100.0).astype("float32").load()
         ref.close()

@@ -84,7 +84,7 @@ class LPJmL6(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return (
             _OUTPUT
             / "1pctCO2"
@@ -99,7 +99,7 @@ class LPJmL6(core.WIEAdapter):
         `land_area` file; it shrinks 0.2% by 2000 (132.04 -> 131.79 Mkm²) the same
         way in every run, so one static slice serves them all. Weights cVeg 1850
         at 800 Pg C where the full spherical cell area gave 904."""
-        ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
+        ref = xr.open_dataset(self.area_weight_path, decode_times=self.DECODE)
         a = ref["land_area"].isel(time=0).drop_vars("time").load()
         ref.close()
         return core.rename_latlon(a, self.LAT, self.LON)

@@ -128,7 +128,7 @@ class JSBACH(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return _OUTPUT / "1pctCO2" / "output" / "JSBACH" / "sftlf_1.nc"
 
     def _compute_weights(self) -> xr.DataArray:
@@ -146,7 +146,7 @@ class JSBACH(core.WIEAdapter):
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
         sftlf = core.rename_latlon(
-            xr.open_dataset(self._area_weight_path)["sftlf"], self.LAT, self.LON
+            xr.open_dataset(self.area_weight_path)["sftlf"], self.LAT, self.LON
         )
         return core.rename_latlon(
             (cell * sftlf.values).astype("float32"), self.LAT, self.LON

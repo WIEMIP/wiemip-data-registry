@@ -266,12 +266,11 @@ class WIEAdapter(ABC):
         raise NotImplementedError()
 
     @property
-    @abc.abstractmethod
-    def _area_weight_path(self):
+    def area_weight_path(self):
         """
         The path to the raster that contains the spatial weights for each model.
         """
-        raise NotImplementedError()
+        return None
 
     @abc.abstractmethod
     def _compute_weights(self) -> xr.DataArray:

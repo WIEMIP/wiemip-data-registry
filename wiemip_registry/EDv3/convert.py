@@ -62,7 +62,7 @@ class EDv3(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, ds["time"].values)
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return str(
             _OUTPUT
             / "overshoot"
@@ -73,7 +73,7 @@ class EDv3(core.WIEAdapter):
         )
 
     def _compute_weights(self) -> xr.DataArray:
-        ref = xr.open_dataset(self._area_weight_path)
+        ref = xr.open_dataset(self.area_weight_path)
         land_area = ref["landArea"].load()
         ref.close()
         return core.rename_latlon(land_area, self.LAT, self.LON).transpose("lat", "lon")

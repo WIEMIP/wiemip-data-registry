@@ -116,10 +116,10 @@ class LPX_Bern(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return _OUTPUT / "1pctCO2" / "output" / "LPX-Bern" / "gridcell_area.nc"
 
     def _compute_weights(self) -> xr.DataArray:
         """Provided land-only grid-cell area raster [m²] (LPX-Bern README)."""
-        a = xr.open_dataset(self._area_weight_path)["area"]
+        a = xr.open_dataset(self.area_weight_path)["area"]
         return core.rename_latlon(a.astype("float32"), self.LAT, self.LON)

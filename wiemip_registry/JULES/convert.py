@@ -169,7 +169,7 @@ class JULES(core.WIEAdapter):
         return super().to_pgc(total, variable)
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return _OUTPUT / "1pctCO2" / "output" / "JULES" / "landfrac_n96.nc"
 
     def _compute_weights(self) -> xr.DataArray:
@@ -186,6 +186,6 @@ class JULES(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        land = xr.open_dataset(self._area_weight_path)["land"]
+        land = xr.open_dataset(self.area_weight_path)["land"]
         land = land.where(land <= 1.0, 0.0)
         return core.rename_latlon((cell * land).astype("float32"), self.LAT, self.LON)

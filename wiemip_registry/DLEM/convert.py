@@ -117,7 +117,7 @@ class DLEM(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return _OUTPUT / "1pctCO2" / "output" / "DLEM" / "LAND_AREA_DLEM.nc"
 
     def _compute_weights(self) -> xr.DataArray:
@@ -132,7 +132,7 @@ class DLEM(core.WIEAdapter):
             ),
             decode_times=self.DECODE,
         )
-        a = xr.open_dataset(self._area_weight_path)["LAND_AREA"] * 1e6  # km2 -> m2
+        a = xr.open_dataset(self.area_weight_path)["LAND_AREA"] * 1e6  # km2 -> m2
         a = a.sel({self.LAT: ref[self.LAT], self.LON: ref[self.LON]})
         ref.close()
         return core.rename_latlon(a.astype("float32"), self.LAT, self.LON)

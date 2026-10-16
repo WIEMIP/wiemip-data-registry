@@ -71,12 +71,12 @@ class ELM(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / "landfrac.360x720.nc")
 
     def _compute_weights(self) -> xr.DataArray:
         """Land area per cell [m²] from the shipped `area` (km²) and `landfrac`."""
-        ref = xr.open_dataset(self._area_weight_path)
+        ref = xr.open_dataset(self.area_weight_path)
         weights = (ref["area"] * 1e6 * ref["landfrac"]).load()
         ref.close()
         return core.rename_latlon(weights, self.LAT, self.LON)

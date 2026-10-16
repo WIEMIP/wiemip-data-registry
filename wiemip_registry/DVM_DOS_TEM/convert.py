@@ -150,15 +150,14 @@ class DVM_DOS_TEM(core.WIEAdapter):
             da, self.LAT, self.LON, self._time(ds, experiment, simulation, variable)
         )
 
-    @property
-    def _area_weight_path(self):
-        return self.path("1pctCO2", "bgc", "stable", "baseline", "cVeg")
-
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²] on the model's REGIONAL grid (0.5 degree,
         28.75-89.75 N); ocean cells drop out via the data's NaN mask (no land-fraction
         raster shipped)."""
-        ref = xr.open_dataset(self._area_weight_path, decode_times=self.DECODE)
+        ref = xr.open_dataset(
+            self.path("1pctCO2", "bgc", "stable", "baseline", "cVeg"),
+            decode_times=self.DECODE,
+        )
         a = core.spherical_area(self._canonical_grid(ref), self.LAT, self.LON)
         ref.close()
         return a

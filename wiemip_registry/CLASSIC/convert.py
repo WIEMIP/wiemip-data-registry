@@ -196,7 +196,7 @@ class CLASSIC(core.WIEAdapter):
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
-    def _area_weight_path(self):
+    def area_weight_path(self):
         return (
             _OUTPUT
             / "1pctCO2"
@@ -220,7 +220,7 @@ class CLASSIC(core.WIEAdapter):
         )
         cell = core.spherical_area(ref, self.LAT, self.LON)
         ref.close()
-        sftlf = xr.open_dataset(self._area_weight_path)["sftlf"]
+        sftlf = xr.open_dataset(self.area_weight_path)["sftlf"]
         return core.rename_latlon(
             (cell * sftlf.values).astype("float32"), self.LAT, self.LON
         )
