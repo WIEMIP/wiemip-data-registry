@@ -1,651 +1,158 @@
 # WIE-MIP data processing — working notes
 
-Reference for the `wiemip_registry` package: it turns a standardized WIE-MIP variable
-request into the right per-model netCDF file and computes global stocks & fluxes. Every
-participating model uploads with its own naming convention, dims, time encoding, area
-recipe and fill values, so each gets a bespoke adapter behind one API. For the
-project-level overview (experiments, science goals, drivers) see `CONTEXT.md`.
+The `wiemip_registry` package turns a standardized WIE-MIP variable request into the
+right per-model netCDF file and computes global stocks and fluxes. Every participating
+model uploads with its own naming, dims, time encoding, area recipe and fill values, so
+each gets a bespoke adapter (`wiemip_registry/<MODEL>/convert.py`) behind one API. For
+the project overview (experiments, science goals, drivers) see `CONTEXT.md`.
+
+## Where model knowledge lives
+
+This file holds only the rules that hold across models. How one model is read is in its
+adapter code. Every known data defect, open question for a group, and analysis caveat
+(exclude it, don't pool it, slice it) is a **`data-quality` issue** on
+`WIEMIP/wiemip-data-registry`, one per issue, labelled `model:<KEY>`. Read the open ones
+for every model in an analysis before you draw a conclusion from it:
+`gh issue list -R WIEMIP/wiemip-data-registry --label data-quality --state open`
+(without `gh`: `curl -s 'https://api.github.com/repos/WIEMIP/wiemip-data-registry/issues?labels=data-quality&state=open&per_page=100'`).
+
+Upload history and per-run coverage live in git, the nightly `uncovered` action, and the
+progress-tracker page.
 
 ## The registry API
 
 ```python
 import wiemip_registry as wr
-import wiemip_registry.const as const
 
 f = wr.retrieve_one_pct_variable(
-    model="CLASSIC", forcing="ukesm", simulation="cou",
+    model="CLM", forcing="ukesm", simulation="cou",
     factorial="baseline", variable="cVeg",
 )                        # -> WIEFile (no I/O yet)
 f.path                   # resolved path — sanity-check this first
-f.exists()               # is the constructed path a real file?
+f.exists()               # are all the constructed paths real files?
 da = f.read()            # standardized xarray.DataArray, NATIVE units, NaN fills
-s  = f.latitudinal_sum()               # global Pg C series (cached to CSV)
+s  = f.latitudinal_sum()               # global Pg series (cached to CSV)
 s_tropics = f.latitudinal_sum(-30, 30) # restrict to a latitude band
 
-o = wr.retrieve_overshoot_variable(    # factorial is optional here (JULES, JSBACH)
+o = wr.retrieve_overshoot_variable(    # factorial is optional here
     model="LPX_Bern", forcing="ukesm", simulation="hl", variable="cVeg")
 
-j = wr.retrieve_overshoot_variable(    # JULES ran the scenarios under 5 fire configs
-    model="JULES", forcing="ukesm", simulation="hl", variable="cVeg",
-    factorial="Fire0005")
+wr.land_carbon_stock("1pctCO2", "CLM", "stable", "bgc")  # sum of land_carbon_variables
 ```
 
-Requests are validated against the vocabularies exported at the top level (`wr.models`,
+Requests are validated against the vocabularies at the top level (`wr.models`,
 `wr.gcm_patterns`, `wr.one_percent_simulations`, `wr.overshoot_simulations`,
-`wr.variables`, `wr.factorials`), built from the enums in `wiemip_registry/const.py`:
+`wr.variables`, `wr.factorials`), built from the enums in `wiemip_registry/const.py`.
 
-- `GCMPattern`: ukesm / ipsl / gfdl / stable
-- `OnePctSimulation`: bgc / cou / ctrl / rad, each with an `_ndep` variant
-- `OvershootSimulation`: hist / hist_ctrl / ctrl / vl / vl_cf / l / hl / hl_cf / m /
-  ml / ml_cf (ml/ml_cf aren't protocol-required, but driver data was provided and
-  LPX_Bern + VISIT_UT submitted them)
-- **bgc / bgc_ndep / ctrl must be requested with `forcing="stable"`** — those runs are
-  constant-climate, and `core.ensure_valid` raises `InvalidSimulationError` for any
-  other pattern. Adapters must therefore pin whatever token those files were actually
-  uploaded under (CLM uses `ukesm` on disk) rather than interpolate the requested
-  forcing, or the run is unreachable through the public API. (BiomeE went the other
-  way: it agreed to re-label, and its final 2026-09-30 upload spells `stable` on disk.)
-- `Factorial`: baseline / noFire / noNitrogen / noPermafrost / noFire_noNitrogen /
-  noFire_noPermafrost / noBVOC (model-unique names in `extra_factorials`)
+- **Model names are the underscored registry keys** (`LPJ_EOSIM`, `LPX_Bern`,
+  `VISIT_UT`, `CLM_FATES`), even where the on-disk dirs are hyphenated.
+- **bgc / bgc_ndep / ctrl take `forcing="stable"`**: those runs are constant-climate,
+  and `core.ensure_valid` raises `InvalidSimulationError` for any other pattern. An
+  adapter whose group uploaded them under another token pins that token on disk rather
+  than interpolating the requested forcing, or the run is unreachable.
+- `land_carbon_stock` sums the adapter's `land_carbon_variables`. When the components
+  sit on different time indexes (annual pools beside a monthly one), each is
+  annual-meaned and the total takes the coarsest component's stamps.
 
-**Model names are the underscored registry keys** (`LPJ_EOSIM`, `LPX_Bern`, `VISIT_UT`,
-`CLM_FATES`) even though the on-disk dirs are hyphenated. Pass the underscore form to
-`retrieve_*`.
+## Design contract
 
-### Design contract
-- Each adapter's `one_pct_path` / `overshoot_path` is a **pure token→string transform**:
-  it spells the request into that model's naming convention and never decides what exists.
-- `read()` is the **existence gate that raises**: a combo that wasn't uploaded raises
-  `FileNotFoundError` when opened, not at selection time — so be ready to catch on
-  `.read()` / `.latitudinal_sum()`.
-- **One variable can span several files.** `WIEFile.paths` is the list `read()` opens and
-  `path` is its first entry; the adapter hook is `paths()`, which defaults to `[path()]`.
-  Only CLM's overshoot upload needs it (time-chunked runs), but coverage tooling should
-  use `paths` so every chunk counts as reached.
-- `exists()` is the **non-raising probe**: it spells the paths the same way `path()` does
-  and returns whether they are all actually on disk (`os.path.isfile`), so you can
-  pre-filter a request set without wrapping every combo in `try`/`except`. A factorial the
-  chosen model doesn't declare returns `False` (it swallows `MissingFactorialError`), and so
-  does a model whose overshoot naming isn't mapped yet (`NotImplementedError`) — `exists()`
-  is safe to call across the whole model list for either experiment. Use it to check before
-  reading; `read()` stays the gate that raises.
-- **Provisional data is treated as absent.** An adapter can list `(experiment, variable)`
-  pairs the group has flagged as not-yet-QA'd in `PROVISIONAL_DATA`; `exists()` then
-  returns False for every simulation/forcing/factorial of that variable and `read()` /
-  `latitudinal_sum()` raise `core.ProvisionalDataError`. The check sits in `WIEFile`, not
-  in the per-model `read()`, so flagging a variable is a one-line edit to that adapter's
-  class body. `cache_csv` checks it before the cache, so a CSV written before the flag
-  went in is not served.
-- **Factorials are per-model.** Each adapter declares a `FACTORIALS` dict; the namespace
-  validates the factorial against the chosen model's keys. Common names live in
-  `const.Factorial`; model-unique ones (`const.extra_factorials`: JULES config strings,
-  LPX permafrost, fire param sweeps) pass through as plain strings (warn, still resolve).
-- **Baseline vs factorial:** a run/file with no `no<Process>` token is the baseline
-  (comparable across models); a `_noFire`/`noNitrogen`/… token marks a sensitivity run.
-  `_ndep` means N-deposition **on** — a simulation, not a "no" factorial.
-- **Layered soil variables come back on one `soil` axis** (issue #40, 2026-10-14). An
-  adapter lists them in `LAYERED_VARIABLES`; `WIEFile.read()` renames the one dim beyond
-  (time, lat, lon) to `soil` and raises unless it holds numeric, strictly increasing
-  **layer-middle depths in m** (`units = "m"`), pinned to float64 at micrometre
-  precision so float32 and float64 depths align. The adapter's own `read()` supplies the
-  depths, from the file or assigned from what the group sent. A model whose depths are
-  unknown stays off the list and its variable keeps its native level dim.
-  `core.calculate_alt(da)` takes a standardized monthly `soilT` (K) and returns the
-  annual maximum active-layer thickness on a `year` dim. It is `function_alt.py`
-  verbatim, so a column thawed top to bottom returns the deepest layer's depth, bedrock
-  included (CLASSIC 52 m, CLM 42 m). Which model's depths come from where: "Layered soil
-  variables" below.
+- **`one_pct_path` / `overshoot_path` are pure token→string transforms**: they spell the
+  request in the model's naming convention and never decide what exists. Each model
+  spells overshoot differently from its own 1pctCO2 arm, so derive each arm's grammar
+  from the real bucket names.
+- **`read()` is the existence gate that raises**: a combo that wasn't uploaded raises
+  `FileNotFoundError` when opened, so catch on `.read()` / `.latitudinal_sum()`.
+- **`exists()` is the non-raising probe**: it returns whether every path is on disk. It
+  returns False for a factorial the model doesn't declare and for an arm the adapter
+  hasn't mapped, so it is safe across the whole model list.
+- **One variable can span several files.** `WIEFile.paths` is the list `read()` opens
+  (time chunks, pool splits); `path` is its first entry. The adapter hook is `paths()`.
+  Coverage tooling uses `paths`.
+- **Provisional data is treated as absent.** An adapter lists `(experiment, variable)`
+  pairs a group hasn't QA'd in `PROVISIONAL_DATA`; `exists()` then returns False and
+  `read()` / `latitudinal_sum()` raise `core.ProvisionalDataError`, cached CSV included.
+- **Factorials are per-model.** Each adapter declares `FACTORIALS` (and
+  `OVERSHOOT_FACTORIALS` where the overshoot arm has its own). Common names live in
+  `const.Factorial`; model-unique ones (`const.extra_factorials`) pass through as
+  strings with a warning.
+- **Baseline vs factorial**: a run with no `no<Process>` token is the baseline,
+  comparable across models; a `noFire` / `noNitrogen` / … token marks a sensitivity
+  run. `_ndep` means N deposition **on**: it is a simulation, not a factorial.
+- **Layered soil variables come back on one `soil` axis.** An adapter lists them in
+  `LAYERED_VARIABLES`; `WIEFile.read()` renames the one dim beyond (time, lat, lon) to
+  `soil` and raises unless it holds strictly increasing **layer-middle depths in m**,
+  pinned to float64 at micrometre precision. The adapter's `read()` supplies the depths.
+  A model whose depths are unknown stays off the list and keeps its native level dim.
+- **Fixed fields** (`sftlf`) are listed in the adapter's `FIXED` and come back as
+  `(lat, lon)` with no `time`, in native units (% or fraction), returned before
+  `core.standardize`. One raster serves every run, so `exists()` is True even for a run
+  that was never uploaded.
 
-### Units & global integral
-- `const.STOCKS` is every per-m² **amount**: the carbon pools (`kg C m⁻²`), the nitrogen
-  pools (`kg N m⁻²`) and the water pools (`mrso`/`mrsoLayer`/`swe`/`soilMoist`/`soilIce`,
-  `kg m⁻²`). Global total = `Σ(x·area)/1e12` → Pg C, Pg N or Gt H₂O; `PG = 1e12` is a
-  kg→Pg factor and carries no species. Membership was set from the `units` attribute of
-  the real uploads (one file per model × variable), so **don't go by the name**: `nVeg`/
-  `nSoil` are nitrogen pools while `nbp`/`npp` are carbon fluxes, and `mrso` (soil
-  moisture, an amount) sits next to `mrro` (runoff, a rate).
-- Everything else falls through to the flux branch `kg m⁻² s⁻¹`; global flux =
-  `Σ(x·area)·SPY/1e12` Pg yr⁻¹ (`SPY = 365·86400`: the WIEMIP drivers are noleap,
-  so there are no leap days to average in; it was `365.25·86400` until 2026-10-07).
-- **The intensive variables are in neither branch and `latitudinal_sum` is wrong for
-  them** — albedo, `lai`, `tas`/`soilT`, `wetfrac`, `landCoverFrac`, `burntArea`,
-  `snowDepth`/`wtd`/`alt`, the `W m⁻²` energy terms. They are not rates, so the SPY
-  multiply is meaningless, but an area-weighted *sum* is the wrong reduction anyway
-  (they want a mean, which `latitudinal_sum` does not offer). Left out of `STOCKS` on
-  purpose, so they stay visibly wrong rather than plausibly wrong.
-- `latitudinal_sum()` keeps the file's native cadence (monthly stays monthly) and
-  converts via the adapter's `to_pgc` (default in `core.py`; no adapter overrides it).
-  `const.ANNUAL` picks the `yr`/`ann` vs `mon` filename token, independent of stock/flux
-  (N pools and per-PFT carbon are annual but not stocks).
-- Fills below `const.FILL_FLOOR = -1e3` (BiomeE −1e5, JULES −9999, stray −99999) → NaN.
-- The `time` coord is `datetime64[us]`, not `[ns]`: overshoot runs end in 2300 and ns
-  tops out at 2262, which silently wrapped the tail of every overshoot series (2299 read
-  back as 1714). `core.to_datetime64` handles that cast, including the cftime objects
-  xarray falls back to for those files, and `cache_csv` re-pins a cached index to `us` so
-  a pre-2262 series and a post-2262 one can still be added.
-- **A `decode_times=False` adapter must read the CF epoch off the file, never hardcode
-  1850** — `core.cf_reference_month(units)`. Every 1pctCO2 file and the overshoot
-  hist/ctrl runs count from 1850, but the overshoot **scenarios** were written with a
-  `since 2024-01-01` reference. DLEM and TEM both hardcoded 1850 and so dated their
-  2024-2300 scenarios as **1850-2126** — a silent 174-year shift that overlapped the
-  historical period and made a scenario un-joinable with its own `hist` run (found and
-  fixed 2026-09-02, when their overshoot adapters went in). CLM already read the epoch
-  off the file; LPX-Bern and VISIT-UT decode absolute calendar years, so neither was
-  exposed. Sanity rule for any overshoot series: hist and both controls span
-  **1850-2023**, every scenario spans **2024-2300**.
+## Units and global integrals
 
-### Layered soil variables
-Depth sources, from a header read of every candidate file on 2026-10-14. `soilT` is `K`
-in every listed model (units attr and data range), so nothing converts it.
+- **`const.STOCKS`** is every per-m² amount: carbon pools (kg C m⁻²), nitrogen pools
+  (kg N m⁻²), water pools (kg m⁻²). Global total = `Σ(x·area)/PG` → Pg C, Pg N or Gt
+  H₂O. Membership follows the `units` of the real uploads, so go by `const.STOCKS`, not
+  the name: `nVeg` is a pool but `nbp` a flux, `mrso` an amount but `mrro` a rate.
+- **Everything else is a flux** in kg m⁻² s⁻¹: global = `Σ(x·area)·SPY/PG` Pg yr⁻¹, with
+  `SPY = 365·86400` because the WIE-MIP drivers are noleap.
+- **Intensive variables get the wrong answer from `latitudinal_sum`** (albedo, `lai`,
+  `tas`/`soilT`, `wetfrac`, `landCoverFrac`, `burntArea`, `snowDepth`/`wtd`/`alt`, the
+  W m⁻² terms): they want an area-weighted mean, which it does not offer. They stay out
+  of `STOCKS` on purpose so the result is visibly wrong rather than plausibly wrong.
+- `latitudinal_sum` keeps the file's native cadence and converts through the adapter's
+  `to_pgc` (default in `core.py`; JULES overrides it for per-year headers).
+- `const.ANNUAL` picks the `yr`/`ann` vs `mon` filename token. Where an upload disagrees,
+  the adapter carries its own `ANNUAL` / `MONTHLY` sets, and `MONTHLY` is checked first.
+- Values below `const.FILL_FLOOR` (−1e3) become NaN. Undeclared positive fills (`1e20`,
+  `9.97e36`) are masked by the adapter that meets them.
+- Soil CH4 uptake (`fch4soil`) comes back negative. CLASSIC uploads it positive and its
+  adapter flips the sign.
 
-| model | listed variables | level dim on disk | depths from |
-|---|---|---|---|
-| CLM | `soilT`; `soilIce`, `soilMoist`, `mrsoLayer`, `soilRh`, `cPoolVr` | `levgrnd` 25 (to 42 m, bedrock included); `levsoi` 20 (to 8.03 m) | file, no bounds; values equal FATES's bounded middles. 1pctCO2 output sits in `<run>_deep/` dirs (10 runs × 6 files, filenames without the `_deep` token); overshoot in the ordinary run dirs, and so does the 3-run noNitrogen set |
-| CLM_FATES | `soilT` (`tsl`), `soilIce`, `soilRh`, `cSoilLayers` | `depth` 25 / 20 | file, with bounds |
-| CoLM | `soilT`, `soilIce` (dim `nsoil`), `mrsoLayer`, `cSoilLayers` | `layer` 15 (to 35 m) | file ("soil layer center depth") |
-| JULES | `soilT`, `soilIce`, `mrsoLayer`, `cSoilLayers`, `rhLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 10 (to 9.06 m) | file; `nInorgSoilLayer`'s coord is integer-truncated on disk, so the adapter replaces it with `_SOIL_LAYER_DEPTHS`. In overshoot, `cSoilLayers`/`rhLayers`/`nOrgSoilLayer`/`nInorgSoilLayer` sit on `sclayer` (1-10, no units) and get the same depths, **assumed, unconfirmed with the group** |
-| LPJmL6 | `soilT`, `mrsoLayer`, `cSoilLayers`, `nOrgSoilLayer`, `nInorgSoilLayer` | `depth` 5 (0.1-2.5 m) | file, no bounds; taken as middles, **unconfirmed with the group** |
-| LPX_Bern | `soilT`, `mrsoLayer` | `layer` 8 (0.05-1.75 m) | `soilT` file; `mrsoLayer` carries indices 1-8, so the adapter assigns the group's README depths |
-| CLASSIC | `soilT`, `mrsoLayer` | `layer` 20 (indices, `units = "layer"`) | group bounds (Vivek Arora, 2026-09-23) in the adapter docstring; middles 0.05-52 m, layers 16-20 bedrock |
-| LPJ_EOSIM | `soilT`, `soilIce`, `soilMoist` | `soilT` on `pool` 9, the others on `layer` 8 (indices) | the group (Tom, 2026-10-14). `soilT` level 0 is `mtsoil_top`, a 0-50 cm mean, and is dropped; levels 1-8 are the point temperatures `mtsoil_0`…`mtsoil_200`, so their depths (0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0 m) are points, not layer middles. `soilIce`/`soilMoist`: middles of `Dz_soil` (100, 100, 100, 200, 200, 300, 500, 500 mm), 0.05-1.75 m |
+## Time
 
-Not listed, so their layered variables keep the native level dim: **JSBACH** and
-**BEPS** (no depths in file; asked 2026-09-22, no reply), **BiomeE** (see the flag below). A cached CSV for a
-layered variable written before 2026-10-14 still carries the old level-dim name: delete
-it under `const.CSV_ROOT`.
+- The `time` coord is `datetime64[us]`: overshoot runs reach 2300 and `[ns]` wraps after
+  2262. `core.to_datetime64` casts, cftime included; `cache_csv` re-pins cached indexes.
+- An adapter that reads with `decode_times=False` takes the CF epoch from the file with
+  `core.cf_reference_month(units)`. 1pctCO2 files and overshoot hist/ctrl count from
+  1850, but the overshoot scenarios count from `2024-01-01`.
+- Sanity spans: 1pctCO2 runs 1850-2000 (a few stop at 1999); overshoot `hist` and the
+  controls 1850-2023, every scenario 2024-2300. A scenario dated 1850-2126 is a
+  hardcoded epoch.
 
-ALT cross-check (2026-10-14, 1pctCO2 bgc, 1850, cells where both the upload and
-`calculate_alt` stay above the deepest layer): **LPJmL6** 17,770 cells, median difference
-0.00 m, 98% within 0.5 m, which backs reading its `depth` as middles; **CLASSIC** 3,543
-cells, median 0.02 m, 98% within 0.5 m (99% in 1900); **LPJ-EOSIM** 12,057 cells, median -0.07 m, 100% within 0.5 m.
-LPJ-EOSIM also has 2,830 cells where `calculate_alt` gives 1.7-1.95 m but its own `alt`
-is the 2.0 m column bottom: the 2 m point's warmest monthly mean sits just below 0 °C
-(median 272.5 K), and LPJ computes `alt` daily, so a few thaw days count in the upload but
-not in monthly means. CLASSIC and LPJ-EOSIM upload `alt` **monthly**
-(CLASSIC's long_name is "Mean active layer depth"), so compare against the annual max. Outside permafrost each
-model reports its own column depth (CLASSIC 62 m, LPJmL6 13 m), so whole-grid
-differences say nothing about the method.
+## Soil layers and active-layer thickness
 
-### Paths & CSV cache
-- Files resolve under `const.DATA_ROOT` (`/mnt/wiemip`) as
-  `<experiment>/output/<MODEL>/[<run-subdir>/]<file>.nc` — **one variable per file**.
-- `latitudinal_sum` caches its Pg C series to `const.CSV_ROOT` (override with the
-  `WIEMIP_CSV_PATH` env var), keyed on the source `.nc` mtime — recomputes only when the
-  CSV is missing or older than the source. Note: an *adapter code* edit does NOT bust the
-  cache (the key is the `.nc`); delete the CSV to force a rebuild.
-- The CSV is **named after `WIEFile.path`** (the requested variable's own spelling) and
-  keyed on the newest mtime across `WIEFile.paths`. Until 2026-09-24 it was named after
-  `paths[0]`, which is harmless for time chunks and CLM's pool splits but would have
-  made CLASSIC's summed `fN2O` share `fN2Onit`'s CSV. The switch renamed CLM's
-  `cSoilPools`/`rhPools` caches, which recomputed once.
+`core.calculate_alt(da)` takes a standardized monthly `soilT` (K) and returns the annual
+maximum active-layer thickness on a `year` dim. It is `function_alt.py` verbatim, so a
+column thawed top to bottom returns the deepest layer's depth, bedrock included. Compare
+it with a model's own `alt` at the annual maximum, and only inside permafrost: outside
+it each model reports its own column depth, so whole-grid differences mean nothing.
 
-## Data layout & naming
+## Paths and the CSV cache
 
-Layout is either **flat** (run encoded in the filename prefix) or **nested** (a run
-sub-directory). Filenames are roughly `<model/run tokens>_<VAR>_<cadence>_<grid>[suffix].nc`
-(`cadence` = `yr`/`ann` or `mon`; `grid` = `05` for 0.5°, `1`/`1deg` for 1°, `n96` for
-JULES). Some `<MODEL>` dirs are empty placeholders for groups that haven't submitted.
+- Files resolve under `const.DATA_ROOT` (`/mnt/wiemip`, env `WIEMIP_DATA_ROOT`) as
+  `<experiment>/output/<MODEL>/[<run-subdir>/]<file>.nc`, roughly
+  `<model/run tokens>_<VAR>_<cadence>_<grid>[suffix].nc`. Layout is flat (run in the
+  filename prefix) or nested (a run sub-dir).
+- `latitudinal_sum` caches to `const.CSV_ROOT` (env `WIEMIP_CSV_PATH`), one CSV named
+  after `WIEFile.path` and keyed on the newest source mtime across `WIEFile.paths`. It
+  recomputes only when a source `.nc` is newer. An adapter, `STOCKS` or units edit does
+  not bust it: delete the affected CSVs to force a rebuild.
 
-## Per-model adapters — why each is bespoke
+## Adding or changing a model
 
-No single reader works: coord names, time encoding, area weighting, fill values,
-factorial grammar and which variables exist all vary. Each lives in
-`wiemip_registry/<MODEL>/convert.py`.
-
-| model (key) | grid / coords | time decode | area weight | layout & factorials | notable gotchas |
-|---|---|---|---|---|---|
-| **BEPS** | 1°, `latitude`/`longitude`, dims `(lon,lat,time)` | datetime (`decode_times=True`; noleap → cftime, which `core.to_datetime64` handles) | computed spherical (R=6371 km) | nested, run dir = bare sim token (`bgc`/`cou`/`ctrl`); **every file carries a `_noDynVeg_noFire` suffix** | 54 vars × 3 stages = 162 files, uploaded 2026-09-02; 1850-1999 (150 yr, not 151); `stable` for bgc/ctrl, **ukesm only** for cou; `wetfrac` monthly (the one disagreement with `const.ANNUAL`); fills are `-99999` but arrive pre-masked via `_FillValue` encoding; `fch4soil` alone is `(lat,lon,time)`; ships a README, `export_report.json` (written/omitted inventory) and an answer key |
-| **BiomeE** | 0.5°, `lat`/`lon`, dims `(lon,lat,time)` | datetime (noleap `days since 1850-01-01` → cftime, which `core.to_datetime64` handles) | provided `veg_area.nc` (vegetated area, m², 101.4 Mkm²; the README calls it `vegetated_area.nc`) | flat; `BiomeE_<forcing>_<sim>_<var>_<cad>_05_noCH4.nc`, baseline/noFire/noNitrogen — factorial files insert a `fact_` token (`BiomeE_<forcing>_fact_<sim>_<token>_<var>…`); **every file ends `_noCH4`** after the grid token (`_RUN_SUFFIX`), and `ch4` is all zero — see the flag below | **final upload 2026-09-30, re-registered the same day** (it was commented out in 682a72b while the old files waited on a re-label). It replaced every earlier file: 432 = 9 runs × 48 variables, `stable` bgc/ctrl + `ukesm` cou, each × baseline/noFire/noNitrogen, **all 432 reachable** (the two rasters are the only leftovers). No rad, no ipsl/gfdl, no `_ndep`, no overshoot, so β_land is computable for all three factorials and γ_land on ukesm only. bgc/ctrl are labelled `stable` on disk, as agreed with the BiomeE team 2026-08-17. `cOther` and the out-of-vocab `fvegHeightpft` (per-PFT canopy height, in `extra_variables`) are annual on disk but not in `const.ANNUAL` (adapter `ANNUAL` set); every other cadence token agrees. Undeclared `-99999` fill, caught by `FILL_FLOOR`. bgc/ctrl span **1850-1999** (150 annual / 1800 monthly steps), cou **1850-2000** (151 / 1812) — see the flag below. On bgc: land carbon (cVeg + cSoil + cLitter) 1,621 -> 3,661 Pg C, ctrl flat at 1,620, noFire bgc starts 98 Pg C higher (1,719) |
-| **CLASSIC** | 1°, `latitude`/`longitude` | datetime | spherical × `sftlf` landfrac raster | nested; baseline/noFire/noNitrogen(+`-Ndep`), `post` token suffixes dir **and** trails cadence | var-name casing map (`fN2OFire→fN2oFire`, `wetCH4→wetch4`, `fch4soil→fCh4Soil`…) — the CH4 set uploaded 2026-08-24 uses plain `ch4`/`wetch4`/`fCh4Soil` names (the old `wetch4_spec` files are gone, and `ch4` ≠ `wetCH4` now — separate files); `cVegpft` monthly; **`fN2O` is summed on read as `fN2Onit + fN2Odenit`** (2026-09-24, agreed with Juliette Bernard) because the 2026-08-24 `fN2O` upload also folds in `fN2OFire`, and WIEMIP's `fN2O` is soil-only — this also gives the 7 `noFire` runs an `fN2O` they never uploaded, and leaves the 7 uploaded `fN2O` files unread by design; `overshoot` stub returns `"null"`; **bgc re-run on the `stable` driver** — dir `CLASSIC_stable_1pctCO2-BGC<ndep><post>/`, files carry **no forcing token** (`CLASSIC_1pctCO2-BGC…`); the superseded `CLASSIC_UKESM_1pctCO2-BGC*` dirs (362 files) were deleted from the bucket 2026-08-21 (versioned — recoverable as prior versions) |
-| **CLM** | 1°, `lat`/`lon` | `decode_times=False`, mixed: annual pools on bare `yr` years (`years_to_datetime`), else monthly noleap "hours since 1850" | provided `area` (km²) × `landfrac` | nested `<set>_<forcing>_<sim>/clm6_<set>_<forcing>_<sim>_<var>.nc`; factorial picks the run set: `baseline`→`hh`, `flat`→`flat`, `noNitrogen`→the `flat` set with a `noN` token after the pattern (`flat_ukesm_noN_<sim>/`) and a `.1850-2000` span stamped on every filename | uploaded two run sets `flat`/`hh` — `hh` is baseline; `flat`'s ctrl originally sat loose at the model-dir top, moved into `flat_ukesm_ctrl/` on the bucket 2026-08-21, so all 8 runs resolve; `rhPools`/`cSoilPools` fan out to the per-pool files (`rhPools_cwd…`, `cSoilpools_1..3`) via `paths()` and stack along a `pool` dim on read (`_POOL_SPLITS`, both arms, composes with overshoot time chunks); **`wetCH4`/`fch4soil` are re-split by sign on read** (2026-09-24, `_CH4_SPLIT`; Juliette Bernard's recipe, agreed with Will Wieder and Jessica Needham 2026-09-21) — CLM's upload splits CH4 by inundation (inundated fraction vs the rest, and the rest is mostly a source) where WIEMIP splits wetland emission from soil uptake, so `wetCH4 = pos(wetCH4) + pos(fch4soil)` and `fch4soil = neg(wetCH4) + neg(fch4soil)` per cell and timestep (on `hh_ukesm_bgc`: `wetCH4` 207 -> 295 and `fch4soil` +74 -> -13.5 Tg CH4/yr mean, `ch4` 281 untouched; the upload's own `wetCH4 + fch4soil` matches `ch4` to 0.04% globally but misses it in ~1.9% of cell-months). Each reads both files, so overshoot `hh_ipsl_m` `fch4soil` is unreachable until that run's `wetCH4` chunks land; no cadence token in filename; decode cadence from file `time:units` NOT `const.ANNUAL` (they disagree on `wetfrac`/`canopyheightTotal`); **not ukesm-only any more** (as of 2026-09-09) — in 1pctCO2 the `hh` set has `cou` on all three patterns (`hh_gfdl_cou`, `hh_ipsl_cou`) while bgc/ctrl/rad stay ukesm-labelled and the whole `flat` set is ukesm; **the overshoot arm carries all three patterns** after a large upload on 09-08/09 (2,991 -> 6,654 files): ukesm and gfdl complete at 8 scenarios x 300 files, ipsl still filling (6 scenarios, no `ml_cf`/`vl_cf`, and `hh_ipsl_m` at 145/300), `hh_hist` complete at 200 (2 time chunks, not 3). The adapter needed no change — it spells the requested pattern — and all 3,663 new files are reachable. **`noNitrogen` added 2026-09-16** (`_FACTORIAL_RUN_TOKENS`/`_FACTORIAL_YEAR_SPANS`): 3 runs, bgc/cou/ctrl, ukesm only, 100 files each, no rad and no `_deep`; 297/300 reachable, the 3 leftovers being the stale `fwetch4` duplicates flagged below. Its like-for-like reference is **`flat`, not `baseline`** — differencing against baseline also swaps hh for flat |
-| **CLM_FATES** | `lat`/`lon` | datetime | computed spherical | flat; baseline/noFire — the factorial is a `nofire` token before the filename's trailing `_1` (`…yr.glb_nofire_1.nc`) | **noFire uploaded 2026-09-22**, 219 files = `stable_bgc`/`stable_ctrl`/`ukesm_cou` × 73; no `rad` and no ipsl/gfdl, so β_land is computable for the factorial and γ_land only on ukesm. filename needs `vegtype`+`level` tokens; **the `fN2O`/`wetCH4` ÷1000 was removed 2026-09-14** — see the flag below; **`wetCH4`/`fch4soil` both come from `ch4`** (2026-09-24, `_CH4_SPLIT`; same agreement as CLM's) as `pos(ch4)`/`neg(ch4)` per cell and timestep, because FATES' `wetlandCH4` covers only the inundated fraction and it uploaded no `fch4soil` — the `wetCH4 -> wetlandCH4` mapping is gone, the `wetlandCH4` upload is unread by design, and `fch4soil` is reachable for the first time (9 runs). On `stable_bgc` that moves `wetCH4` 599 -> 748 Tg CH4/yr mean (about 4x the observed wetland budget) and gives `fch4soil` -17; `soilT → tsl` (2026-09-28, 9 files, level token `sl`); `wetfrac` and `cSoilLayers` monthly (adapter `MONTHLY`; `cSoilLayers` landed 2026-10-09, 7 files, no annual twin); **ukesm only** — the prefix must still spell the *requested* pattern so ipsl/gfdl raise, since a hardcoded `FATES_ukesm` silently served ukesm data for every pattern (three identical γ_land curves, no error); **overshoot implemented** — same flat layout and same filename grammar as 1pctCO2 (shared `_fname`), only the experiment dir differs; sims ctrl/hist/l/m/vl/hl/ml + counterfactuals ml_cf/vl_cf/hl_cf (vl/vl_cf/hl_cf uploaded 2026-08), ukesm even for hist+ctrl, and the counterfactuals are hyphenated on disk (`_OVERSHOOT_SIMULATION_TOKENS`). **The 2026-09-28 listing holds only overshoot `hist` + `ctrl`** (ukesm, 73 files each): no scenario files remain, so its overshoot arm is historical-only until they are re-uploaded |
-| **CoLM** | 1° (360×180), `latitude`/`longitude`, lon 0.5-359.5 | datetime (noleap `days since 1850-01-01` in both arms → cftime, which `core.to_datetime64` handles); **annual files are year-end snapshots stamped on the last day of the year** (1850 is day 365, which decodes to 1851-01-01), so `_time` moves `yr` stamps back one day; monthly stamps are mid-month | spherical × `sftlf` (shipped in %, so ÷100) from `CoLM_stable_bgc/CoLM_stable_bgc_sftlf_fx_1.nc`; every run ships the same raster | nested; `CoLM_<forcing>_<sim>/CoLM_<forcing>_<sim>_<var>_<cad>_1.nc` in both arms, except overshoot `hist`/`ctrl`, which carry no forcing token (`CoLM_hist/CoLM_hist_…`); baseline only | **uploaded 2026-10-13, adapter the same day.** 1pctCO2: `stable` bgc/ctrl + `ukesm` cou/rad, 43 files each (cou has no `mrro`, 42), 151 annual / 1812 monthly steps 1850-2000, so β_land and γ_land are computable, γ on ukesm only. Overshoot: `hist` + `ctrl` (1850-2023, 174 steps) and `ukesm` l/hl/hl_cf/m (2024-2300, 277 / 3,324 steps). The overshoot `ctrl` files say `experiment = overshoot-hist_ctrl` but the dir and filename spell `ctrl`, so they answer to `ctrl`. **419/440 reachable**; the 21 leftovers are the 10 `sftlf_fx` rasters, the 10 `validation_globals/` files and one `._` sidecar. All 43 variable names are in the vocab and match the field inside; `burntArea` is annual on disk but not in `const.ANNUAL` (adapter `ANNUAL` set). `landCoverFrac` is in %, `burntArea` a 0-1 fraction. Ships an answer key, `validation_globals/CoLM_<run>_globals_yr_1.nc` (cVeg/cSoil/cLitter in Pg C per run): the registry matches all 30 series (10 runs × 3 pools) to 1.5e-5. 1pct bgc: land carbon 2,642 -> 3,801 Pg C, GPP 100 -> 200 Pg C/yr. Overshoot hist starts lower (cVeg 457 vs 659 Pg C in 1850), as expected with 2023 land use. `land_carbon_variables` is `cLitter + cVeg + cSoil`, **unconfirmed with the group** |
-| **DLEM** | 0.5°, `lat`/`lon`, lat truncated | `decode_times=False`, "months/years since 1850" by hand | provided `LAND_AREA_DLEM.nc` (km² → m²) | nested; baseline maps to curated `_ndep` dirs; **overshoot implemented** — own grammar: `os_ctrl`/`os_hist` (no forcing token) vs `os_future_<sim>` (pattern spelled), 6 runs x 27 vars uploaded 2026-08-31, `ukesm` only, no factorial axis | no `fFire`; `nbp`=0 in 1850; area raster is the full 360-row grid but output drops 3 rows at each pole, so it's `.sel`-ed onto the data grid; land-only (132.2 Mkm²) reproduces the group's own totals **exactly** (see `stats_for_WIEMIP_1pctCO2_DLEM.xlsx` below), spherical over-counted ~2.8% |
-| **DVM_DOS_TEM** ⚠️ | 0.5°, dims `(time,y,x)`: the 1-D `Y`/`X` data vars hold the degrees and the 2-D `lat`/`lon` are those broadcast against each other — the adapter promotes Y/X and drops the pair. **REGIONAL**: the grid is 28.75-89.75 N but only 45.75-82.75 N carries data (21.5 Mkm², boreal+arctic only) | **SYNTHESIZED** — see gotchas | computed spherical, on the regional grid | nested; run dir `DVM-DOS-TEM_<forcing>_<sim>[_<factorial>]` also prefixes every file inside it; baseline/noFire/noNitrogen plus two new ones, `noWetland` and `noFire_noWetland` (added to `const.extra_factorials`) | uploaded 2026-09-11 (overshoot, 168) / 09-12 (1pctCO2, 656), 112 GB; **all 28 uploaded variables are in the vocab** — the first model needing no vocab decision. **Every file's `time` coord is 0.0 then all-NaN**, so `_time` rebuilds the axis from the step count + protocol start year and `read()` warns; the declared CF epoch must NOT be used (the scenarios say `since 1901-01-01`). `ipst` is the on-disk spelling of the ipsl pattern (5 run dirs, 128 files); `noNItrogen` with a capital I everywhere except `stable_ctrl`, which got it right; the overshoot arm carries **no forcing token at all** (so all 3 GCM spellings collapse to one run and which pattern drove the scenarios is unrecorded) and spells `hist` as `historic`; `alt` forced annual; only bgc/ctrl/cou submitted (no rad, no `_ndep`) |
-| **EDv3** | 0.5°, `latitude`/`longitude` | datetime (noleap `days since 1700-01-01` → cftime, which `core.to_datetime64` handles) | provided `landArea` (= `area` × `landFrac`, m², stored `(lon,lat)` so transposed) from `overshoot_crujra_hist/EDv3_crujra_hist_landFrac_fx_05.nc`; every per-run `landFrac_fx` raster, the 1pctCO2 ones included, is identical to it | nested; 1pctCO2 `1ptco2_<forcing>_<sim>[_nofire]/EDv3_<forcing>_<sim>[_nofire]_<var>_<cad>_05.nc` (the dir spells the experiment `1ptco2`), overshoot `overshoot_<forcing>_<sim>/EDv3_<forcing>_<sim>_<var>_<cad>_05.nc` with forcing token `crujra` for hist/ctrl; baseline/noFire in 1pctCO2 (`_nofire` after the sim, in dir and file), baseline only in overshoot | **1pctCO2 added 2026-09-29**, from an upload still landing that morning: 159 files in 8 runs — `stable` bgc (26) + ctrl (5), gfdl/ipsl × cou/rad (27 each), and noFire `stable` bgc (12) + ctrl (8). The `ukesm_cou`/`ukesm_rad` dirs and their `_nofire` twins exist but are empty, and there are no gfdl/ipsl noFire dirs yet. 153 reachable; the other 6 are the `landFrac_fx` rasters. 151 annual / 1812 monthly steps, 1850-2000. bgc/ctrl are labelled `stable` on disk, so nothing is pinned. On bgc: cVeg 395 -> 1,318 Pg C over 1850-2000, cSoil 376 Pg C in 1850, and GPP 78.8 = NPP 37.3 + Ra 41.5 Pg C/yr (1850-51 mean); ctrl cSoil holds at 376; noFire `fFire` is 0. **Overshoot** (2026-09-28): 378 files in 14 runs — crujra hist + ctrl, ukesm/gfdl/ipsl × l/m/hl/hl_cf, 27 each; 364 reachable, the other 14 are the rasters. `tveg → tran`, the one out-of-vocab name; every cadence token in both arms agrees with `const.ANNUAL`. Overshoot hist and ctrl span **1830**-2023 and ctrl is a historical control; `cVegpft` carries repeated time stamps in both arms — see both flags below. `land_carbon_variables` is `cVeg + cSoil`, **unconfirmed with the group** (no `cLitter` uploaded) |
-| **ELM** | 0.5° (360×720), `lat`/`lon`, lon 0.25-359.75 | `decode_times=False`; noleap `days since 1850` stamped at the END of each month (day 31 is January), so `_time` counts months from the file's own epoch, as CLM does | provided `area` (km²) × `landfrac` from the loose top-level `landfrac.360x720.nc` (written from a 2020 ELMv2.1 case, but the grid matches the data cell for cell) | flat; `ELM_<forcing>_<sim>[_nofire]_<VAR>_mon_05.nc`; baseline/noFire — the factorial is a `_nofire` token after the sim | **1pctCO2 only**, adapter added 2026-09-29 from the 2026-09-28 upload (bgc + ctrl, 22 variables each, labelled `ukesm`). **The 2026-09-30 upload re-labelled both `stable`** and added `bgc_ndep`/`ctrl_ndep` and a `nofire` bgc/ctrl: 6 runs × 26 variables (the old 22 + `evapo`, `fN2`, `fN2O`, `fNleach`), all 156 reachable, so the `ukesm` pin is gone. Headers checked on 8 of them: the same 1812-step 1850-2000 axis as before, and each field is named as its filename token, so no new variable mapping. The 44 `ELM_ukesm_bgc_*`/`ELM_ukesm_ctrl_*` files are still on the bucket, byte-identical in size to their `stable` twins (7 variables compared), and unreachable by design. No cou/rad, so β_land is computable (baseline + noFire) and γ_land is not. **Every file is `_mon_`, the pools included**, so the cadence token is hardcoded. Vocab map `gpp`/`npp`/`nbp`/`ra`/`rh`/`lai` → `GPP`/`NPP`/`NBP`/`Ra`/`Rh`/`LAI`, `fNnetmin → fNetmin`, `fNHarvest → fnHarvest` (`wiemip_to_elm_variable_mapping`); `cHarvest` (a harvest C *flux*, all zeros under fixed land use) joined `extra_variables`, and `trans`/`nSoil` were already there. The pools carry an **undeclared `1e20` fill** on every non-land cell (the declared `_FillValue` is `1e36`), masked on read (`_UNDECLARED_FILL`); the fluxes use the declared one. `mrso` is not the protocol's field — see the flag below. 1850 totals on bgc: cVeg 549, cSoil 2,330, cLitter 50 Pg C; GPP 119 = NPP 32.6 + Ra 86.3 Pg C/yr. No overshoot upload, so `overshoot_path` is left unimplemented. `land_carbon_variables` is `cLitter + cVeg + cSoil`, **unconfirmed with the group** |
-| **JSBACH** | 1°, `lat`/`lon` | datetime | computed spherical | nested; baseline/noNitrogen/noFire `post` suffix (suffixes dir **and** trails cadence); `dynVeg_noNitrogen`/`dynVeg_noFire_noNitrogen` (2026-09-23) instead suffix only the dir (`_dynveg_noNitrogen[_noFire]`) and put `dynveg_`/`dynveg_nofire_` BEFORE the sim in the filename (`JSBACH_<forcing>_dynveg_cou_<var>_<cad>_1.nc`) | fire ≈ 0 in baseline (so noFire ≈ baseline); **overshoot implemented** — different grammar from the 1pct arm: run dir is the *bare* sim token (`ctrl`, `hist`, `l`, `hl_cf`, …), and the file's forcing token is `crujra3` for hist/ctrl (`_CRUJRA_FORCED_SIMULATIONS`) but the GCM name for the 8 scenarios, never `stable`; all 10 submitted runs × 3 patterns reachable, `hist_ctrl` not submitted; overshoot factorial `dynVeg` (`OVERSHOOT_FACTORIALS`) — dir `<sim>_dynveg/`, `dynveg_` before the sim in the filename. **The dynveg set was re-uploaded 2026-10-11** (1,321 files: 370 1pct + 951 overshoot) after the empty 09-23 upload, and all of it is reachable. The re-upload spells `ukesm` where the baseline spells `stable` (1pct bgc/ctrl filenames, inside `JSBACH_stable_<sim>_dynveg_noNitrogen[_noFire]/` dirs) or `crujra3` (overshoot `ctrl_dynveg`), so the adapter pins `_DYNVEG_FILE_FORCING`; ipsl cou noFire sits in a one-off dir, `wiemip_1pctCO2_dynveg_ipsl_nofire_cou_pftlevel/` (`_RUN_DIR_OVERRIDES`; same 35 variables as the ukesm/gfdl twins). See the dynveg flag below |
-| **JULES** ⚠️ | n96, `latitude`/`longitude` | datetime (ignores `year` coord) | spherical × `landfrac_n96.nc` (`land`>1→0) | nested; **factorials are positional config strings** (`Nitrogen_DynVeg_Permafrost_noFire`…) baked into dir+file | cadence from `const.ANNUAL` (was **hardcoded `yr`** until 2026-09-02, which hid every monthly file — 35 in 1pct, 2028 in overshoot); `const.ANNUAL` is wrong about JULES in **both** directions, so the adapter carries an `ANNUAL` set (`fVegFire`/`fSoilFire`, plus `fFirepft` — genuinely annual, 150 July-2 steps on `cVeg`'s axis, but absent from `const.ANNUAL`, so it spelled `_mon_`) AND a `MONTHLY` set (`wetfrac` — genuinely monthly, 1800 month-16th steps on `gpp`'s axis, but a `const.ANNUAL` member, so it spelled `_yr_`). `MONTHLY` is checked FIRST in `_cadence` for exactly that reason; the two together were 226 unreachable files (wetfrac 75 1pct + 130 overshoot, fFirepft 21) until 2026-09-08. Unlike the 3 mislabelled overshoot variables below, here the filename tokens are honest and `const.ANNUAL` is the thing that disagrees — and it can't just be changed globally, because LPX-Bern really does write `wetfrac` annually; `ctrl`→`ctl`; **overshoot implemented** — one of two models with a factorial axis there (JSBACH is the other): the whole scenario set was repeated under 5 fire configs, so `retrieve_overshoot_variable` takes an optional `factorial` (declared in `OVERSHOOT_FACTORIALS`, `baseline`→`noFire`, `Fire####`→`FireP####`). Config leads the prefix instead of trailing the sim token (`JULESwiemipV2<config>_<forcing>_<sim>/…_<var>_<cad>_n96.nc`), `hist`/`ctl` carry no forcing token, counterfactuals are hyphenated (`hl-cf`). The overshoot var set grew from cVeg+cSoil to ~20/run (2026-09): all in-vocab now reachable, `fVegFire`/`fSoilFire` reachable as the vocab's `fFireCveg`/`fFireCsoil` (`wiemip_to_jules_variable_mapping`), `nep` requestable via `extra_variables` — **`fNgas` and `pftfrac` joined the mapping 2026-09-16**, which takes the 1pct arm to 1 unreached file (`landfrac_n96.nc`, the weight raster) and the overshoot arm to 0: `pftfrac` serves the vocab's `landCoverFrac` (in `const.ANNUAL`, so `_cadence` already spelled `_yr_`, matching the disk token) and `fNgas` served `fN2O` — but see the species flag below, it is NOT N2O. **The `fN2O -> fNgas` alias was commented out 2026-09-21 (8925c60)**, so the 75 `fNgas` files are unreachable by design and JULES serves no `fN2O`. Neither orphans anything: JULES uploaded no `landCoverFrac`- or `fN2O`-named file. Mind the CASE of a mapping key — it is matched against the vocab spelling, so a lowercase `landcoverfrac` key silently never fires. **`fwetch4` joined the mapping 2026-09-15** as the vocab's `wetCH4` (same move CLASSIC makes with `wetch4` and CLM-FATES with `wetlandCH4`), which reaches all 205 across both arms — 75 in 1pct verified against the 09-14 uncovered list. `wetCH4` is absent from `const.ANNUAL` so `_cadence` already spelled `_mon_`, matching the disk token; no `MONTHLY` entry needed. **Verified 2026-09-16**: the bucket carries no `wetCH4`-named JULES file at all (0 keys), so the alias orphans nothing — but the data behind it needed two workarounds, an undeclared `9.96921e36` fill masked on every read (`_NC_FILL_FLOAT`) and a `to_pgc` override that skips SPY when the header says `yr-1` (JULES is the first adapter to override it); see the flag below. CLM's `fwetch4` are a separate upload, NOT covered by this — and CLM must **not** copy the move, because it uploaded both spellings (see its row and the flag below). **`nbp` is deliberately NOT aliased to `nep`**: JULES uploaded both and they are different fields (global mean 0.24 vs 3.88 Pg C/yr — NBP is NEP minus the ~2 Pg C/yr of fire/disturbance), so aliasing would orphan the real NBP |
-| **LPJ_EOSIM** | 0.5°, `latitude`/`longitude` | datetime (gregorian days-since-1850) | computed spherical | nested; baseline/`_noFire`/`_noNitrogen`/`_noPermafrost`/`_noDynVeg` suffix on dir **and** trailing the cadence (1pctCO2 only) | dir hyphenated `LPJ-EOSIM`, prefix underscored `LPJ_EOSIM`; **re-registered in `adapters.py` 2026-09-17** after being commented out in 682a72b (2026-09-07, no rationale in the message) — BiomeE, removed in the same commit, was re-registered 2026-09-30. **Both arms were completely re-uploaded 2026-09-16/17 and every file is reachable**: 1pctCO2 **2,610/2,610** (35 runs × 78 vars, 2026-09-16) and overshoot **2,028/2,184** (26 runs × 78, 2026-09-17; the 156 leftovers are the stale CRUJRA duplicates flagged below). β/γ_land are computable, on all three patterns, for baseline + noFire + noNitrogen + noPermafrost. 1pct runs are bgc/ctrl on `stable` and cou/**rad** on ukesm/ipsl/gfdl, 151 annual steps 1850-2000. Cadence overrides of `const.ANNUAL`: `wetfrac`/`nInorgSoil` monthly, `docFlux` annual (adapter `MONTHLY`/`ANNUAL` sets) — verified to agree with the on-disk token on all 78 variables × 35 runs. Overshoot is all 8 protocol scenarios × 3 patterns + `hist` + `hist_ctrl` (only `ctrl` missing); scenario runs spell the token exactly as the enum (`vl_cf`, not `vl-cf`), and **since the 09-17 re-upload the CRUJRA runs are dir == file prefix too** (`LPJ_EOSIM_hist/LPJ_EOSIM_hist_<var>…`), so `_CRUJRA_SIMULATIONS` only has to drop the forcing token. `ctrl` alone is still not uploaded and is grouped with `hist_ctrl` on the assumption it spells the same way |
-| **LPJ_GUESS** | 0.5°, `lat`/`lon` (already canonical), dim order varies per file | `decode_times=False`, `years`\|`months since 1850` by hand (xarray can't decode `years`) | computed spherical | nested; `LPJ-GUESS_<forcing>_1pctCO2-<SIM>/` for bgc/ctrl, `LPJ_GUESS_<FORCING>_1pctCO2-<SIM>/` for cou/rad (`_GCM_FORCED`); the ndep runs drop `1pctCO2-` from the dir (`LPJ_GUESS_stable_BGC-ndep/`, `LPJ_GUESS_UKESM_COU-ndep/`) and bgc's files spell the experiment `1pctCo2` (`_NDEP_EXPERIMENT_TOKENS`); baseline/noFire — the noFire runs (2026-09-30) follow the ndep grammar with a `-NoFire` dir suffix and a `-Nofire` file suffix, and capitalise `Stable` (`LPJ_GUESS_Stable_BGC-NoFire/LPJ-GUESS_Stable_1pctCO2_BGC-Nofire_…`, `LPJ_GUESS_UKESM_COU-NoFire/`) | **four runs: `stable` bgc (2026-09-07, 18 files) + ctrl (09-14, 24), and `ukesm` cou (24) + rad (23), both uploaded 2026-09-22** — so β_land AND γ_land are computable, γ on ukesm only. **Plus `stable` bgc_ndep (23 files) and `ukesm` cou_ndep (25), uploaded 2026-09-29**, all 48 reachable — see the slips flag below. Grid token is `05deg`, not `05`; dir and file prefix disagree — dir `…_1pctCO2-BGC/` vs files `LPJ-GUESS_stable_1pctco2_BGC_…`, and in **bgc only** `cLitterpft` (+ out-of-vocab `fpc_pft`) uses the dir-style prefix (`_DIR_STYLE_PREFIX` × `_DIR_STYLE_SIMULATIONS`; ctrl's are file-style). The ctrl run spells its tokens differently again — dir `…_1pctCO2-CRTL/` and file `…_1pctco2_control_…` (`_DIR_SIM_TOKENS`/`_FILE_SIM_TOKENS`) — and per-run filename slips go through `_FILENAME_OVERRIDES`, keyed on (simulation, factorial, variable) so bgc, bgc_ndep and bgc noFire stay apart; the 8 per-PFT fields hold **41-42 separate data variables**, one per PFT (`cmass_`/`clitter_`/`nmass_`/`nlitter_`/`fpc_`/`mgpp_`/`mlai_`/`maet_<PFT>`), stacked onto a `pft` dim on read (`_PFT_STEMS`; `gpppft`/`laipft`/`evapotranspft` were missing until 2026-09-29, so those reads raised KeyError); the `ch4` field is stored as `mch4` (`_FIELD_NAMES`, same date and same KeyError); `const.ANNUAL` agrees with the disk cadence token everywhere except bgc's `landCoverFrac`, whose token is `ann`; `-99999` fills arrive pre-masked via `_FillValue`; **overshoot implemented 2026-10-05**: 4 runs, CRUJRA3 `hist` + `ctrl` and `UKESM` `l` + `m` (`m` re-uploaded 2026-10-12, `l` 2026-10-13), 97 files, all reachable. No two runs share a grammar (`_OVERSHOOT_RUN_TOKENS`): `LPJ_GUESS_CRUJRA3_historical/LPJ-GUESS_CRUJRA3_Overshoot_Historical_…`, `…_CRUJRA3_Overshoot_control/…_CRUJRA3_Control_…`, `…_UKESM_Overshoot_low/…_UKESM_Overshoot_L_…`, `…_UKESM_Overshoot_med/…_UKESM_Overshoot_M_…`; any other scenario falls back to a guessed `Overshoot_<sim>` spelling until it lands. hist/ctrl span 1850-2023 and the scenarios 2024-2300, all counted from a `since 1850-01-01` epoch, which `_time` already reads off the file. Filename slips go through `_OVERSHOOT_FILENAME_OVERRIDES`, keyed on (run dir, variable) — see the flag below |
-| **LPJmL6** | 0.5°, `lat`/`lon`, 55.75 S-83.75 N (280 rows) | datetime | provided `land_area` (m², 132.0 Mkm²), 1850 slice of `stable_bgc/LPJmL6_stable_bgc_land_area_yr_05.nc` (since 2026-10-13; computed spherical before, which put bgc cVeg 1850 at 904 Pg C instead of 800). Every run ships the same raster, and it shrinks 0.2% by 2000 identically in all of them | nested; baseline/noNitrogen — token suffixes the run dir AND trails the cadence (`ukesm_cou_noNitrogen/LPJmL6_ukesm_cou_<var>_<cad>_noNitrogen_05.nc`); `stable` bgc/ctrl + `ukesm` cou, each × both factorials | `alt`/`fNHarvest` forced annual; `overshoot` stub returns `"null"`; **noNitrogen re-uploaded 2026-10-12 on a newer model version** — see the flag below |
-| **LPX_Bern** ⚠️ | 1°, `latitude`/`longitude` | `decode_times=False`, numeric years → floor (`years_to_datetime`) | provided `gridcell_area.nc` | flat; **factorials are (prefix,suffix) pairs** — lowercase `nofire`/`nopermafrost` **before** the sim token, suffix after | high fire (~15–23 Pg C/yr) but **real**; **overshoot implemented**; **the `fch4soil` -> `ch4soil` alias was REMOVED 2026-09-22** — the group re-uploaded all 57 files under the protocol name that day (57 `ch4soil` keys deleted, 57 `fch4soil` written; the variable inside the file is `fch4soil` too, checked on the header). Do not re-add it. The `fFireLitter -> fFireCLitter` alias went the same way on 2026-09-28, after the group re-uploaded those 57 files under the protocol name on 09-24/25. The model is now at **2 unreached**, both the `gridcell_area.nc` weight rasters |
-| **TEM** | 0.5°, `latitude`/`longitude`, dims `(lon,lat,time)` | `decode_times=False`, noleap days-since-1850 by hand | computed spherical | nested, run dir = `SIM.upper()`; baseline only; **overshoot implemented** — JSBACH's overshoot grammar verbatim (bare sim dir, `crujra3` for hist/ctrl, GCM for the 8 scenarios), 10 runs x 11 vars uploaded 2026-09-01 | file prefix `TEM-MDM`; `nbp` sign/units look off |
-| **VISIT_UT** | 0.5°, `lat`/`lon` | `decode_times=False`, "years since AD 0" fractional → floor | computed spherical | nested; baseline/noBVOC/noFire `post` suffix | **always monthly** (`mon` hardcoded); `fFire` mis-scaled — adapter warns; **overshoot implemented**, incl. ml/ml_cf; overshoot control is the one run where dir and file tokens disagree (dir `…_control/`, files `…_CTRL_…`); **overshoot `hist` uploaded 2026-10-03, reachable since 2026-10-05**: 28 files, `VISIT-UT_hist/VISIT-UT_hist_<var>_mon_05.nc` with no forcing token, so every pattern reads the same run. It is stamped 1851-2023 (2,076 steps) but holds 1850-2022 — see the flag below. The scenarios and controls run 1850-2300 (5,412 steps, historical period included) |
-
-`overshoot_path` is a real implementation for **CLM, CLM_FATES, CoLM, DLEM, DVM_DOS_TEM, EDv3,
-JSBACH, JULES, LPJ_EOSIM, LPJ_GUESS, LPX_Bern, TEM, VISIT_UT** (DLEM + TEM added 2026-09-02, from
-uploads that landed 08-31 / 09-01; DVM-DOS-TEM 2026-09-14; EDv3 2026-09-28, a day before
-its 1pctCO2 arm landed; LPJ-GUESS 2026-10-05, the day its upload started; CoLM 2026-10-13,
-both arms at once); a `"null"` stub (resolves
-then fails at `read()`) for **CLASSIC, LPJmL6**; and unimplemented (base
-`NotImplementedError`) for **BiomeE** and **ELM**. Those thirteen are
-every group that has uploaded overshoot output — every other
-`overshoot/output/<MODEL>/` dir on the bucket is an empty placeholder, so nothing else
-needs an adapter yet. Each of the nine spells overshoot differently from its own 1pct
-arm; don't assume the 1pct grammar carries over (LPJ-EOSIM is the one model where it
-does, factorial axis aside; TEM's overshoot grammar is JSBACH's, not TEM's own). Nobody
-submitted `hist_ctrl`.
-
-## Known data-quality flags
-
-- **VISIT-UT `fFire`** mis-scaled (~1000× / a g→kg slip; the adapter emits a runtime
-  warning). **Exclude** from fire analyses — flag to Akihiko Ito.
-- **VISIT-UT labels the `cLeaf`/`cRoot`/`cWood` pools `kg C m-2 s-1`** in the file
-  header (its `cVeg` is correctly `kg C m-2`). A header slip, not a data problem — a
-  leaf-carbon *rate* is meaningless and `const.STOCKS` keys off the variable name, not
-  the attribute, so the registry integrates them correctly. Only bites someone reading
-  `WIEFile.units` or the raw header. Worth mentioning to Akihiko Ito alongside `fFire`.
-- **JULES overshoot mislabels the cadence token on 3 variables, in both directions**:
-  `rhLayers` is `_mon_` but holds annual data (276 steps, July-2 stamps, same axis as
-  `cVeg`), while `fVegFire`/`fSoilFire` are `_yr_` but hold monthly data (3312 steps,
-  same axis as `fFire_mon`). The registry reaches all three — the token is what names
-  the file, and the adapter's `ANNUAL` set spells the token, not the cadence — but a
-  cadence-aware analysis will mis-read them. Flag to the JULES group.
-- **LPX-Bern `fFire` was ~15–23 Pg C/yr (≈8× others) until the group re-uploaded it on 2026-09-08 — it is now ~4–5 Pg C/yr** and no longer an outlier: cou/ukesm mean 5.02, cou/gfdl 5.04, bgc/stable 5.14, ctrl/stable 4.03 Pg C/yr. The re-upload overwrote 86 1pctCO2 files in place (total unchanged at 2,172) and was confined to the fire and methane set — `ch4soil` 31, `fFire` 20, `ch4` 20, `fFirepft` 15. `cache_csv` keys on the `.nc` mtime so the CSV cache recomputed itself, **but anything already derived from the old values is stale** — including the band aggregations in `../wiemip-validation`, which need re-running.
-- **JSBACH `fFire`** ≈ 0 (fire effectively off in this run).
-- **JSBACH re-uploaded its dynveg runs on 2026-10-11**, replacing the 09-23 upload,
-  whose files held only the `-99999` fill (dynveg was switched off in b074199 because
-  of it). The re-upload holds real data: cVeg is valid on the same 23% of cells as the
-  baseline, and file sizes match their baseline twins to ~1%. On 1pct bgc,
-  `dynVeg_noNitrogen` cVeg runs 450 -> 978 Pg C (baseline 399 -> 780), the noFire twin
-  565 -> 1,321, and ctrl holds at 450-451. Still open: the overshoot dynveg scenarios
-  span **2025**-2300 (276 steps), one year short of the baseline's 2024-2300; there is no
-  `hist_dynveg`; the overshoot set has no N output and no `cSoilPools`, so `dynVeg` is
-  probably N-off too (the name follows the on-disk `dynveg` token until the group
-  confirms). Three naming slips, absorbed by the adapter and worth a rename on the
-  bucket: `ukesm` in the 1pct bgc/ctrl filenames, `ukesm` in the overshoot ctrl
-  filenames (CRUJRA-driven, so `crujra3` in the baseline), and the ipsl cou noFire dir
-  `wiemip_1pctCO2_dynveg_ipsl_nofire_cou_pftlevel/`. **Ask the JSBACH group** about the
-  missing 2024 and the three spellings.
-- **JULES's `fNgas` is NOT N2O** — the file the `fN2O` alias used to resolve to. Its own
-  `long_name` reads "Total nitrogen lost to the atmosphere (sum of NHx, NOx, N2O, N2)".
-  Integrated globally it is **98 Tg N/yr** (138 in 1850, 130 in 1999) against a plausible
-  soil N2O flux of 10-17 Tg N/yr, so the data backs the `long_name`; the file's
-  `standard_name` (`…mass_flux_of_nitrous_oxide_expressed_as_nitrogen…`) is the slip. The
-  alias went in 2026-09-16 and was **commented out 2026-09-21** (8925c60), so the 75
-  `fNgas` files are unreachable by design and JULES has no `fN2O`. Do not re-add it: the
-  field is ~8x any other model's N2O by construction.
-  Ask the JULES group to either rename the field or re-submit a real N2O flux.
-- **LPJ-EOSIM's CH4 duplicate names and out-of-vocab leftovers are GONE** (the
-  2026-09-16/17 re-upload of both arms, verified on the 09-17 listing). The 09-15 upload
-  had shipped every CH4 field twice (`fCH4Fire` + `ffirech4`, `wetCH4` + `fwetch4`) and 7
-  names outside the request (`evspsblsoi`, `evspsblveg`, `fHarvest`, `fLuc`, `msl`, `tran`,
-  `tsl`); the current 78-variable set is **entirely in the vocab** with no duplicate
-  spellings, so no alias was ever needed. The 2026-08-28 `LPJ_EOSIM_ipsl_cou_noFire/` slip
-  (25 stray `LPJ_EOSIM_ukesm_cou_…` files) is gone with it.
-- **LPJ-EOSIM's overshoot `hist`/`hist_ctrl` each hold 78 STALE DUPLICATES.** The 09-15
-  upload doubled the sim token in the filename (`LPJ_EOSIM_hist/LPJ_EOSIM_hist_hist_…`,
-  `LPJ_EOSIM_hist_ctrl/LPJ_EOSIM_ctrl_ctrl_…`); the 09-17 re-upload writes the clean
-  `LPJ_EOSIM_hist_<var>…` / `LPJ_EOSIM_hist_ctrl_<var>…` beside them without deleting the
-  old ones. All 78 pairs match in size, so it is a pure rename, not a data revision. The
-  adapter points at the 09-17 names, which leaves those **156 files unreachable by design**
-  — do NOT alias them back. **Ask the group to delete them.**
-- **LPJ-EOSIM's `noDynVeg` factorial is only 3 runs** — `stable_bgc`, `ukesm_cou`,
-  `ukesm_rad`. There is no `stable_ctrl_noDynVeg` and no ipsl/gfdl, so β_land is computable
-  for that factorial but without a drift control, and γ_land only on ukesm. The other four
-  factorials are the full 8-run sweep. Two variable omissions, both of which look
-  deliberate: `noPermafrost` drops the soil-thermal set (`alt`, `soilIce`, `soilMoist`,
-  `soilT`) for 74 of 78, and `noFire` drops the 10 fire diagnostics plus `wind` (SPITFIRE's
-  input) for 67 of 78. **Worth confirming with the group** that `noDynVeg` is meant to be
-  partial.
-- **JULES `wetCH4` (on disk `fwetch4`) ships an undeclared fill and per-year units**
-  (found 2026-09-16 in `JULESwiemipV2_ukesm_cou_fwetch4_mon_…addPermafrostC_noFire_n96.nc`).
-  71.9% of cells — every ocean point, 19,878 of the 27,648 n96 cells at every step — hold
-  netCDF's default float fill `9.969209968386869e+36`, with **no `_FillValue` and no
-  `missing_value`**, so `core.mask_fill` (a floor, for the `-9999` the rest of the upload
-  declares) passes it through. And `units = "kg m-2 yr-1"` where every other JULES flux is
-  `kg m-2 s-1`, so the default `to_pgc` over-multiplies by SPY = 3.15e7. Together they put a
-  global sum at **1.1e47 Pg CH4/yr**. Its sibling `fNgas` from the same batch declares
-  `_FillValue`/`missing_value` = -9999 and `kg m-2 s-1` correctly, so it is this one file.
-  With both handled in the adapter the series is physical: **202 Tg CH4/yr mean 1850-1999,
-  rising 134 -> 306**, against a ~150-200 Tg/yr observed wetland budget. **Ask Eleanor Burke
-  (eleanor.burke@metoffice.gov.uk) to re-upload with the fill declared and the units fixed**,
-  then drop `_NC_FILL_FLOAT` and the `to_pgc` override. Anything that read JULES `wetCH4`
-  through `latitudinal_sum` since the 2026-09-15 alias landed is garbage — delete those CSVs
-  under `const.CSV_ROOT`.
-- **CLM's duplicate `fwetch4` upload was deleted from the bucket 2026-09-16.** It had
-  uploaded the wetland CH4 flux twice — 84 files named `fwetch4` (2026-07/08) and the
-  same 84 runs and chunks again as the protocol's `wetCH4` (2026-08-17), sizes within
-  ~3 KB. The registry resolved the vocab name to the newer, correctly-named copy and
-  deliberately carries **no `wetCH4 -> fwetch4` alias**; keep it that way — JULES's alias
-  would have been exactly wrong here. CLM is now down to its by-design leftovers (19
-  loose top-level bundles/stubs; the 60 `_deep` files became reachable 2026-10-14).
-- **CLM-FATES replaced its ENTIRE 1pctCO2 arm on 2026-09-14** (all 292 files
-  delete-marked at 11:39 UTC, re-uploaded 11:43-11:57; overshoot untouched). Two
-  consequences: **bgc/ctrl are finally labelled `stable`** on disk, so those runs are
-  reachable for the first time and β_land is computable for CLM-FATES; and `fN2O`,
-  `fN2Odenit`, `fN2Onit` were **dropped** from the upload entirely.
-- **`wr.land_carbon_stock` returned all-NaN for CLM-FATES in both arms until 2026-09-28.**
-  Its `land_carbon_variables` is `cLitter + cVeg + cSoil + cOther`, and FATES uploads
-  `cOther` only monthly (`…cOther.tavg-u-hxy-lnd.mon…`, 9 files, no `yr` twin) while the
-  other three are annual. `_land_carbon_*` added the components with `+=`, which aligns on
-  the time index; the July-2 annual stamps never met a monthly one, so every year was NaN
-  (1pctCO2 `stable_bgc` 150/150, overshoot `hist` 173/173). **Fixed in
-  `_sum_land_carbon_components`**: components on one shared time index still add as before;
-  when their indexes differ, each is annual-meaned and the total takes the coarsest
-  component's stamps. Checked on the hub: FATES 1pctCO2 bgc now reads 2,512 -> 3,585 Pg C
-  with no NaN, FATES overshoot `hist` 2,250 -> 2,480, and JSBACH is unchanged to 2e-13.
-  Anything derived from CLM-FATES land carbon before this date was empty, β/γ_land
-  included; the fix reaches the hub and the nightly aggregation once it is on `main`.
-- **JULES 1pctCO2 has 15 `JULESwiemipV2_rad_<config>/` dirs with NO forcing token**
-  (2026-09-18), beside the `ukesm_rad`/`ipsl_rad`/`gfdl_rad` dirs, each holding one
-  `fwetch4`. `rad` is GCM-forced, so which pattern drove them is unrecorded, and their sizes
-  match none of the three patterned copies, so they are not plain duplicates. Unreachable
-  by design. **Ask the JULES group** which pattern they are, or to delete them.
-- **The CLM-FATES ÷1000 on `fN2O`/`wetCH4` was wrong and has been removed** (2026-09-14).
-  Integrated globally, the current `wetlandCH4` is **600 Tg CH₄/yr** raw; ÷1000 gave
-  0.6 Tg/yr, ~250-300× BELOW the observed global wetland budget (~150-200 Tg/yr). The
-  divide was not supported by any version on the bucket — the 2026-07-03 upload
-  integrated to 6,839 Tg/yr and the 08-18 one to 483 Tg/yr, so ÷1000 was ~11× and ~300×
-  too small respectively. It may have been calibrated on `fN2O`, which no longer exists.
-  The file's `units` attribute has read `kg m-2 s-1` throughout. **Raw FATES wetland CH₄
-  is still ~3× the observed budget** — worth raising with the group rather than scaling.
-  Anything derived from CLM-FATES 1pctCO2 before this date is stale (the CSV cache
-  self-heals off the `.nc` mtime; the `../wiemip-validation` band aggregations do not).
-- **Every DVM-DOS-TEM file has a broken `time` coord** — element 0 is `0.0` and every
-  other element is `NaN`, in both experiments and at both cadences. The step counts are
-  right, so the adapter SYNTHESIZES the axis from the count plus the protocol start year
-  and `read()` warns every call. The declared CF epoch is also wrong on the scenarios
-  (`days since 1901-01-01`, not 2024). **Ask the group to re-upload a real axis**, then
-  delete `DVM_DOS_TEM._time` and decode it like everyone else.
-- **DVM-DOS-TEM is a REGIONAL model** — grid 28.75-89.75 N, data only 45.75-82.75 N,
-  21.5 Mkm² of boreal and arctic land. Every total from `latitudinal_sum` is a
-  high-latitude total: cVeg 123 Pg C, cSoil 651 Pg C, gpp 15.3 Pg C/yr. **Do not pool
-  these with whole-globe totals from other models.** The carbon budget closes
-  (`gpp == npp + ra` to 0.01%), so the fluxes themselves are sound.
-- **DVM-DOS-TEM naming slips, all absorbed by the adapter, all worth a rename on the
-  bucket**: `ipst` for the ipsl pattern (5 run dirs, 128 files); `noNItrogen` with a
-  capital I on every run but `stable_ctrl`; the overshoot arm carries **no forcing token
-  at all**, so which GCM pattern drove `l`/`hl`/`hl_cf`/`m` is unrecorded — **ask the
-  group which pattern those were**; and overshoot `hist` is spelled `historic`.
-- **DVM-DOS-TEM `cCwd` starts at ~0** (0.001 Pg C in 1850, reaching 1.2 Pg C by 1999) —
-  the coarse-woody-debris pool looks uninitialized rather than spun up, the same shape
-  as DLEM's `nbp`=0 in 1850. Its `cSoilAbove1m` + `cSoilBelow1m` sum to 668 Pg C against
-  a reported `cSoil` of 651 (2.6% over), so the depth split does not quite reconcile
-  with the total. `land_carbon_variables` is `cVeg + cSoil` — **unconfirmed with the
-  group**; no `cLitter` was submitted and `cCwd` is left out pending confirmation that
-  it is not already inside `cSoil`.
-- **DVM-DOS-TEM did not submit `fFireCveg`/`ffirepeatTotal`/`cSoilAbove1m`/`cSoilBelow1m`
-  for `gfdl_cou` and `ipst_cou`** (baseline and `noWetland`), though their `noNItrogen`
-  siblings have them — 16 files missing, looks like an oversight rather than a choice.
-- **EDv3 `cVegpft` holds monthly data under a `_yr_` token, with each annual stamp repeated 12 times** (2026-09-28 upload): 3,324 steps on the scenarios (277 × 12) and 2,328 on hist/ctrl, stamped July 1 twelve times a year. The values change within a year and the 12th step equals that year's `cVeg`. The registry reaches the file (the token agrees with `const.ANNUAL`), but `read()` returns a `time` coord with 12 duplicates per year. The 1pctCO2 upload (2026-09-29) repeats it: 1812 steps (151 × 12) on every run but `stable_ctrl_nofire`, whose `cVegpft` is a clean 151-step annual series (1.1 GB against 13 GB). **Ask the group to re-upload** with monthly stamps and a `_mon_` token, or with annual data.
-- **EDv3's overshoot `hist` and `ctrl` start in 1830**: 194 annual steps, 1830-2023, against the protocol's 1850-2023. `ctrl` is a historical control over the same span. It matches `hist` at step 0 and diverges after (mean cVeg 2.02 vs 2.74 kg C m-2 by 2023). Slice to 1850 before pooling with other models, and **ask the group** what 1830-1849 is.
-- **ELM's `mrso` is volumetric soil water per layer, not the protocol's `mrso`** (2026-09-28 upload): `units = mm3/mm3` on 15 `levgrnd` levels, long_name "volumetric soil water (vegetated landunits only)", where the protocol wants the `kg m-2` column total. It sits in `const.STOCKS` by name, so `latitudinal_sum` returns a number that means nothing. The adapter reaches the file, because the name token is honest, and returns it unmodified. **Ask the ELM group** (Qing Zhu, qzhu@lbl.gov) for the column total in `kg m-2`.
-- **ELM re-labelled bgc and ctrl `stable` on 2026-09-30** (they were `ukesm` in the 09-28 upload), but left the 44 `ukesm` originals on the bucket beside the new copies — same sizes, so a re-label, not a re-run. **Ask the group to delete the `ELM_ukesm_*` files.** The ctrl drift is small: land carbon moves −5.6 Pg C over 1850-2000 (cVeg −25, cSoil +16, cLitter +4).
-- **LPJmL6's baseline and noNitrogen runs come from different model versions** (headers checked 2026-10-13): baseline is LPJmL 6.1.2 (run 2026-08-31 / 09-03), noNitrogen 6.1.11 (run 2026-10-09, uploaded 2026-10-12), so baseline − noNitrogen is not N limitation alone. The noNitrogen bgc and cou runs also start 29 Pg C of land carbon above the noNitrogen ctrl in 1850 and gain ~25 Pg C in their first year (baseline bgc: +0.5, and it starts exactly on its ctrl), so they may not branch from the ctrl state. The group's README (2026-09-03) describes the earlier noNitrogen upload: its unspun-up ctrl (+1.07 Pg C/yr, 2,699 Pg C litter) is gone, and the new ctrl holds flat (−3.6 Pg C over 1850-2000, 206 Pg C litter). The README's 1850 baseline totals (cVeg 812.5, cSoil 2,898.9, cLitter 382.8 Pg C, from the model's `terr_area`) sit 1.5-2.4% above the registry's `land_area` totals (800.2, 2,832.0, 373.8), by a different ratio per pool. **Ask Sibyll Schaphoff** whether `land_area` or `terr_area` is the intended weight, whether the noNitrogen transient runs branch from the noNitrogen ctrl, and whether the baseline will be re-run on 6.1.11. Plot: `plotting_scripts/plot_lpjml6_nonitrogen.py`.
-- **BiomeE's bgc/ctrl runs stop a year before its cou runs** (2026-09-30 upload, all 432 headers checked). All 6 bgc/ctrl runs (baseline + both factorials) hold 150 annual / 1800 monthly steps, 1850-1999, and all 3 cou runs hold 151 / 1812, 1850-2000, so `cou - bgc` has no 2000. The group's README (still the 2026-06-22 version) says the first year of data is **1851**, yet every file is stamped from 1850-01-01 (annual steps on Jan 1). Its 1850 values are near-identical across runs (bgc/cou cVeg 508.3 vs 507.8 Pg C), so a one-year label shift cannot be ruled out. **Ask the group** whether the stamps are shifted and whether bgc/ctrl are missing their last year. The README also says fire is computed annually and spread evenly over the 12 months, so the monthly `fFire`/`fFireCveg`/`fFireLitter`/`fFirepft` carry no seasonal cycle.
-- **BiomeE's `ch4` is identically zero** — every valid cell at every step, on baseline bgc and cou (the two runs checked, 2026-09-30), which fits the `_noCH4` suffix on every file: the methane module looks switched off. The registry returns it unmodified, so `latitudinal_sum` gives a flat 0.0. **Exclude BiomeE from CH4 analyses**, and ask the group whether `noCH4` means CH4 is off in every run.
-- **DLEM** has no `fFire`; `nbp` is 0 in 1850 then nonzero.
-- **DLEM ships its own answer key**: `1pctCO2/output/DLEM/stats_for_WIEMIP_1pctCO2_DLEM.xlsx`
-  holds their reported global totals (g C / g N) for cSoil, nSoil, GPP, NBP and N2O —
-  one sheet per variable, one column per run, 1850-2000. `debug/verify_dlem_area.py`
-  checks the registry against it. Weighted by `LAND_AREA_DLEM.nc` the cSoil series
-  matches to 6 significant figures on all 9 runs (which also confirms the curated
-  `_ndep` mapping: their `BGC` column is our `bgc` → `noNdep` files, `BGC_ndep` our
-  `bgc_ndep`); gpp/fN2O land within 0.1%. Each `<run>/figure/` dir has the same totals
-  as PNGs. Their NBP sheet has a stray unnamed `Column1` splitting the BGC column.
-- **`const.STOCKS` was widened (2026-08-24) from the 7 carbon pools to all 36 per-m²
-  amounts.** Before that, every other pool was multiplied by `SPY` in `core.to_pgc`:
-  `latitudinal_sum("nSoil")` returned 2.9e9 instead of 92.2 Pg N, a ratio of exactly
-  SPY. The N pools, the non-headline C pools (`cProduct`, `cVegpft`, `cSoilpft`,
-  `cLitterpft`, `cSoilPools`, `cSoilLayers`, `cSoilAbove1m`, `cSoilBelow1m`,
-  `cPoolVr`, `cOther`, `cfuelTotal`) and the water pools were affected **for every
-  model**. Carbon stock/flux work (cVeg/cSoil/cLitter and the `f*` fluxes) was never
-  affected, so `land_carbon_stock()` results did not change. Confirmed against DLEM's
-  xlsx (nSoil now 0.00% off on all 9 runs) and magnitude-checked cross-model: nVeg 5.5,
-  nLitter 1.4, nSoil 92.2 Pg N, mrso 1.6e5 Gt H₂O.
-  **A `STOCKS` edit does not bust the CSV cache** (keyed on the `.nc` mtime) — the 2
-  stale `nSoil` CSVs were deleted at the time, but re-check `const.CSV_ROOT` if the set
-  changes again.
-- **`cache_csv` returned the wrong column for any variable with a dim beyond
-  (lat, lon)** (found and fixed 2026-09-08, while adding LPJ-GUESS). `pd.Series.to_csv`
-  writes one column per index level then the value column, but the read-back was
-  hardcoded to `read_csv(index_col=0).iloc[:, 0]` — so for a 2-level (time, pft) series
-  it handed back **the second index level as the data**. The first call was always
-  right (it returns the computed series); every later call hit the poisoned read-back.
-  Affected the per-PFT pools on every model, CLM's `pool`-stacked `cSoilPools`/`rhPools`
-  and the `*Layers` variables. It surfaced loudly on LPJ-GUESS (PFT code strings, so a
-  format/arithmetic error) but **silently on LPX-Bern, which returned plausible floats
-  that were actually years**. `core._read_cached` now takes the value column as the last
-  one and rebuilds every index level; `core._pin_time_us` pins only the level named
-  `time`, so the datetime64[us] guard that keeps post-2262 overshoot series addable is
-  unchanged. **The cached CSVs themselves were always correct** — only the read was
-  wrong, so no cache needed clearing.
-- **CLM `burntareaTotal` is corrupt in the upload** (found by the aggregate sweep,
-  2026-08-27). The raw field is declared `units = fraction` but contains **`inf`** and
-  denormal values around 3e-43 — the signature of reinterpreted bytes, not a physical
-  burnt-area fraction. A single `inf` poisons any spatial reduction, so all four CLM
-  runs carrying it (`bgc`/`ctrl` x `baseline`/`flat`) produce an all-null global series.
-  The sweep leaves those nulls in place rather than masking the non-finite cells, so the
-  corruption stays visible instead of yielding a plausible series from the good cells.
-  **Flag to the CLM group**; exclude from any burnt-area analysis.
-- **BEPS's `baseline` factorial is NOT a process-complete baseline.** Every file it
-  uploaded carries `_noDynVeg_noFire` — static vegetation and fire off is the only
-  configuration BEPS ran — and the adapter maps `baseline` onto it because the
-  surrounding tooling requires that key (`aggregate.specs.model_dir` hardcodes
-  `factorial="baseline"`, as does `land_carbon_stock`'s default). So a cross-model
-  "baseline" comparison silently includes a noFire/noDynVeg run for BEPS. Same shape as
-  CLM's `baseline`→`hh` and JULES's overshoot `baseline`→`noFire`, but here it crosses a
-  *process* boundary, so exclude BEPS from fire or dynamic-vegetation analyses and treat
-  its β/γ_land as a factorial point, not a baseline. Declaring a second factorial name
-  for the same files was rejected: `enumerate_runs` keys its dedupe on
-  `(model, factorial, paths)`, so it would emit two identical run artifacts per run.
-- **BEPS ships its own answer key**, `1pctCO2/output/BEPS/global_carbon_aggregates.csv`
-  — annual global cVeg/cLitter/cSoil in Pg C per stage, summed exactly as the registry
-  does (spherical area, missing cells excluded). `debug/verify_beps.py` checks against
-  it: **0.0006% max error across all 9 stage × variable series**, which confirms the
-  spherical-area recipe and the fill mask. **Its `year` column is broken** — 150 rows
-  but only 76 unique years, stepping 1850, 1852, 1852, 1854 … 1998, 1998, 2000, an axis
-  derived at roughly double the true step. The netCDF time axis is correct (1850-1999),
-  so match rows by ORDER, not by that column. Flag to the BEPS group.
-- **Soil methane is reported as a NEGATIVE uptake by both models that submit it**, so
-  negative-for-uptake looks like the shared convention rather than a BEPS quirk (checked
-  2026-09-16): BEPS `fch4soil` runs to min −2.2e−11 `kg CH4 m-2 s-1`, LPX-Bern `ch4soil`
-  to −2.5e−11, 75% of its valid cells negative and the positive 5% only float noise
-  (max +1.1e−16). Integrated, LPX-Bern is a sink of **−34 Tg CH4/yr** (−32.6 in 1850 →
-  −36.6 in 1999) against an observed global soil sink of ~30 Tg CH4/yr. The open question
-  is now the reverse one: whether any model reports this field positive.
-- **DLEM's and TEM's overshoot `ctrl` is a HISTORICAL control** — 1850-2023 (174
-  steps), the same span as their `hist`, not the 2024-2300 span of a scenario. Do not
-  difference a scenario against it timestep-for-timestep.
-- **TEM `nbp`** sign/units look off (persistent ~−10 Pg C/yr source while cVeg+cSoil
-  rise) — flag to the TEM group.
-- **TEM and JULES submitted no `cLitter`** (0 files across every combo), so their
-  `land_carbon_variables()` is `cVeg + cSoil` and litter is *presumed* folded into the
-  reported `cSoil`. Unconfirmed with either group — a cross-model comparison that hinges
-  on an explicit litter pool should treat those two totals with care. (CLM likewise
-  declares only cVeg + cSoil.)
-- **VISIT-UT's overshoot `hist` (2026-10-03) is stamped one year late.** Its 2,076 steps are
-  labelled Jan 1851 to Dec 2023, but each month is byte-identical to the scenario files' month
-  one year EARLIER (checked on `cVeg` against `ukesm_l` at hist Jan 1851, 1951 and 2023, which
-  equal the scenario's 1850, 1950 and 2022). So the data are 1850-2022 under shifted stamps,
-  and 2023 is missing. The registry returns the stamps as written, so a hist series joined to
-  a scenario at 2023/2024 is off by a year. Every VISIT-UT scenario and control file already
-  carries 1850-2023 on the right stamps, so prefer those for the historical period. **Ask
-  Akihiko Ito** whether the stamps are shifted and whether 2023 is missing.
-- **VISIT-UT overshoot `gfdl_ml_cf/`** contains `albedo` + `burntArea` misnamed with the
-  `ml` prefix. Flag to Akihiko Ito. (The duplicate hyphen-spelled `VISIT-UT_ukesm_ml-cf/`
-  dir noted earlier is gone as of 2026-08-28.)
-- **VISIT-UT overshoot `fch4soil`** (uploaded 2026-08-28) is unreachable in the three
-  control dirs: the filenames spell the run token lowercase
-  (`VISIT-UT_<forcing>_control_fch4soil_…`) where every sibling file uses `CTRL`.
-  Flag to Akihiko Ito for a rename (3 files).
-- **DLEM's `nProduct` + `trans` are now reachable** (resolved 2026-09-02): both were
-  added to `variable_overrides.extra_variables`, which closed the last 30 uncovered
-  1pctCO2 files (15 runs x 2) and the matching 12 in overshoot (6 runs x 2).
-  `nProduct` was already in `const.STOCKS` + `const.ANNUAL` — only the auto-synced
-  `variables.py` list was missing it, so it integrates as a Pg N pool. `trans` is
-  transpiration and is deliberately **not** aliased onto the vocab's `tveg`, which
-  would orphan a real `tveg` upload; it falls through to the flux branch, which is
-  right for a `kg m-2 s-1` rate. If the data request ever adopts either name, drop it
-  from `extra_variables` and let the sync carry it.
-- **LPJ-GUESS's ~7.2 GB of non-model-output junk was DELETED from the bucket 2026-09-16** — the dir is now 42 keys, all reachable. It was (found 2026-09-08,
-  the day after it landed): an R library tree (`R/x86_64-redhat-linux-gnu-library/4.4|4.5/sf/nc/
-  cropped.nc`, two copies), a `ScratchData/` dir holding a 357 MB Copernicus PROBA-V LAI product
-  (`c_gls_LAI-RT0_201706100000_GLOBE_PROBAV_V2.0.1.nc`), and 4 loose duplicates at the run-dir top
-  (`maet_pft.nc` 4.0 GB, `mlai_pft.nc` 2.9 GB, plus `clitter_pft.nc`/`fpc_pft.nc`, which are the
-  same size as their properly-named siblings). `verify_lpj_guess.py` still whitelists it, which is
-  now dead code but harmless. Still worth asking about: the two-spellings-of-the-run-prefix slip
-  (`1pctco2_BGC` on 16 files, `1pctCO2-BGC` on `cLitterpft` + `fpc_pft`) that `_DIR_STYLE_PREFIX`
-  exists only to absorb.
-- **LPJ-GUESS uploaded `cou` + `rad` on ukesm 2026-09-22** (24 + 23 files) — so **γ_land is finally
-  computable for LPJ-GUESS**, on ukesm only. Both runs carry cVeg/cSoil/cLitter (`gpppft` is COU-only).
-  **Reachable since 2026-09-22** (`_GCM_FORCED` in the adapter), which takes LPJ-GUESS to 89/89 keys.
-  They introduce a THIRD spelling of the prefix — dir `LPJ_GUESS_UKESM_1pctCO2-COU/` (underscored
-  model name, uppercase pattern), files `LPJ-GUESS_UKESM_1pctCO2_COU_<var>_<cad>_05deg.nc`
-  (hyphenated, camel-case experiment) — against bgc's `…_1pctCO2-BGC/` +
-  `LPJ-GUESS_stable_1pctco2_BGC_…` and ctrl's `-CRTL/` + `_control_`. **Worth asking the group to
-  settle on one spelling.** Neither new run needs `_FILENAME_OVERRIDES` or the dir-style prefix:
-  cadence tokens agree with `const.ANNUAL` on all 47, and `landCoverFrac` is spelled correctly.
-- **LPJ-GUESS has submitted `stable` x `bgc` + `stable` x `ctrl`** — 18 + 24 files, two runs
-  (ctrl landed 2026-09-14). β_land is computable; γ_land still needs `cou` on all three patterns,
-  which has **not** been uploaded (there is no `LPJ-GUESS_ukesm_*` dir of any kind). With the
-  ctrl upload, **every model-output file LPJ-GUESS has submitted is now reachable** (42/42 keys, since the
-  9 junk files were deleted 2026-09-16). `fpc_pft` in particular is no longer an open vocab
-  question: bgc's out-of-vocab `fpc_pft_ann` file and ctrl's `landCOverFrac_yr` file hold the **same
-  42 `fpc_<PFT>` foliar-projective-cover fields** (`units = 1`, 151 annual steps, identical names),
-  so the adapter maps both onto the vocab's `landCoverFrac` via `_FILENAME_OVERRIDES` and stacks
-  them on a `pft` dim. It is intensive, so `latitudinal_sum` is the wrong reduction for it.
-- **The LPJ-GUESS ctrl run is a pile of spelling slips**, all absorbed by the adapter, all worth a
-  rename on the bucket: the run dir is `LPJ-GUESS_stable_1pctCO2-**CRTL**/` (CTRL transposed); the
-  files inside spell the sim token `control` where bgc repeats the dir's `BGC`; `nLitter` is
-  uploaded as **`nLiter`** and `landCoverFrac` as **`landCOverFrac`**. The two variable typos are in
-  the **filename only** — the fields inside those files are spelled correctly — so
-  `_FILENAME_OVERRIDES` maps the name token and `read()` is untouched. Safe only because bgc uploaded
-  neither name: **drop those two entries the moment the group re-uploads**, or a correctly-named
-  file is orphaned.
-  Cadence tokens, by contrast, agree with `const.ANNUAL` on all 24 ctrl files.
-- **The LPJ-GUESS ndep runs (2026-09-29) carry more filename slips**, all absorbed by `_FILENAME_OVERRIDES` and all worth a rename: in bgc_ndep, `gpp_mon_05eg` (grid token), `cLitterpft-yr` (hyphen), `nVegpgt` (typo), `rh_05deg` (no cadence) and `nLitterpft_mon` (the token says monthly, but the data are 151 annual steps); in cou_ndep, `gpppfr` (typo) and `nVegpft_05deg` (no cadence). Also in bgc_ndep: **`nLitter` and `nSoil` are EMPTY files** (lat/lon/time only, no data variable, so `read()` raises KeyError), and **2 cou_ndep files were uploaded into the bgc_ndep dir** (`LPJ-GUESS_UKESM_1pctCO2_COU-ndep_{burntArea,cSoil}`, byte-identical in size to the copies in `LPJ_GUESS_UKESM_COU-ndep/`), unreachable by design. **Ask the group** to re-upload bgc_ndep's `nLitter`/`nSoil` and delete the two strays.
-- **LPJ-GUESS uploaded `noFire` for `stable` bgc (25 files) and `ukesm` cou (25) on 2026-09-30**, all 50 reachable the same day. There is no noFire rad and no ipsl/gfdl, so γ_land is computable only on ukesm; the noFire ctrl followed on the same day (next flag). Field names, PFT stems and time axes (151 annual / 1812 monthly steps, 1850-2000) match the baseline runs. Three filename slips, absorbed by `_FILENAME_OVERRIDES`: bgc `mrro_mon_yr` (doubled cadence token), cou `clitterpft` (lowercase c), and cou `laipft_yr`, which holds 1812 monthly steps. `burntArea` is 0 everywhere in bgc noFire, so fire really is off. Land carbon (cVeg + cSoil + cLitter) starts **125 Pg C higher** than baseline (2,073 vs 1,948 Pg C in 1850), and by 2000 bgc reaches 3,257 vs 2,949 and cou 2,991 vs 2,779. The bgc noFire dir also holds 3 non-output files (`GFED4.1s_averageBA_2000-2016.nc`, `burntfraction_std.nc`, a `land_ocean_mask_fraction_05deg_…` raster), unreachable by design. **Ask the group** whether those three are meant to be there.
-- **LPJ-GUESS uploaded a noFire `stable` ctrl on 2026-09-30** (25 files, the same variable set as
-  the bgc noFire run), reachable since 2026-10-01, so the noFire β_land now has its drift control.
-  It is spelled unlike the other two noFire runs — dir `LPJ_GUESS_Stable_1pctCO2_Control-Nofire/`
-  (keeps `1pctCO2_`, spells the sim `Control`, factorial `-Nofire` not `-NoFire`) and files
-  `LPJ-GUESS_Stable_1pctCO2_Control_Nofire_<var>…` (underscore before `Nofire`) — so the adapter
-  spells the whole (run dir, file prefix) pair from `_RUN_OVERRIDES`. One filename slip,
-  `evapotranspft_mon_yr` (doubled cadence token), goes through `_FILENAME_OVERRIDES`; it holds
-  1812 monthly steps. Headers checked on 6 files match the bgc noFire run: 151 annual / 1812
-  monthly steps from 1850, 42 `cmass_`/`fpc_` PFT fields (41 `maet_`), `ch4` stored as `mch4`.
-- **LPJ-GUESS's overshoot uploads carry eight filename slips**, all absorbed by
-  `_OVERSHOOT_FILENAME_OVERRIDES` and all worth a rename: hist `nVeg.yr` (a dot for the
-  underscore), ctrl `tero` (the field inside is `terp`, "Monthly Monoterpene Emissions"); `m`
-  (2026-10-12, `Overshoot_med/`) `burnetArea`, `cLitter+yr` (a plus for the underscore),
-  `gpppft_05deg` (no cadence token; 3,324 monthly steps) and `landCOverFrac`; `l` (2026-10-13
-  re-upload) `cLitter_yr-05deg` (a hyphen), `ispor` (for `isopr`) and `landCOverFrac`. The field
-  inside each is named correctly (headers checked on the 10-05 and 10-12 sets). The 10-13 `l`
-  re-upload replaced the 10-05 `l` files and changed the prefix from `Overshoot_Low` to
-  `Overshoot_L`; the bare `Soilc_future.nc` is gone, so its mapping was dropped. ctrl has no
-  `cSoil` or `rh` (so no ctrl land carbon) and hist has no `nLitter`. **Ask the group** to rename
-  the slips and finish the set.
-- **LPJ-GUESS's overshoot hist 2023 is broken; the scenarios no longer inherit it.** In the
-  2026-10-05 hist (not re-uploaded), monthly global GPP is 75 Pg C/yr in March 2023, **7 in
-  April** and 1 by December; the 2023 annual totals are GPP 19, NPP −23 Pg C/yr, cVeg 327 Pg C
-  (2022: 115, 57, 462). The 10-05 scenarios started from that state and lost almost all their
-  vegetation. The re-uploaded `m` (10-12) and `l` (10-13) restart from the 2022 state instead
-  (cVeg 462 in 2024) and run 2024-2300 smoothly: by 2300 cVeg is 467 (`l`) / 733 (`m`) and land
-  carbon 1,996 / 2,323 Pg C, close in shape to LPJ-EOSIM
-  (`plotting_scripts/plot_lpj_guess_vs_lpj_eosim_overshoot.py`, 2026-10-13). **Exclude hist 2023
-  and ask the group to re-upload hist.** Also open: NPP − Rh is ~9.5 Pg C/yr over 1850-1900 while
-  land carbon grows 0.34 Pg C/yr, so ~9 Pg C/yr leaves through a flux LPJ-GUESS did not upload
-  (no `fFire`, `nbp` or harvest flux); LPJ-EOSIM's gap is ~1.3. **Ask the group** what closes it.
-- **LPJ-GUESS `ch4` integrates to ~82 Pg CH₄/yr** in 1850 (120 by 2000), on cou and cou_ndep (the two runs checked), against an observed wetland budget of ~150-200 Tg/yr: about 500× too large under the declared `kg m-2 s-1`, so the units are taken to be wrong. It was unreadable until 2026-09-29 (the field is `mch4`), so nothing has consumed it yet. The data is returned unmodified. **Exclude from CH₄ analyses and ask the group** what the units are.
-- **LPJ-GUESS's per-PFT fields do not sum to the grid-cell totals.** They are per-PFT by their own metadata (each field carries `pft_code`, `landuse_category` and the PFT name as `long_name`, with the same 42 codes across `cmass_`/`clitter_`/`nmass_`/`nlitter_`/`fpc_`/`mgpp_`/`mlai_`/`maet_`, and no `Total` field; `maet_` has 41, missing `C4G`), and `_PFT_STEMS` stacks them correctly. But summed over PFTs, cell by cell, on bgc_ndep: `gpppft` is a median **11×** `gpp` (5-95% 1.8-64×, July 1850) and `cVegpft` a median **1.7×** `cVeg` (5-95% 1.1-5.6×, 1850), while `cLitterpft` sums to *less* than `cLitter` (144 vs 268 Pg C) and `nVegpft` to ~30,000× `nVeg` (71,181 vs 2.42 Pg N, baseline bgc too). So the values are not per m² of grid cell, and `latitudinal_sum` on any per-PFT field is not a share of the total. All headers say `kg m-2` or `kg m-2 s-1`. **Ask the group** what area each per-PFT field is normalised by.
-- **The stray `LPX-Bern_gfdl_ml_cf_ch4_mon_1.nc`** (2026-08-13) that sat in the
-  **1pctCO2** LPX-Bern dir was deleted from the bucket 2026-09-16. With the `ch4soil`
-  alias in, LPX-Bern's only unreached files are now the two `gridcell_area.nc` rasters.
-- **CoLM's overshoot `hl` has a one-year hydrology glitch in 2236** (found 2026-10-13 plotting
-  all 42 variables, `plotting_scripts/plot_colm_all_variables.py`). From February to December,
-  `evapotrans` is strongly negative in 1,171 cells spread from 33.5 S to 81.5 N, down to
-  −3.4e-4 kg m-2 s-1 (about −29 mm/day). Global land ET falls from 82,000 to 62,900 km³ and
-  `qle` from 51.7 to 39.5 W m-2, while `qh` rises 33.8 -> 44.2 W m-2, `mrro` 26,900 -> 40,400 and
-  `qsb` 14,500 -> 24,600 km³. `pr` and `tas` are normal that year, and carbon barely moves
-  (gpp 119 -> 121 Pg C/yr). 2235 and 2237 hold no negative-ET cells. `swe` stays high into 2237.
-  No other run shows it. **Ask Qian Zhang** (qian.zhang@bnu.edu.cn) what happened in hl 2236;
-  exclude that year from water and energy analyses meanwhile.
-- **CoLM's controls are not in equilibrium below 1 m.** `cSoilBelow1m` climbs almost linearly
-  in both controls: 126.6 -> 135.1 Pg C over 1850-2000 in 1pctCO2 and 127.1 -> 137.1 over
-  1850-2023 in overshoot. Total `cSoil` moves only 0.6-0.7% (1,710 -> 1,721 and 1,733 -> 1,746),
-  so it matters for deep-soil analyses, not for land carbon totals.
-- **ORCHIDEE-MICT-CALIPSO uploaded 6 single-file bundles, ~245 GB each (2026-10-07/08), and
-  has no adapter.** `1pctCO2/output/ORCHIDEE-MICT-CALIPSO/ORCHIDEE_{bgc,cou,stable_ctrl}_day_{deepsoc,no_deepsoc}.nc`,
-  loose at the top of the model dir. Headers only, read 2026-10-12: netCDF-4, all 61
-  variables in each file, **monthly** despite the `day` token (1800 steps, `noleap`,
-  `seconds since 1850-01-01`), and a **regional** 1° grid covering 30.5-89.5 N only, so it
-  is a high-latitude total like DVM-DOS-TEM. **bgc and ctrl have a broken time axis**: the
-  stamps cycle through 1850-1869 7.5 times instead of running to 1999, while cou is
-  monotonic 1850-1999. Several carbon fluxes are in g C (`gpp`/`npp` gC/m²/s, `rh`
-  gC/m²/day), and `npp`/`rh`/`lai` are per-PFT (`veget`) with no grid-cell total.
-  `landCoverFrac` is the continental fraction, not PFT cover. deepsoc has 17 PFTs,
-  no_deepsoc 16. No other header difference. Not in metadata: the GCM pattern behind
-  bgc/cou, what deepsoc means, PFT names, `solay`/`ndeep` depths. **Ask the group** those
-  four, plus a re-merge of bgc/ctrl with a real 1850-1999 axis, before writing an adapter.
-  **Ask for one variable per file too**: the files are far bigger than the hub's disk
-  (97 GB, ~42 GB free), and reading one in place is slow. Chunks are one month each,
-  uncompressed and scattered across the file, so a full-length `cVeg` read
-  (2026-10-12, laptop, h5py over s3fs) fetched exactly its 155 MB but took **10 min**:
-  1,800 separate ranged GETs at ~0.3 s each.
-  **Its ctrl is not spun up**: land carbon (cVeg + cLitter + cSoil, 30.5-89.5 N) rises
-  1,898 -> 2,018 Pg C (deepsoc) and 1,764 -> 1,879 (no_deepsoc) over 1850-1999, cVeg +21%.
-  bgc reaches 2,496 / 2,355 and cou 2,380 / 2,294 (`plot_orchidee_land_carbon.py`, 2026-10-12).
-  **The adapter waits for a one-variable-per-file re-upload** (Tom's call, 2026-10-13). The
-  bundles would also break `cache_csv`, which names the CSV after the file, so every variable
-  would share one cache. Decided for when it lands: cou answers to `ukesm` only, **an
-  assumption flagged until the group names the pattern** (ipsl/gfdl must not resolve); deepsoc
-  is `baseline` and no_deepsoc a new extra factorial `noDeepSoc`, so its meaning isn't guessed.
-  The ask went to Julien Alleon and Yi Xi as a reply on the "ORCHIDEE 1pctCO2 results" thread
-  (drafted 2026-10-13).
-- **Layered soil metadata gaps** (header check 2026-10-14, issue #40). **BiomeE**:
-  `soilT` has no layer dim at all (long_name says "per layer"), and `mrsoLayer`'s level
-  values sit in a variable named `Soil Layer` (5, 25, 50, 100, 120) with no units, so
-  BiomeE is off `LAYERED_VARIABLES` — **ask the group** for the per-layer `soilT` and the
-  `Soil Layer` units. **LPJmL6**: `depth` has no bounds, so middles vs bottoms is
-  unconfirmed — ask Sibyll Schaphoff alongside the `land_area` question; its
-  `nInorgSoilLayer` is labelled NH4 but its history shows NH4 + NO3. **JULES**:
-  `nInorgSoilLayer`'s depth coord is integer-truncated (0,0,0,0,1,1,2,3,6,9), and
-  `rhLayers` has a `_mon_` token over 150 annual steps. In overshoot, `cSoilLayers`,
-  `rhLayers`, `nOrgSoilLayer` and `nInorgSoilLayer` (520 files) index their layers on
-  `sclayer` 1-10 with no depths; the adapter assigns the 1pctCO2 depths, which the same
-  runs' `soilT` also carries — **ask Eleanor Burke** to confirm `sclayer` is those 10 layers. **LPX-Bern**: `mrsoLayer` carries
-  indices 1-8 where the README says the `soilT` depths apply (the file predates the
-  2026-09-23 `soilT` re-upload). **CLASSIC**: indices 1-20, depths only in the group's
-  email. **CLM-FATES**: the 7 annual `cSoilLayers` twins uploaded 2026-10-14
-  (`…cSoilLayers.tavg-sl-hxy-lnd.yr.glb[_nofire]_1.nc`, 3 MB each against 1.9 GB monthly)
-  are **all fill**: 0 finite values of 166M in every one, though the header is complete
-  (150 years × 20 depths). The adapter keeps reading the monthly files (`MONTHLY`), so the
-  7 stay unreached on purpose — **ask the group** to re-upload them or delete them.
-- **macOS AppleDouble junk** (`._<name>.nc` sidecars) is scattered through VISIT-UT
-  (1pct + overshoot). Harmless, but it inflates uncovered counts.
-- Known-unreachable-by-design leftovers: 9 odd top-level `hh_<run>.nc` stubs in
-  CLM's overshoot dir (its `<run>_deep/` per-layer output, 60 files, was mapped
-  2026-10-14 for the layered soil variables), and 10 loose
-  top-level `<set>_<forcing>_<run>.nc` bundles (~471 MB each, 2026-08-18) in its 1pct
-  dir; CLM-FATES's monthly duplicates of annual stocks (41 in 1pctCO2 — incl. a few
-  hist/hl-named strays in the 1pct dir — and 110 in overshoot = 11 vars × 10 sims)
-  and its 9 `wetlandCH4` files (7 1pctCO2 + 2 overshoot; `wetCH4` is split from `ch4`);
-  CLASSIC's per-run `land_fraction` rasters (22, the sftlf class), one loose
-  top-level `CLASSIC_stable_cLeaf_ann_1deg.nc` stub, and its 7 uploaded `fN2O` files
-  (2026-08-24, fire included — `fN2O` is summed from `fN2Onit` + `fN2Odenit` instead).
-  Cleaned up 2026-08-21: CLM's 94 loose top-level flat-ctrl files were moved into
-  `flat_ukesm_ctrl/` (reachable now), the `rhPools_*`/`cSoilpools_*` pool splits
-  became reachable via `_POOL_SPLITS`, and CLASSIC's superseded UKESM-BGC dirs were
-  deleted from the bucket.
-
-## Adding a model
-
-Copy an existing `wiemip_registry/<MODEL>/` directory as a template, implement the
-`WIEAdapter` hooks (`one_pct_path`, `read`, `_compute_weights`; override
-`overshoot_path` / `to_pgc` / cadence handling as needed), declare its `FACTORIALS`, and
-register it in `wiemip_registry/adapters.py`. Derive the naming grammar from the real
-bucket dir/file names and let `read()` be the existence gate — don't hardcode which
-combos exist. `README.md` has a worked example.
+1. Copy an existing `wiemip_registry/<MODEL>/` as a template and implement the
+   `WIEAdapter` hooks (`one_pct_path`, `read`, `_compute_weights`; override
+   `overshoot_path`, `to_pgc` or the cadence sets as needed). Declare `FACTORIALS`.
+2. Derive the naming grammar from the real bucket names and let `read()` be the existence
+   gate. Register the adapter in `wiemip_registry/adapters.py`.
+3. Run the coverage check below and confirm the files you targeted left `uncovered.txt`.
+4. Open a `data-quality` issue for each data defect or question for the group.
 
 ## Coverage: bucket files no request reaches
 
-Get coverage from **`.github/workflows/_uncovered.py`**, the committed script the nightly
-`uncovered` action runs. It diffs an `aws s3 ls --recursive` listing against every path
-the registry can spell for a legal request, so it needs no `/mnt/wiemip` and runs in
-seconds from the laptop:
+`.github/workflows/_uncovered.py` diffs a bucket listing against every path the registry
+can spell for a legal request. It needs no `/mnt/wiemip`:
 
 ```sh
 AWS_PROFILE=wasabi-read-only aws s3 ls s3://wiemip/ --recursive \
@@ -653,87 +160,23 @@ AWS_PROFILE=wasabi-read-only aws s3 ls s3://wiemip/ --recursive \
 uv run python .github/workflows/_uncovered.py /tmp/bucket_listing.txt /nonexistent  # -> ./uncovered.txt
 ```
 
-A second path that doesn't exist means the full list with no diff; pass an older `uncovered.txt`
-to also get `issue.md` listing only the new files. After an adapter change, rerun it and
-check that the files the change targeted left `uncovered.txt`. The action
-(`uncovered.yml`) runs daily, on manual dispatch, and on pushes touching
-`wiemip_registry/**`, and opens an issue assigned to colligant whenever new files turn up
-unreached — that issue is the triage queue.
+Pass an older `uncovered.txt` instead of `/nonexistent` to also get `issue.md` listing
+only the new files. The `uncovered` action runs this daily and on pushes touching
+`wiemip_registry/**`, and opens an issue whenever new files turn up unreached.
 
-The `debug/` sweeps below (`test_wr.py uncovered`, `pairwise_manifest.py`,
-`coverage_matrix.py`) return the same set (340/340 identical on 2026-09-23) but are
-gitignored and laptop-only; reach for them for their triage labels or the alias sheet.
+## QA scripts (`debug/`, gitignored)
 
-## Dev / QA harnesses (`debug/`)
-
-Run against a machine that has the model-output bucket available at `const.DATA_ROOT`:
-
-- **`test_wr.py`** — stress-tests the reader over the full namespace product; reports
-  on-disk files no request combo can reach (naming coverage) and reads/plots the carbon
-  set. `qa.sh <coverage|uncovered|reads> <one_pct_co2|overshoot> [MODEL]` drives it —
-  note the **experiment** argument: run both, the overshoot arm covers the five models
-  that uploaded overshoot output, sweeping the adapter's `OVERSHOOT_FACTORIALS` where it
-  declares any (JULES). It only spells combos a user may legally request (bgc/ctrl as
-  `stable`), so an uncovered file means genuinely unreachable through the API, not merely
-  unspelled.
-- **`test_factorials.py`** — factorial-axis coverage/accessibility, through the public
-  API. `qa_factorials.sh [coverage|reads|plots|all] [MODEL]` drives it.
-- **`probe_constant_climate_runs.py`** — one line per model showing whether its
-  bgc/bgc_ndep/ctrl run resolves under the mandatory `stable` pattern. Cheapest way to
-  catch an adapter that interpolates the requested forcing into a constant-climate name.
-- **`verify_newly_reachable.py`** / **`verify_classic_bgc.py`** — read + global-integral
-  spot checks for the files the CLASSIC/BiomeE/VISIT-UT naming fixes exposed.
-- **`verify_dlem_area.py`** — DLEM's `LAND_AREA_DLEM.nc` weighting against the group's
-  own `stats_for_WIEMIP_1pctCO2_DLEM.xlsx`: cSoil over all 9 runs, plus a flux spot-check
-  (the flux files are 0.6-0.9 GB monthly, so those are limited to 2 runs). Needs
-  `openpyxl` in the QA venv.
-- **`verify_beps.py`** — BEPS reachability plus its `global_carbon_aggregates.csv`
-  answer key over all 3 stages × cVeg/cLitter/cSoil, a dim-order check on `fch4soil`,
-  and land carbon per stage. Prints `all checks passed` or the failures.
-- **`verify_dlem_tem_overshoot.py`** — the DLEM + TEM overshoot adapters: full
-  reachability (every on-disk `.nc` in both experiments named by some legal request),
-  then per-run reads asserting the overshoot grid matches the weights built off the
-  1pct reference file, the series reaches 2300 (no `datetime64[ns]` wrap), and land
-  carbon is sane. Prints `all checks passed` or the failures.
-- **`verify_jules_overshoot.py`** — same for JULES overshoot: all 5 fire configs ×
-  scenario × pattern resolve (260/260 files), then a read plus a land-carbon series per
-  config.
-- **`verify_clm_overshoot.py`** — CLM's chunked overshoot runs: `exists()` returns a plain
-  False for every model (including the unmapped ones), then hist/scenario reads showing the
-  chunks concatenated into one 1850–2023 / 2024–2300 series, plus land carbon per run.
-- **`verify_dvm_dos_tem.py`** — the DVM-DOS-TEM adapter: full reachability across both
-  experiments (824/824), the naming slips (`ipst`, `noNItrogen`, `historic`, no overshoot
-  forcing token), the synthesized time axis (1850-1999 / 1850-2023 / 2024-2300 with no
-  post-2262 wrap, and a warning when a step count disagrees with its protocol span), the
-  grid canonicalization and 10-PFT stack, and physical integrals on the regional domain
-  including a `gpp == npp + ra` budget check. Prints `all checks passed` or the failures.
-- **`verify_lpj_guess.py`** — the new LPJ-GUESS adapter: reachability (whitelisting the junk
-  upload and out-of-vocab `fpc_pft`), both file-prefix spellings, the by-hand time decode
-  (1850-2000 on 151 annual / 1812 monthly steps), the 42-PFT stack, and physical global
-  integrals. Prints `all checks passed` or the failures.
-- **`remote_read.py`** — read one registry variable straight off the bucket from the
-  laptop (s3fs + h5netcdf, no `/mnt/wiemip`), first `REMOTE_STEPS` time steps only,
-  through the real adapter and `WIEFile.read()`. netCDF4 files only (LPJmL6 is netCDF3).
+- `verify_<model>.py`: per-adapter reachability, time-axis and global-integral checks,
+  including the groups' own answer keys (DLEM's xlsx, BEPS's csv, CoLM's
+  `validation_globals`). Each prints `all checks passed` or the failures.
+- `remote_read.py`: read one variable straight off the bucket from a laptop through the
+  real adapter, first `REMOTE_STEPS` steps only (netCDF4 files only):
   `uv run --with s3fs --with h5netcdf --with h5py python debug/remote_read.py CLM soilT`.
-- **`verify_soil_layers.py`** — every listed layered variable reads on a `soil` axis
-  (increasing, m; `soilT` in K), CLM overshoot included, held models untouched,
-  `calculate_alt` on a year of `soilT` per model, and the CLASSIC ALT cross-check against
-  its own `alt`. Imports `remote_read.py`'s patches. LPJmL6 is checked on Hellgate.
-- **`regen_land_carbon_stocks.py`** — every model × registered factorial × valid
-  sim/forcing through `wr.land_carbon_stock()`; one CSV per combo plus `summary.csv`
-  under `/tmp/wiemip/land_carbon/`, and it re-warms `const.CSV_ROOT` as a side effect.
-  Skips combos whose output already exists, so it is resumable; pass model names as argv
-  to redo just those. Long job (~1h for the full sweep) — `nohup` it on the box.
+- `handoff_check/`: each overshoot run's hist 2023 against its first scenario year.
+- `regen_land_carbon_stocks.py`: every model × factorial through `land_carbon_stock`,
+  resumable.
 
-## Static band aggregations — moved
+## Static band aggregations
 
-The `aggregate/` sweep that precomputes the latitude-band series for the QA site now
-lives in **`../wiemip-validation`**, beside the viewer that reads its output. It is a
-*consumer* of this package (`import wiemip_registry`), never a part of it — it was
-never in `pyproject.toml`'s `packages` either. Its working notes are
-`../wiemip-validation/AGENTS.md`.
-
-Nothing in this repo imports it. What matters here: the sweep runs against the copy of
-`wiemip_registry` **deployed to the hub** (`/opt/tljh/user`), so an adapter change only
-reaches the nightly aggregation once it is pushed to `main` and the `deploy-to-hub`
-action has run.
+The latitude-band sweep for the QA site lives in `../wiemip-validation`, a consumer of
+this package. An adapter change reaches it only after it is on `main` and deployed.

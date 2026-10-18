@@ -22,13 +22,9 @@ _FORCING_TOKENS = {"ipsl": "ipst"}
 _NO_NITROGEN = "noNItrogen"
 _NO_NITROGEN_CTRL = "noNitrogen"
 
-_OVERSHOOT_SIMULATION_TOKENS = {"hist": "historic"}
-_NO_FORCING_TOKEN = True
+_CRUJRA_FORCED_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")  # no forcing token
 
-_HISTORICAL_OVERSHOOT_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 _ONE_PCT_SPAN = (1850, 150)  # 1850-1999
-_HISTORICAL_SPAN = (1850, 174)  # 1850-2023, hist + both overshoot controls
-_SCENARIO_SPAN = (2024, 277)  # 2024-2300
 
 
 class DVM_DOS_TEM(core.WIEAdapter):
@@ -41,7 +37,7 @@ class DVM_DOS_TEM(core.WIEAdapter):
 
     model = MODEL
     LAT, LON = "lat", "lon"
-    DECODE = False  # the uploaded time axis is unusable; `_time` synthesizes one
+    DECODE = False  # the 1pctCO2 time axis is unusable; `_time` synthesizes one
     FACTORIALS = {
         Factorial.baseline.name: "",
         Factorial.noFire.name: "noFire",
@@ -88,7 +84,13 @@ class DVM_DOS_TEM(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        run = _OVERSHOOT_SIMULATION_TOKENS.get(simulation, simulation)
+        """`DVM-DOS-TEM_[<forcing>_]<sim>` (2026-10-15 re-upload) — names the run dir
+        AND prefixes every file inside it; the CRUJRA-forced runs carry no forcing
+        token."""
+        if simulation in _CRUJRA_FORCED_SIMULATIONS:
+            run = f"{MODEL}_{simulation}"
+        else:
+            run = f"{MODEL}_{forcing.lower()}_{simulation}"
         cad = self._cadence(variable)
         return str(
             _OUTPUT
@@ -96,7 +98,7 @@ class DVM_DOS_TEM(core.WIEAdapter):
             / "output"
             / MODEL
             / run
-            / f"{MODEL}_{run}_{variable}_{cad}_05.nc"
+            / f"{run}_{variable}_{cad}_05.nc"
         )
 
     def _canonical_grid(self, ds: xr.Dataset) -> xr.Dataset:
@@ -106,12 +108,11 @@ class DVM_DOS_TEM(core.WIEAdapter):
         return ds.rename({"y": self.LAT, "x": self.LON})
 
     def _time(self, ds: xr.Dataset, experiment: str, simulation: str, variable: str):
-        if experiment == ONE_PERCENT_CO2_KEY:
-            start_year, expected_years = _ONE_PCT_SPAN
-        elif simulation in _HISTORICAL_OVERSHOOT_SIMULATIONS:
-            start_year, expected_years = _HISTORICAL_SPAN
-        else:
-            start_year, expected_years = _SCENARIO_SPAN
+        # The overshoot re-upload (2026-10-15) carries a real noleap axis, decoded on
+        # open. 1pctCO2 still has the 0.0-then-NaN one, so it is synthesized.
+        if experiment != ONE_PERCENT_CO2_KEY:
+            return ds["time"].values
+        start_year, expected_years = _ONE_PCT_SPAN
 
         n = ds.sizes["time"]
         annual = self._cadence(variable) == "yr"
@@ -132,18 +133,20 @@ class DVM_DOS_TEM(core.WIEAdapter):
     ) -> xr.DataArray:
         ds = xr.open_dataset(
             self.path(experiment, simulation, forcing, factorial, variable),
-            decode_times=self.DECODE,
+            decode_times=experiment != ONE_PERCENT_CO2_KEY,
         )
         logging.info(
             "DVM-DOS-TEM is a boreal, not global, model and as such its results shouldn't be directly compared to global totals from other models."
         )
         ds = self._canonical_grid(ds)
-        warnings.warn(
-            f"{MODEL} {experiment}/{simulation}: the uploaded `time` coord is all-NaN "
-            f"past the first step, so the returned axis is SYNTHESIZED from the "
-            f"timestep count and the protocol start year. Flagged to the group.",
-            stacklevel=2,
-        )
+        if experiment == ONE_PERCENT_CO2_KEY:
+            warnings.warn(
+                f"{MODEL} {experiment}/{simulation}: the uploaded `time` coord is "
+                f"all-NaN past the first step, so the returned axis is SYNTHESIZED "
+                f"from the timestep count and the protocol start year. Flagged to "
+                f"the group.",
+                stacklevel=2,
+            )
         da = core.mask_fill(ds[variable])
         da.attrs["units"] = ds[variable].attrs.get("units", "")
         return core.standardize(
