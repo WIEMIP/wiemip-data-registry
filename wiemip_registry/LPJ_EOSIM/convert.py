@@ -80,9 +80,7 @@ class LPJ_EOSIM(core.WIEAdapter):
         )
         da = core.mask_fill(ds[variable])
         if variable == "soilT":
-            da = da.isel(pool=slice(1, None)).assign_coords(
-                pool=("pool", list(_SOIL_T_DEPTHS), {"units": "m"})
-            )
+            da = da.assign_coords(pool=("pool", list(_SOIL_T_DEPTHS), {"units": "m"}))
         elif variable in self.LAYERED_VARIABLES:
             da = da.assign_coords(
                 layer=("layer", list(_SOIL_LAYER_DEPTHS), {"units": "m"})
