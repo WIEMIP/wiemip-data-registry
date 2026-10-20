@@ -1,8 +1,8 @@
 """ELM (E3SM Land Model) adapter.
 
-Flat layout, `ELM_<forcing>_<sim>[_nofire]_<VAR>_mon_05.nc`. The 2026-09-30 upload
-re-labelled bgc/ctrl `stable` and added `_ndep` and `nofire` runs; the older
-`ELM_ukesm_bgc_*`/`ELM_ukesm_ctrl_*` (2026-09-28) are superseded and unreachable.
+Flat layout, `ELM_<forcing>_<sim>[_nofire]_<VAR>_<mon|yr>_05.nc`. The 2026-10-19 rerun
+replaced the baseline bgc/ctrl and added ukesm cou/rad; the 2026-09-30 baseline files and
+the 2026-09-28 `ELM_ukesm_bgc_*`/`ELM_ukesm_ctrl_*` are superseded and unreachable.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import ANNUAL, DATA_ROOT, Factorial
 
 MODEL = "ELM"
 _OUTPUT = DATA_ROOT
@@ -43,27 +43,47 @@ class ELM(core.WIEAdapter):
     # fixed fields: one raster at the model dir top serves every run
     FIXED = {"sftlf"}
 
+    # the rerun writes cOther yearly and wetfrac monthly
+    RERUN_ANNUAL = (ANNUAL | {"cOther"}) - {"wetfrac"}
+
     def land_carbon_variables(self) -> list[str]:
         """
         Unconfirmed. Assuming cLitter, cVeg, and cSoil.
         """
         return ["cLitter", "cVeg", "cSoil"]
 
-    def _get_variable(self, wiemip_variable: str) -> str:
+    def _is_rerun(self, simulation: str, factorial: str) -> bool:
+        # the 2026-10-19 rerun uses WIE-MIP names and annual pools; _ndep/nofire are still 09-30
+        return factorial == Factorial.baseline.name and not simulation.endswith("_ndep")
+
+    def _get_variable(
+        self, simulation: str, factorial: str, wiemip_variable: str
+    ) -> str:
+        if self._is_rerun(simulation, factorial) and wiemip_variable not in self.FIXED:
+            return wiemip_variable
         return self.wiemip_to_elm_variable_mapping.get(wiemip_variable, wiemip_variable)
+
+    def _cadence(self, simulation: str, factorial: str, wiemip_variable: str) -> str:
+        if (
+            self._is_rerun(simulation, factorial)
+            and wiemip_variable in self.RERUN_ANNUAL
+        ):
+            return "yr"
+        return "mon"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
             return self.area_weight_path
         fname = (
             f"{MODEL}_{forcing}_{simulation}{self.FACTORIALS[factorial]}_"
-            f"{self._get_variable(variable)}_mon_05.nc"
+            f"{self._get_variable(simulation, factorial, variable)}_"
+            f"{self._cadence(simulation, factorial, variable)}_05.nc"
         )
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / fname)
 
-    def _time(self, ds: xr.Dataset):
+    def _time(self, ds: xr.Dataset, step: str):
         epoch = core.cf_reference_month(ds["time"].attrs["units"])
-        return epoch + np.arange(ds.sizes["time"]).astype("timedelta64[M]")
+        return epoch + np.arange(ds.sizes["time"]).astype(f"timedelta64[{step}]")
 
     def read(
         self, experiment, simulation, forcing, factorial, variable
@@ -72,11 +92,12 @@ class ELM(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        da = core.mask_fill(ds[self._get_variable(variable)])
+        da = core.mask_fill(ds[self._get_variable(simulation, factorial, variable)])
         da = da.where(da < _UNDECLARED_FILL)
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON)
-        return core.standardize(da, self.LAT, self.LON, self._time(ds))
+        step = "Y" if self._cadence(simulation, factorial, variable) == "yr" else "M"
+        return core.standardize(da, self.LAT, self.LON, self._time(ds, step))
 
     @property
     def area_weight_path(self):
