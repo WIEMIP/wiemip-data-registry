@@ -11,12 +11,6 @@ MODEL = "LPJ-EOSIM"  # model dir on disk (hyphenated)
 _PREFIX = "LPJ_EOSIM"  # run sub-dir and file prefix (underscored)
 _OUTPUT = DATA_ROOT
 
-# Overshoot runs driven by CRUJRA rather than a GCM pattern: the run dir and the file
-# prefix both drop the forcing token, so dir == file prefix:
-#   LPJ_EOSIM_hist/      LPJ_EOSIM_hist_<var>_<cad>_05.nc
-#   LPJ_EOSIM_hist_ctrl/ LPJ_EOSIM_hist_ctrl_<var>_<cad>_05.nc
-# `ctrl` alone is not uploaded and is grouped here on the assumption it spells the
-# same way.
 _CRUJRA_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 
 _SOIL_T_DEPTHS = (0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0)
@@ -27,10 +21,6 @@ class LPJ_EOSIM(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True  # gregorian "days since 1850-01-01" -> datetime64 directly
-    # All five uploaded 2026-09-16. noPermafrost omits the soil-thermal set
-    # (alt/soilIce/soilMoist/soilT) and noFire the fire diagnostics + wind, so those
-    # runs carry 74 / 67 of the 78 variables; noDynVeg exists for stable_bgc,
-    # ukesm_cou and ukesm_rad only.
     FACTORIALS = {
         Factorial.baseline.name: "",
         Factorial.noFire.name: "_noFire",
@@ -39,20 +29,12 @@ class LPJ_EOSIM(core.WIEAdapter):
         "noDynVeg": "_noDynVeg",
     }
 
-    # Cadence overrides of const.ANNUAL (verified on the bucket, 2026-08-28
-    # upload): wetfrac and nInorgSoil arrive monthly, docFlux annual.
-    # fN2OFire (overshoot only, 2026-10-16 upload) is annual: LPJ has no
-    # monthly fire_n2o.
     LAYERED_VARIABLES = {"soilT", "soilIce", "soilMoist"}
 
     MONTHLY = {"wetfrac", "nInorgSoil"}
     ANNUAL = {"docFlux", "fN2OFire"}
 
-    # band validation: firerosTotal means reach 8e6 m s-1 (cells up to 2.5e10), ceiling is 1e6
-    PROVISIONAL_DATA = (
-        ("1pctCO2", "firerosTotal"),
-        ("overshoot", "firerosTotal"),
-    )
+    PROVISIONAL_DATA = (("1pctCO2", "firerosTotal"),)
 
     def land_carbon_variables(self) -> list[str]:
         return ["cLitter", "cVeg", "cSoil"]
