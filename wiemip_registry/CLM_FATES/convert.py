@@ -50,6 +50,9 @@ class CLM_FATES(core.WIEAdapter):
     # CLM-FATES uploads wetland fraction monthly even though const.ANNUAL lists
     # wetfrac as annual
     MONTHLY = {"wetfrac", "cSoilLayers"}
+    # cOther yr files are a cdo yearmean of the group's monthly upload
+    # Tom did this by hand on 21/10/2026
+    ANNUAL = {"cOther"}
     wiemip_to_clm_fates_variable_mapping = {
         "alt": "ALT",
         "burntArea": "burntFractionAll",
@@ -96,7 +99,9 @@ class CLM_FATES(core.WIEAdapter):
         cad = (
             "mon"
             if variable in self.MONTHLY
-            else ("yr" if core.is_annual(variable) else "mon")
+            else (
+                "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
+            )
         )
         if variable in ("cSoilAbove1m", "cSoilBelow1m"):
             level = "d100cm"
