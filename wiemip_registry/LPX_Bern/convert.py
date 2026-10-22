@@ -42,17 +42,6 @@ class LPX_Bern(core.WIEAdapter):
     """
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
 
-    # overshoot band validation: global sums ~1e13 Pg for these, ceiling is 1e6
-    PROVISIONAL_DATA = (
-        ("overshoot", "cLitterpft"),
-        ("overshoot", "cSoilpft"),
-        ("overshoot", "cVegpft"),
-        ("overshoot", "nLitterpft"),
-        ("overshoot", "nOrgSoilpft"),
-        ("overshoot", "nSoilpft"),
-        ("overshoot", "nVegpft"),
-    )
-
     def land_carbon_variables(self) -> list[str]:
         """
         Confirmed with Hyuna Kim 08/08/2026.
