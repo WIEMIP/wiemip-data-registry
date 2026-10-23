@@ -80,6 +80,11 @@ class LPJ_EOSIM(core.WIEAdapter):
         )
         da = core.mask_fill(ds[variable])
         if variable == "soilT":
+            # the 2026-09-16 1pctCO2 upload leads with a 0-50 cm mean; overshoot doesn't
+            # two model versions that emit soil data differently, but same
+            # underlying model
+            if da.sizes["pool"] == len(_SOIL_T_DEPTHS) + 1:
+                da = da.isel(pool=slice(1, None))
             da = da.assign_coords(pool=("pool", list(_SOIL_T_DEPTHS), {"units": "m"}))
         elif variable in self.LAYERED_VARIABLES:
             da = da.assign_coords(
