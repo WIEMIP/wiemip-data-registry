@@ -18,6 +18,25 @@ _OUTPUT = DATA_ROOT
 
 _UNDECLARED_FILL = 1e20
 
+# pulled directly from their layered files
+_SOIL_LAYER_DEPTHS = (
+    0.007101,
+    0.027925,
+    0.062259,
+    0.118865,
+    0.212193,
+    0.366066,
+    0.619758,
+    1.038027,
+    1.727635,
+    2.864607,
+    4.739157,
+    7.829766,
+    12.925321,
+    21.326469,
+    35.17762,
+)
+
 
 class ELM(core.WIEAdapter):
     model = MODEL
@@ -26,6 +45,18 @@ class ELM(core.WIEAdapter):
     FACTORIALS = {
         Factorial.baseline.name: "",
         Factorial.noFire.name: "_nofire",  # trails the sim token
+    }
+    LAYERED_VARIABLES = {
+        "soilT",
+        "soilTemp",
+        "soilIce",
+        "soilMoist",
+        "mrsoLayer",
+        "soilRh",
+        "rhLayers",
+        "cSoilLayers",
+        "nOrgSoilLayer",
+        "nInorgSoilLayer",
     }
 
     wiemip_to_elm_variable_mapping = {
@@ -96,6 +127,11 @@ class ELM(core.WIEAdapter):
         da = da.where(da < _UNDECLARED_FILL)
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON)
+        if variable in self.LAYERED_VARIABLES:
+            level = "levdcmp" if "levdcmp" in da.dims else "levgrnd"
+            da = da.assign_coords(
+                {level: (level, list(_SOIL_LAYER_DEPTHS), {"units": "m"})}
+            )
         step = "Y" if self._cadence(simulation, factorial, variable) == "yr" else "M"
         return core.standardize(da, self.LAT, self.LON, self._time(ds, step))
 
