@@ -23,6 +23,9 @@ class BiomeE(core.WIEAdapter):
     }
     ANNUAL = {"cOther", "fvegHeightpft"}
 
+    # ch4 in the 2026-09-30 upload is invalid
+    PROVISIONAL_DATA = (("1pctCO2", "ch4"),)
+
     def land_carbon_variables(self) -> list[str]:
         """
         Confirmed. Assuming cLitter, cVeg, and cSoil.

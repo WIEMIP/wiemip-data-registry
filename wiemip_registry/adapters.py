@@ -15,6 +15,7 @@ from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
 from wiemip_registry.LPJ_GUESS.convert import LPJ_GUESS
 from wiemip_registry.LPJmL6.convert import LPJmL6
 from wiemip_registry.LPX_Bern.convert import LPX_Bern
+from wiemip_registry.ORCHIDEE_MICT_CALIPSO.convert import ORCHIDEE_MICT_CALIPSO
 from wiemip_registry.TEM.convert import TEM
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
 
@@ -35,6 +36,7 @@ adapters = {
     "LPJ_GUESS": LPJ_GUESS(),
     "LPJmL6": LPJmL6(),
     "LPX_Bern": LPX_Bern(),
+    "ORCHIDEE_MICT_CALIPSO": ORCHIDEE_MICT_CALIPSO(),
     "VISIT_UT": VISIT_UT(),
     "TEM": TEM(),
 }
