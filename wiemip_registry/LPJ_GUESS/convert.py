@@ -86,6 +86,7 @@ class LPJ_GUESS(core.WIEAdapter):
     FACTORIALS = {
         Factorial.baseline.name: ("", ""),
         Factorial.noFire.name: ("-NoFire", "-Nofire"),
+        "noDynVeg": ("-NoDynVeg", "-NoDynVeg"),
     }
 
     _FILENAME_OVERRIDES = {
