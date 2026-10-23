@@ -24,7 +24,9 @@ _OVERSHOOT_SIMULATION_TOKENS = {
     "hl": "h",
 }
 
-_CH4_SPLIT = ("wetCH4", "fch4soil")
+# ch4 is deprecated in favor of wetlandCH4, which wetCH4 reads in every run. fch4soil
+# stays the negative part of ch4, so it exists only where a ch4 file was uploaded.
+_CH4_SPLIT = ("fch4soil",)
 
 
 class CLM_FATES(core.WIEAdapter):
@@ -63,6 +65,7 @@ class CLM_FATES(core.WIEAdapter):
         "firerosTotal": "fireosTotal",
         "wetfrac": "wetlandFrac",
         "soilT": "tsl",
+        "wetCH4": "wetlandCH4",
     }
 
     def land_carbon_variables(self) -> list[str]:
@@ -154,10 +157,7 @@ class CLM_FATES(core.WIEAdapter):
     ) -> xr.DataArray:
         if variable in _CH4_SPLIT:
             ch4 = self.read(experiment, simulation, forcing, factorial, "ch4")
-            if variable == "wetCH4":
-                split = ch4.where(ch4 > 0, 0)
-            else:
-                split = ch4.where(ch4 < 0, 0)
+            split = ch4.where(ch4 < 0, 0)
             # where() zero-fills NaN, so re-mask the ocean
             return (
                 split.where(ch4.isel(time=0, drop=True).notnull())
