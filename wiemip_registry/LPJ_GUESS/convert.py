@@ -63,6 +63,11 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
     ),
 }
 
+# Hotfix, an exception to returning data unmodified (Tom, 2026-10-27): the BVOC fluxes
+# are labelled kg m-2 s-1 but hold mg m-2 s-1 (overshoot hist isoprene ~6e5 Pg yr-1 as
+# labelled, ~0.64 scaled; terp ~0.05). Scaled on read until LPJ-GUESS re-uploads.
+_SCALE = {"isopr": 1e-6, "terp": 1e-6}
+
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
     """Return the (run-dir, file-prefix) sim tokens for a simulation."""
@@ -112,8 +117,6 @@ class LPJ_GUESS(core.WIEAdapter):
             "LPJ-GUESS_Stable_1pctCO2_Control_Nofire",
         ),
     }
-
-    PROVISIONAL_DATA = (("1pctCO2", "isopr"),)
 
     _FIELD_NAMES = {"ch4": "mch4"}
 
@@ -210,7 +213,12 @@ class LPJ_GUESS(core.WIEAdapter):
             if variable in self._PFT_STEMS
             else ds[self._FIELD_NAMES.get(variable, variable)]
         )
-        return core.standardize(core.mask_fill(da), self.LAT, self.LON, self._time(ds))
+        file_units = da.attrs.get("units", "")
+        da = core.mask_fill(da)
+        if variable in _SCALE:
+            da = da * _SCALE[variable]
+        da.attrs["units"] = file_units
+        return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
         ref = xr.open_dataset(
