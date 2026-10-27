@@ -14,6 +14,7 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 
 _SOIL_T_DEPTHS = (0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0)
+# midpoint of each layer
 _SOIL_LAYER_DEPTHS = (0.05, 0.15, 0.25, 0.4, 0.6, 0.85, 1.25, 1.75)
 
 
