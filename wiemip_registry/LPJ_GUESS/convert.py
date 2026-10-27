@@ -24,7 +24,7 @@ _NDEP_EXPERIMENT_TOKENS = {"bgc": "1pctCo2"}
 # after `LPJ_GUESS_<forcing>_` / `LPJ-GUESS_<forcing>_`. No two runs share a grammar.
 # Sims not listed here had not landed yet; they fall back to a guess.
 _OVERSHOOT_RUN_TOKENS = {
-    "hist": ("historical", "Overshoot_Historical"),
+    "hist": ("Overshoot_historical", "Overshoot_Historical"),
     "ctrl": ("Overshoot_control", "Control"),
     "l": ("Overshoot_low", "Overshoot_L"),
     "m": ("Overshoot_med", "Overshoot_M"),
@@ -34,9 +34,6 @@ _CRUJRA_TOKEN = "CRUJRA3"
 
 # Overshoot filename slips: (run dir, variable) -> the file's full basename.
 _OVERSHOOT_FILENAME_OVERRIDES = {
-    ("LPJ_GUESS_CRUJRA3_historical", "nVeg"): (
-        "LPJ-GUESS_CRUJRA3_Overshoot_Historical_nVeg.yr_05deg.nc"
-    ),
     ("LPJ_GUESS_CRUJRA3_Overshoot_control", "terp"): (
         "LPJ-GUESS_CRUJRA3_Control_tero_mon_05deg.nc"
     ),
@@ -62,6 +59,11 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
         "LPJ-GUESS_UKESM_Overshoot_M_landCOverFrac_yr_05deg.nc"
     ),
 }
+
+# Hotfix, an exception to returning data unmodified (Tom, 2026-10-27): the BVOC fluxes
+# are labelled kg m-2 s-1 but hold mg m-2 s-1 (overshoot hist isoprene ~6e5 Pg yr-1 as
+# labelled, ~0.64 scaled; terp ~0.05). Scaled on read until LPJ-GUESS re-uploads.
+_SCALE = {"isopr": 1e-6, "terp": 1e-6}
 
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
@@ -104,6 +106,9 @@ class LPJ_GUESS(core.WIEAdapter):
         ("cou", "noFire", "cLitterpft"): "clitterpft_yr_05deg",
         ("cou", "noFire", "laipft"): "laipft_yr_05deg",
         ("ctrl", "noFire", "evapotranspft"): "evapotranspft_mon_yr_05deg",
+        ("bgc", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
+        ("cou", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
+        ("ctrl", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
     }
 
     _RUN_OVERRIDES = {
@@ -111,9 +116,11 @@ class LPJ_GUESS(core.WIEAdapter):
             "LPJ_GUESS_Stable_1pctCO2_Control-Nofire",
             "LPJ-GUESS_Stable_1pctCO2_Control_Nofire",
         ),
+        ("ctrl", "noDynVeg"): (
+            "LPJ_GUESS_Stable_1pctCO2_Control-NoDynVeg",
+            "LPJ-GUESS_Stable_1pctCO2_Control_NoDynVeg",
+        ),
     }
-
-    PROVISIONAL_DATA = (("1pctCO2", "isopr"),)
 
     _FIELD_NAMES = {"ch4": "mch4"}
 
@@ -210,7 +217,12 @@ class LPJ_GUESS(core.WIEAdapter):
             if variable in self._PFT_STEMS
             else ds[self._FIELD_NAMES.get(variable, variable)]
         )
-        return core.standardize(core.mask_fill(da), self.LAT, self.LON, self._time(ds))
+        file_units = da.attrs.get("units", "")
+        da = core.mask_fill(da)
+        if variable in _SCALE:
+            da = da * _SCALE[variable]
+        da.attrs["units"] = file_units
+        return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
         ref = xr.open_dataset(
