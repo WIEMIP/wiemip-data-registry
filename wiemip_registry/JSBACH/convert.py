@@ -62,6 +62,9 @@ class JSBACH(core.WIEAdapter):
     # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
     FIXED = {"sftlf"}
 
+    # fN2OFire is total fire N emissions, not only N2O
+    PROVISIONAL_DATA = (("1pctCO2", "fN2OFire"), ("overshoot", "fN2OFire"))
+
     def land_carbon_variables(self) -> list[str]:
         """
         Aug 7: Confirmed with Beiyao Xu that our aggregations and
