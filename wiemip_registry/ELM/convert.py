@@ -84,8 +84,7 @@ class ELM(core.WIEAdapter):
         return ["cLitter", "cVeg", "cSoil"]
 
     def _is_rerun(self, simulation: str, factorial: str) -> bool:
-        # the 2026-10-19 rerun uses WIE-MIP names and annual pools; _ndep/nofire are still 09-30
-        return factorial == Factorial.baseline.name and not simulation.endswith("_ndep")
+        return not simulation.endswith("_ndep")
 
     def _get_variable(
         self, simulation: str, factorial: str, wiemip_variable: str
