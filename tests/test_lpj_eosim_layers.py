@@ -38,6 +38,13 @@ def test_soilT_keeps_every_level_and_gets_point_depths(tmp_path, monkeypatch):
     assert float(da.isel(soil=0, time=0).squeeze()) == 0.0
 
 
+def test_soilT_drops_the_1pct_top_mean(tmp_path, monkeypatch):
+    _upload(tmp_path, monkeypatch, "soilT", "pool", 9)
+    da = _standardized("soilT")
+    assert da["soil"].values.tolist() == [0.0, 0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0]
+    assert float(da.isel(soil=0, time=0).squeeze()) == 1.0
+
+
 def test_soilIce_gets_the_layer_middles(tmp_path, monkeypatch):
     _upload(tmp_path, monkeypatch, "soilIce", "layer", 8)
     da = _standardized("soilIce")
