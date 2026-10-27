@@ -9,7 +9,8 @@ from wiemip_registry.const import DATA_ROOT, Factorial
 
 MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
-_RUN_SUFFIX = "_noCH4"  # trails the grid token on every file of the 2026-09-30 upload
+_RUN_SUFFIX = "_noCH4"
+_HIST_FILE_FORCING = "ukesm"  # hist is forced by CRUJRA but mislabeled hist
 
 
 class BiomeE(core.WIEAdapter):
@@ -23,8 +24,7 @@ class BiomeE(core.WIEAdapter):
     }
     ANNUAL = {"cOther", "fvegHeightpft"}
 
-    # ch4 in the 2026-09-30 upload is invalid
-    PROVISIONAL_DATA = (("1pctCO2", "ch4"),)
+    PROVISIONAL_DATA = (("1pctCO2", "ch4"), ("overshoot", "ch4"))
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -46,6 +46,13 @@ class BiomeE(core.WIEAdapter):
             fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05{_RUN_SUFFIX}.nc"
 
         return str(_OUTPUT / "1pctCO2" / "output" / "BiomeE" / fname)
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        cad = "yr" if variable in self.ANNUAL or core.is_annual(variable) else "mon"
+        if simulation == "hist":
+            forcing = _HIST_FILE_FORCING
+        fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05{_RUN_SUFFIX}.nc"
+        return str(_OUTPUT / "overshoot" / "output" / "BiomeE" / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values  # already datetime64 (decode_times=True)
