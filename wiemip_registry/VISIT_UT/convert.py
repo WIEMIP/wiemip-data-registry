@@ -23,11 +23,12 @@ _FACTORIALS = {
 # warns on these so a caller can't silently integrate a mis-scaled field.
 # Discovered by integrating to a global total and comparing to physical scale
 # (nbp, gpp, … checked out; only fFire is off).
-_UNITS_NOTE = {
-    "fFire": "declared units 'kg C m-2 s-1' but values are ~1000x too large; "
-    "they appear to be 'g C m-2 s-1' (global ~1078 Pg C/yr as-labeled "
-    "vs physical ~1.08 Pg C/yr). g->kg label slip, flagged for A. Ito.",
-}
+_UNITS_NOTE = {}
+
+# Hotfix, an exception to returning data unmodified (Tom, 2026-10-23): overshoot fFire
+# is labelled kg C m-2 s-1 but is ~1000x too large (global ~1150 Pg C/yr against
+# ~1.3 in 1pctCO2), a g C -> kg C slip. Scaled on read until VISIT-UT re-uploads.
+_OVERSHOOT_SCALE = {"fFire": 1e-3}
 
 _OVERSHOOT_VARIABLE_NAMES = {"fch4soil": "fch4soilnat"}
 
@@ -86,6 +87,8 @@ class VISIT_UT(core.WIEAdapter):
             name = _OVERSHOOT_VARIABLE_NAMES.get(variable, variable)
         da = core.mask_fill(ds[name])
         file_units = ds[name].attrs.get("units", "")
+        if experiment == "overshoot" and variable in _OVERSHOOT_SCALE:
+            da = da * _OVERSHOOT_SCALE[variable]
         da.attrs["units"] = file_units
         if variable in _UNITS_NOTE:
             warnings.warn(
