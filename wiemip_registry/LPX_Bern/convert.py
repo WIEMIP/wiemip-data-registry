@@ -42,9 +42,6 @@ class LPX_Bern(core.WIEAdapter):
     """
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
 
-    # fN2OFire is total fire N emissions, not only N2O
-    PROVISIONAL_DATA = (("1pctCO2", "fN2OFire"), ("overshoot", "fN2OFire"))
-
     def land_carbon_variables(self) -> list[str]:
         """
         Confirmed with Hyuna Kim 08/08/2026.
