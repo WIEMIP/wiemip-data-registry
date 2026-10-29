@@ -60,22 +60,13 @@ class ELM(core.WIEAdapter):
     }
 
     wiemip_to_elm_variable_mapping = {
-        "gpp": "GPP",
-        "npp": "NPP",
-        "nbp": "NBP",
-        "ra": "Ra",
-        "rh": "Rh",
-        "lai": "LAI",
-        "fNnetmin": "fNetmin",
-        "fNHarvest": "fnHarvest",
         "sftlf": "landfrac",
     }
 
     # fixed fields: one raster at the model dir top serves every run
     FIXED = {"sftlf"}
 
-    # the rerun writes cOther yearly and wetfrac monthly
-    RERUN_ANNUAL = (ANNUAL | {"cOther"}) - {"wetfrac"}
+    ELM_ANNUAL = (ANNUAL | {"cOther"}) - {"wetfrac"}
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -83,31 +74,18 @@ class ELM(core.WIEAdapter):
         """
         return ["cLitter", "cVeg", "cSoil"]
 
-    def _is_rerun(self, simulation: str, factorial: str) -> bool:
-        return not simulation.endswith("_ndep")
-
-    def _get_variable(
-        self, simulation: str, factorial: str, wiemip_variable: str
-    ) -> str:
-        if self._is_rerun(simulation, factorial) and wiemip_variable not in self.FIXED:
-            return wiemip_variable
+    def _get_variable(self, wiemip_variable: str) -> str:
         return self.wiemip_to_elm_variable_mapping.get(wiemip_variable, wiemip_variable)
 
-    def _cadence(self, simulation: str, factorial: str, wiemip_variable: str) -> str:
-        if (
-            self._is_rerun(simulation, factorial)
-            and wiemip_variable in self.RERUN_ANNUAL
-        ):
-            return "yr"
-        return "mon"
+    def _cadence(self, wiemip_variable: str) -> str:
+        return "yr" if wiemip_variable in self.ELM_ANNUAL else "mon"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
             return self.area_weight_path
         fname = (
             f"{MODEL}_{forcing}_{simulation}{self.FACTORIALS[factorial]}_"
-            f"{self._get_variable(simulation, factorial, variable)}_"
-            f"{self._cadence(simulation, factorial, variable)}_05.nc"
+            f"{self._get_variable(variable)}_{self._cadence(variable)}_05.nc"
         )
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / fname)
 
@@ -122,7 +100,7 @@ class ELM(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        da = core.mask_fill(ds[self._get_variable(simulation, factorial, variable)])
+        da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _UNDECLARED_FILL)
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON)
@@ -131,7 +109,7 @@ class ELM(core.WIEAdapter):
             da = da.assign_coords(
                 {level: (level, list(_SOIL_LAYER_DEPTHS), {"units": "m"})}
             )
-        step = "Y" if self._cadence(simulation, factorial, variable) == "yr" else "M"
+        step = "Y" if self._cadence(variable) == "yr" else "M"
         return core.standardize(da, self.LAT, self.LON, self._time(ds, step))
 
     @property
