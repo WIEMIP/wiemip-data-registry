@@ -102,10 +102,6 @@ class CLM(core.WIEAdapter):
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
             return self.area_weight_path
-        if factorial == Factorial.noNitrogen.name and variable in _NO_NITROGEN_FLUXES:
-            raise core.MissingVariableError(
-                f"{MODEL} serves no {variable} for {factorial}"
-            )
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are
         # still labelled "ukesm" on disk, so that's the token for anything else.
@@ -201,6 +197,12 @@ class CLM(core.WIEAdapter):
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
+        # the files are on the bucket (so path() still spells them), but fNdep is a
+        # constant 1e-3 kg N m-2 s-1 in the noNitrogen runs
+        if factorial == Factorial.noNitrogen.name and variable in _NO_NITROGEN_FLUXES:
+            raise core.MissingVariableError(
+                f"{MODEL} serves no {variable} for {factorial}"
+            )
         if variable in self.FIXED:
             ds = xr.open_dataset(
                 self.path(experiment, simulation, forcing, factorial, variable),

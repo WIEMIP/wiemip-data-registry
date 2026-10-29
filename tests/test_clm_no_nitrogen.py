@@ -9,7 +9,14 @@ N_FLUXES = ["fNdep", "fNup", "fNnitri", "fNloss", "fNleach", "nInorgSoil"]
 @pytest.mark.parametrize("variable", N_FLUXES)
 def test_no_nitrogen_runs_serve_no_nitrogen_fluxes(variable):
     with pytest.raises(core.MissingVariableError):
-        CLM().one_pct_path("bgc", "ukesm", "noNitrogen", variable)
+        CLM().read("1pctCO2", "bgc", "ukesm", "noNitrogen", variable)
+
+
+@pytest.mark.parametrize("variable", N_FLUXES)
+def test_no_nitrogen_paths_still_spelled(variable):
+    # path() stays a pure name transform: the uncovered action must still reach these files
+    path = CLM().one_pct_path("bgc", "ukesm", "noNitrogen", variable)
+    assert path.endswith(f"_{variable}.1850-2000.nc")
 
 
 @pytest.mark.parametrize("factorial", ["baseline", "flat"])
