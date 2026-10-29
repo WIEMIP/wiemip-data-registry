@@ -3,13 +3,15 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import DATA_ROOT, ONE_PERCENT_CO2_KEY, Factorial
 
 MODEL = "EDv3"
 _OUTPUT = DATA_ROOT
 
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 _CRUJRA_TOKEN = "crujra"
+
+_ONE_PCT_YEARS = slice("1850", "2000")
 
 
 class EDv3(core.WIEAdapter):
@@ -70,7 +72,10 @@ class EDv3(core.WIEAdapter):
         da = core.mask_fill(ds[self._get_variable(variable)])
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON).transpose("lat", "lon")
-        return core.standardize(da, self.LAT, self.LON, ds["time"].values)
+        da = core.standardize(da, self.LAT, self.LON, ds["time"].values)
+        if experiment == ONE_PERCENT_CO2_KEY:
+            da = da.sel(time=_ONE_PCT_YEARS)
+        return da
 
     @property
     def area_weight_path(self):

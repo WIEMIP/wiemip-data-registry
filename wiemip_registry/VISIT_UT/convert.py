@@ -7,7 +7,7 @@ import warnings
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import DATA_ROOT, ONE_PERCENT_CO2_KEY, Factorial
 
 MODEL = "VISIT-UT"
 _OUTPUT = DATA_ROOT
@@ -29,6 +29,8 @@ _UNITS_NOTE = {}
 # is labelled kg C m-2 s-1 but is ~1000x too large (global ~1150 Pg C/yr against
 # ~1.3 in 1pctCO2), a g C -> kg C slip. Scaled on read until VISIT-UT re-uploads.
 _OVERSHOOT_SCALE = {"fFire": 1e-3}
+
+_ONE_PCT_YEARS = slice("1850", "2000")
 
 _OVERSHOOT_VARIABLE_NAMES = {"fch4soil": "fch4soilnat"}
 
@@ -96,7 +98,10 @@ class VISIT_UT(core.WIEAdapter):
                 f"(file declares units={file_units!r})",
                 stacklevel=2,
             )
-        return core.standardize(da, self.LAT, self.LON, self._time(ds))
+        da = core.standardize(da, self.LAT, self.LON, self._time(ds))
+        if experiment == ONE_PERCENT_CO2_KEY:
+            da = da.sel(time=_ONE_PCT_YEARS)
+        return da
 
     def _compute_weights(self) -> xr.DataArray:
         """Computed spherical cell area [m²]."""
