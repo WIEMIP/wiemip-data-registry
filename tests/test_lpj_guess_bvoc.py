@@ -33,6 +33,16 @@ def test_bvoc_mg_is_scaled_to_kg(tmp_path, monkeypatch, variable):
     assert da.attrs["units"] == "kg m-2 s-1"
 
 
+@pytest.mark.parametrize("simulation", ["hl", "hl_cf"])
+@pytest.mark.parametrize("variable", ["isopr", "terp"])
+def test_bvoc_uploaded_in_kg_is_not_scaled(tmp_path, monkeypatch, simulation, variable):
+    adapter = _adapter_reading(tmp_path, monkeypatch, variable, 2e-11)
+
+    da = adapter.read("overshoot", simulation, "ukesm", None, variable)
+
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(2e-11)
+
+
 def test_other_fluxes_are_not_scaled(tmp_path, monkeypatch):
     adapter = _adapter_reading(tmp_path, monkeypatch, "gpp", 2e-8)
 

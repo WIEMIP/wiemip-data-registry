@@ -28,6 +28,8 @@ _OVERSHOOT_RUN_TOKENS = {
     "ctrl": ("Overshoot_control", "Control"),
     "l": ("Overshoot_low", "Overshoot_L"),
     "m": ("Overshoot_med", "Overshoot_M"),
+    "hl": ("Overshoot_HL", "Overshoot_HL"),
+    "hl_cf": ("Overshoot_HL_CF", "Overshoot_HL_CF"),
 }
 _CRUJRA_FORCED_SIMULATIONS = {"hist", "hist_ctrl", "ctrl"}
 _CRUJRA_TOKEN = "CRUJRA3"
@@ -58,12 +60,34 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
     ("LPJ_GUESS_UKESM_Overshoot_med", "landCoverFrac"): (
         "LPJ-GUESS_UKESM_Overshoot_M_landCOverFrac_yr_05deg.nc"
     ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL", "landCoverFrac"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_landCOverFrac_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL", "nLitter"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_nLitter_yr_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL", "nLitterpft"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_nLitterpft_yr_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL_CF", "cSoil"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_CF_cSoil_yr_05dg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL_CF", "isopr"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_CF_isopr_mon_05eg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL_CF", "landCoverFrac"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_CF_landCverFrac_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL_CF", "nVegpft"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_CF_nvegpft_yr_05deg.nc"
+    ),
 }
 
 # Hotfix, an exception to returning data unmodified (Tom, 2026-10-27): the BVOC fluxes
 # are labelled kg m-2 s-1 but hold mg m-2 s-1 (overshoot hist isoprene ~6e5 Pg yr-1 as
 # labelled, ~0.64 scaled; terp ~0.05). Scaled on read until LPJ-GUESS re-uploads.
 _SCALE = {"isopr": 1e-6, "terp": 1e-6}
+_UPLOADED_IN_KG = {"hl", "hl_cf"}
 
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
@@ -219,7 +243,7 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         file_units = da.attrs.get("units", "")
         da = core.mask_fill(da)
-        if variable in _SCALE:
+        if variable in _SCALE and simulation not in _UPLOADED_IN_KG:
             da = da * _SCALE[variable]
         da.attrs["units"] = file_units
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
