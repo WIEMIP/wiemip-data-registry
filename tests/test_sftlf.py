@@ -124,7 +124,6 @@ READS = [
     (CoLM, "sftlf", ("latitude", "longitude")),
     (EDv3, "landFrac", ("longitude", "latitude")),
     (CLASSIC, "sftlf", ("latitude", "longitude")),
-    (JSBACH, "sftlf", ("latitude", "longitude")),
     (JULES, "land", ("latitude", "longitude")),
     (ELM, "landfrac", ("lat", "lon")),
     (CLM, "landfrac", ("lat", "lon")),
@@ -155,6 +154,36 @@ def test_sftlf_reads_a_lat_lon_field(adapter_class, field, dims, tmp_path, monke
 
     assert da.dims == ("lat", "lon")
     assert da.sizes == {"lat": 3, "lon": 2}
+    assert float(da.mean()) == 0.25
+    assert da.attrs["units"] == "1"
+
+
+def test_jsbach_sftlf_takes_the_output_grid(tmp_path, monkeypatch):
+    fill = 9.969209968386869e36
+    sftlf = tmp_path / "sftlf_1.nc"
+    xr.Dataset(
+        {"sftlf": (("latitude", "longitude"), np.full((3, 2), 0.25), {"units": "1"})},
+        coords={"latitude": [fill] * 3, "longitude": [fill] * 2},
+    ).to_netcdf(sftlf)
+    cveg = tmp_path / "cVeg.nc"
+    xr.Dataset(
+        {"cVeg": (("time", "lat", "lon"), np.zeros((1, 3, 2)))},
+        coords={
+            "time": [np.datetime64("1850-07-01", "ns")],
+            "lat": [-10.0, 0.0, 10.0],
+            "lon": [0.0, 1.0],
+        },
+    ).to_netcdf(cveg)
+    adapter = JSBACH()
+    monkeypatch.setattr(
+        adapter, "path", lambda *args: str(sftlf if args[-1] == "sftlf" else cveg)
+    )
+
+    da = adapter.read("1pctCO2", "bgc", "stable", "baseline", "sftlf")
+
+    assert da.dims == ("lat", "lon")
+    assert da["lat"].values.tolist() == [-10.0, 0.0, 10.0]
+    assert da["lon"].values.tolist() == [0.0, 1.0]
     assert float(da.mean()) == 0.25
     assert da.attrs["units"] == "1"
 

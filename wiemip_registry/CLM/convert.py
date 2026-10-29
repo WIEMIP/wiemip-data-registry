@@ -47,6 +47,7 @@ _POOL_SPLITS = {
 # (`…_cVeg.1850-2000.nc`). 1pctCO2 only — the overshoot arm is `hh` throughout.
 _FACTORIAL_RUN_TOKENS = {Factorial.noNitrogen.name: "noN"}
 _FACTORIAL_YEAR_SPANS = {Factorial.noNitrogen.name: ".1850-2000"}
+_NO_NITROGEN_FLUXES = {"fNdep", "fNup", "fNnitri", "fNloss", "fNleach", "nInorgSoil"}
 
 # WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
 # only, but CLM splits its CH4 by inundation: wetCH4 is the net flux from the
@@ -86,6 +87,10 @@ class CLM(core.WIEAdapter):
         ("overshoot", "albedo"),
         ("overshoot", "fpar"),
         ("overshoot", "swalbedo"),
+        ("1pctCO2", "LWalbedo"),
+        ("1pctCO2", "albedo"),
+        ("1pctCO2", "fpar"),
+        ("1pctCO2", "swalbedo"),
     )
 
     def land_carbon_variables(self) -> list[str]:
@@ -97,6 +102,10 @@ class CLM(core.WIEAdapter):
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
             return self.area_weight_path
+        if factorial == Factorial.noNitrogen.name and variable in _NO_NITROGEN_FLUXES:
+            raise core.MissingVariableError(
+                f"{MODEL} serves no {variable} for {factorial}"
+            )
         prefix = self.FACTORIALS[factorial]
         # cou/rad carry the GCM pattern; the constant-climate runs (bgc/ctrl) are
         # still labelled "ukesm" on disk, so that's the token for anything else.

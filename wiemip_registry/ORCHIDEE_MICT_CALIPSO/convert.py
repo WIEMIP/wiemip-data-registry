@@ -92,9 +92,7 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
                 self.read(experiment, simulation, forcing, factorial, term)
                 for term in _SOIL_CARBON_TERMS
             )
-            soil_carbon = (soil_by_pft.sum("pool") * vegetation_fraction).sum(
-                "veget", min_count=1
-            )
+            soil_carbon = (soil_by_pft * vegetation_fraction).sum("veget", min_count=1)
             self._units_seen[variable] = soil_by_pft.attrs["units"]
             return soil_carbon.rename(variable).assign_attrs(
                 units=soil_by_pft.attrs["units"]
@@ -109,6 +107,8 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON).transpose("lat", "lon")
         da = da.drop_vars("time_centered", errors="ignore").rename(time_counter="time")
+        if variable == "cSoilpft":
+            da = da.sum("pool", min_count=1, keep_attrs=True)
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def to_pgc(self, total, variable):

@@ -130,7 +130,12 @@ class JSBACH(core.WIEAdapter):
         da = core.mask_fill(ds[variable])
         if variable in self.FIXED:
             # the raster spells latitude/longitude, unlike JSBACH's output
-            return core.rename_latlon(da, "latitude", "longitude")
+            with xr.open_dataset(
+                self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg"),
+                decode_times=self.DECODE,
+            ) as ref:
+                grid = {"lat": ref[self.LAT].values, "lon": ref[self.LON].values}
+            return core.rename_latlon(da, "latitude", "longitude").assign_coords(grid)
         if "pool" in da.dims:
             da = da.assign_coords(pool=np.arange(1, da.sizes["pool"] + 1))
         if variable in self.LAYERED_VARIABLES:
