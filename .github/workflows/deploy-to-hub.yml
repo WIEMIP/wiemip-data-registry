@@ -1,7 +1,8 @@
 name: deploy-to-hub
 
 # On every push to main (or manual run), reinstall this package into the WIEMIP
-# JupyterHub's shared env via AWS SSM. Auth is GitHub OIDC -> a scoped IAM role
+# JupyterHub's shared env and the "Python 3 (xesmf)" kernel's env
+# (/home/envs/xesmf, skipped if absent) via AWS SSM. Auth is GitHub OIDC -> a scoped IAM role
 # (no stored AWS keys); the role + permissions are defined in the jupyterhub
 # Terraform stack (deploy.tf). Set the repo variable HUB_DEPLOY_ROLE_ARN to the
 # stack's `github_deploy_role_arn` output.
@@ -47,7 +48,7 @@ jobs:
 
       - name: Reinstall package via SSM
         run: |
-          CMD="/opt/tljh/user/bin/pip install --force-reinstall --no-deps \"$PKG\""
+          CMD="/opt/tljh/user/bin/pip install --force-reinstall --no-deps \"$PKG\" && { [ ! -x /home/envs/xesmf/bin/pip ] || /home/envs/xesmf/bin/pip install --force-reinstall --no-deps \"$PKG\"; }"
           PARAMS=$(jq -n --arg c "$CMD" '{commands: [$c]}')
           CID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
