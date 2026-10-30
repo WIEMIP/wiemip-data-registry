@@ -35,10 +35,10 @@ _FACTORIALS = {
 
 
 _OVERSHOOT_CONFIGS = {
-    Factorial.baseline.name: "noFire",
+    Factorial.baseline.name: "FireP0304",
     "Fire0005": "FireP0005",
     "Fire0249": "FireP0249",
-    "Fire0304": "FireP0304",
+    Factorial.noFire.name: "noFire",
     "Fire0336": "FireP0336",
 }
 
