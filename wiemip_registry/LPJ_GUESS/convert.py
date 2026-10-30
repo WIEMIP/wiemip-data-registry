@@ -20,6 +20,12 @@ _GCM_FORCED = {"cou", "rad"}
 
 _NDEP_EXPERIMENT_TOKENS = {"bgc": "1pctCo2"}
 
+_NO_NITROGEN_SIM_TOKENS = {
+    "bgc": ("No_N_Cycle_BGC", "No_N_Cycle_BGC"),
+    "ctrl": ("No_N_Cycle_Control", "No_N_Cycle_Control"),
+    "cou": ("No_N_Cycle_COU", "NO_N_Cycle_COU"),
+}
+
 # Overshoot (uploaded 2026-10-05): sim -> (run-dir token, file-prefix token), each
 # after `LPJ_GUESS_<forcing>_` / `LPJ-GUESS_<forcing>_`. No two runs share a grammar.
 # Sims not listed here had not landed yet; they fall back to a guess.
@@ -88,6 +94,7 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
 # labelled, ~0.64 scaled; terp ~0.05). Scaled on read until LPJ-GUESS re-uploads.
 _SCALE = {"isopr": 1e-6, "terp": 1e-6}
 _UPLOADED_IN_KG = {"hl", "hl_cf"}
+_FACTORIAL_UPLOADED_IN_KG = {("noNitrogen", "terp")}
 
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
@@ -112,6 +119,7 @@ class LPJ_GUESS(core.WIEAdapter):
     FACTORIALS = {
         Factorial.baseline.name: ("", ""),
         Factorial.noFire.name: ("-NoFire", "-Nofire"),
+        Factorial.noNitrogen.name: ("No_N_Cycle", "No_N_Cycle"),
         "noDynVeg": ("-NoDynVeg", "-NoDynVeg"),
     }
 
@@ -130,6 +138,9 @@ class LPJ_GUESS(core.WIEAdapter):
         ("cou", "noFire", "cLitterpft"): "clitterpft_yr_05deg",
         ("cou", "noFire", "laipft"): "laipft_yr_05deg",
         ("ctrl", "noFire", "evapotranspft"): "evapotranspft_mon_yr_05deg",
+        ("ctrl", "noNitrogen", "landCoverFrac"): "LandCoverFrac_yr_05deg",
+        ("ctrl", "noNitrogen", "nLitter"): "nLiitter_yr_05deg",
+        ("cou", "noNitrogen", "npp"): "npp_mom_05deg",
         ("bgc", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
         ("cou", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
         ("ctrl", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
@@ -169,6 +180,14 @@ class LPJ_GUESS(core.WIEAdapter):
         gcm = forcing.upper() if base in _GCM_FORCED else forcing
         if (simulation, factorial) in self._RUN_OVERRIDES:
             run, prefix = self._RUN_OVERRIDES[(simulation, factorial)]
+        elif factorial == Factorial.noNitrogen.name:
+            unlisted = f"{run_factorial}_{simulation.upper()}"
+            run_token, file_token = _NO_NITROGEN_SIM_TOKENS.get(
+                simulation, (unlisted, unlisted)
+            )
+            run_gcm = "Stable" if gcm == "stable" else gcm
+            run = f"{MODEL}_{run_gcm}_1pctCO2-{run_token}"
+            prefix = f"{_DIR}_{gcm}_1pctco2_{file_token}"
         elif factorial != Factorial.baseline.name:
             gcm = "Stable" if gcm == "stable" else gcm
             run = f"{MODEL}_{gcm}_{run_sim}{run_factorial}"
@@ -243,7 +262,11 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         file_units = da.attrs.get("units", "")
         da = core.mask_fill(da)
-        if variable in _SCALE and simulation not in _UPLOADED_IN_KG:
+        uploaded_in_kg = (
+            simulation in _UPLOADED_IN_KG
+            or (factorial, variable) in _FACTORIAL_UPLOADED_IN_KG
+        )
+        if variable in _SCALE and not uploaded_in_kg:
             da = da * _SCALE[variable]
         da.attrs["units"] = file_units
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
