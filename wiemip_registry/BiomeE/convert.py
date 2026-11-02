@@ -12,6 +12,9 @@ _OUTPUT = DATA_ROOT
 _RUN_SUFFIX = "_noCH4"
 _HIST_FILE_FORCING = "ukesm"  # hist is forced by CRUJRA but mislabeled hist
 
+# the year's burned fraction, written into each of its 12 months
+_ANNUAL_REPEATED_MONTHLY = {("overshoot", "burntArea")}
+
 
 class BiomeE(core.WIEAdapter):
     model = MODEL
@@ -23,6 +26,7 @@ class BiomeE(core.WIEAdapter):
         Factorial.noNitrogen.name: "noNitrogen",
     }
     ANNUAL = {"cOther", "fvegHeightpft"}
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     PROVISIONAL_DATA = (("1pctCO2", "ch4"), ("overshoot", "ch4"))
 
@@ -65,6 +69,8 @@ class BiomeE(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if (experiment, variable) in _ANNUAL_REPEATED_MONTHLY:
+            da = (da / 12).assign_attrs(da.attrs)
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property

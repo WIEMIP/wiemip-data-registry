@@ -48,6 +48,7 @@ class VISIT_UT(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = False  # "years since AD 0" fractional -> floor
     FACTORIALS = _FACTORIALS
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     def land_carbon_variables(self) -> list[str]:
         """

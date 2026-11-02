@@ -59,6 +59,7 @@ class JSBACH(core.WIEAdapter):
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
+    FRACTION_TO_PERCENT = {"burntArea"}
     # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
     FIXED = {"sftlf"}
 

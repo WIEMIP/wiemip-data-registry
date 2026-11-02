@@ -3,6 +3,9 @@
 Flat layout, `ELM_<forcing>_<sim>[_nofire]_<VAR>_<mon|yr>_05.nc`. The 2026-10-19 rerun
 replaced the baseline bgc/ctrl and added ukesm cou/rad; the 2026-09-30 baseline files and
 the 2026-09-28 `ELM_ukesm_bgc_*`/`ELM_ukesm_ctrl_*` are superseded and unreachable.
+
+burntArea and burntareaTotal were uploaded one 1800 s timestep short: E3SM labels
+FAREA_BURNED "timestep fractional area burned" but computes it per second.
 """
 
 from __future__ import annotations
@@ -17,6 +20,9 @@ MODEL = "ELM"
 _OUTPUT = DATA_ROOT
 
 _UNDECLARED_FILL = 1e20
+
+_TIMESTEP_SECONDS = 1800.0
+_SHORT_BY_ONE_TIMESTEP = {"burntArea", "burntareaTotal"}
 
 # pulled directly from their layered files
 _SOIL_LAYER_DEPTHS = (
@@ -58,6 +64,7 @@ class ELM(core.WIEAdapter):
         "nOrgSoilLayer",
         "nInorgSoilLayer",
     }
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     wiemip_to_elm_variable_mapping = {
         "sftlf": "landfrac",
@@ -102,6 +109,8 @@ class ELM(core.WIEAdapter):
         )
         da = core.mask_fill(ds[self._get_variable(variable)])
         da = da.where(da < _UNDECLARED_FILL)
+        if variable in _SHORT_BY_ONE_TIMESTEP:
+            da = (da * _TIMESTEP_SECONDS).assign_attrs(da.attrs)
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON)
         if variable in self.LAYERED_VARIABLES:
