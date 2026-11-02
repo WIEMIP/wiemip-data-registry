@@ -95,6 +95,7 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
 _SCALE = {"isopr": 1e-6, "terp": 1e-6}
 _UPLOADED_IN_KG = {"hl", "hl_cf"}
 _FACTORIAL_UPLOADED_IN_KG = {("noNitrogen", "terp")}
+_CH4_SCALE = 1e-3
 
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
@@ -268,6 +269,8 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         if variable in _SCALE and not uploaded_in_kg:
             da = da * _SCALE[variable]
+        if variable == "ch4":
+            da = da * _CH4_SCALE
         da.attrs["units"] = file_units
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 

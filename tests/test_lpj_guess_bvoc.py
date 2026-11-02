@@ -62,6 +62,39 @@ def test_no_nitrogen_isopr_is_still_scaled(tmp_path, monkeypatch):
     assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(2e-11)
 
 
+@pytest.mark.parametrize(
+    "experiment, simulation, factorial",
+    [
+        ("overshoot", "hist", None),
+        ("overshoot", "hl", None),
+        ("1pctCO2", "cou", "baseline"),
+        ("1pctCO2", "bgc", "noNitrogen"),
+    ],
+)
+def test_ch4_g_read_as_mg_is_scaled(
+    tmp_path, monkeypatch, experiment, simulation, factorial
+):
+    nc = tmp_path / "ch4.nc"
+    time = xr.DataArray([0, 1], dims="time", attrs={"units": "months since 1850-01-01"})
+    xr.Dataset(
+        {
+            "mch4": (
+                ("time", "lat", "lon"),
+                np.full((2, 1, 1), 3e-7),
+                {"units": "kg m-2 s-1"},
+            )
+        },
+        coords={"time": time, "lat": [10.25], "lon": [20.25]},
+    ).to_netcdf(nc)
+    adapter = LPJ_GUESS()
+    monkeypatch.setattr(adapter, "path", lambda *args: str(nc))
+
+    da = adapter.read(experiment, simulation, "ukesm", factorial, "ch4")
+
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(3e-10)
+    assert da.attrs["units"] == "kg m-2 s-1"
+
+
 def test_other_fluxes_are_not_scaled(tmp_path, monkeypatch):
     adapter = _adapter_reading(tmp_path, monkeypatch, "gpp", 2e-8)
 
