@@ -21,7 +21,6 @@ _OVERSHOOT_SIMULATION_TOKENS = {
     "ml_cf": "ml-cf",
     "vl_cf": "vl-cf",
     "hl_cf": "hl-cf",
-    "hl": "h",
 }
 
 # ch4 is deprecated in favor of wetlandCH4, which wetCH4 reads in every run. fch4soil
