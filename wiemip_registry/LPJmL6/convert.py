@@ -33,6 +33,7 @@ class LPJmL6(core.WIEAdapter):
         "nOrgSoilLayer",
         "nInorgSoilLayer",
     }
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     def land_carbon_variables(self) -> list[str]:
         """

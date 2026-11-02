@@ -41,6 +41,7 @@ class LPX_Bern(core.WIEAdapter):
     By default, we'll skip nSoil.
     """
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     def land_carbon_variables(self) -> list[str]:
         """

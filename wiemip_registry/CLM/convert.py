@@ -58,6 +58,11 @@ _NO_NITROGEN_FLUXES = {"fNdep", "fNup", "fNnitri", "fNloss", "fNleach", "nInorgS
 # 2026-09-21.
 _CH4_SPLIT = ("wetCH4", "fch4soil")
 
+# burntareaTotal was uploaded as FAREA_BURNED (per second) / (PCT_NATVEG + PCT_CROP),
+# per its CLM_orig_var_name attribute; read() returns % of the vegetated area burned
+# in the month.
+_NOLEAP_DAYS_IN_MONTH = np.array([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+
 
 class CLM(core.WIEAdapter):
     model = MODEL
@@ -77,6 +82,8 @@ class CLM(core.WIEAdapter):
         "soilRh",
         "cPoolVr",
     }
+
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     # fixed fields: every file carries `landfrac`, served from the weights' cVeg file
     FIXED = {"sftlf"}
@@ -235,6 +242,18 @@ class CLM(core.WIEAdapter):
                 split.where(own.isel(time=0, drop=True).notnull())
                 .rename(variable)
                 .assign_attrs(units=own.attrs["units"])
+            )
+        if variable == "burntareaTotal":
+            da = self._read_one(experiment, simulation, forcing, factorial, variable)
+            days = _NOLEAP_DAYS_IN_MONTH[da["time"].dt.month.values - 1]
+            seconds = xr.DataArray(
+                days * 86400.0, dims="time", coords={"time": da["time"]}
+            )
+            return (
+                (da * seconds * 1e4)
+                .astype(da.dtype)
+                .rename(variable)
+                .assign_attrs({**da.attrs, "units": "%"})
             )
         return self._read_one(experiment, simulation, forcing, factorial, variable)
 
