@@ -27,6 +27,7 @@ class DLEM(core.WIEAdapter):
     wiemip_to_dlem_variable_mapping = {
         "fFireLitter": "fFireCLitter",
         "nOrgSoilpft": "nSoilpft",
+        "tveg": "trans",
     }
 
     def land_carbon_variables(self) -> list[str]:
@@ -79,7 +80,7 @@ class DLEM(core.WIEAdapter):
             / "output"
             / "DLEM"
             / run
-            / f"{fpref}_{variable}_{cad}_05.nc"
+            / f"{fpref}_{self._get_variable(variable)}_{cad}_05.nc"
         )
         return z
 
@@ -103,7 +104,7 @@ class DLEM(core.WIEAdapter):
             / "output"
             / "DLEM"
             / run
-            / f"{fpref}_{variable}_{cad}_05.nc"
+            / f"{fpref}_{self._get_variable(variable)}_{cad}_05.nc"
         )
 
     def _time(self, ds: xr.Dataset):
@@ -128,7 +129,7 @@ class DLEM(core.WIEAdapter):
             da = core.mask_fill(ds["fraction"]).squeeze("time", drop=True)
             da = core.rename_latlon(da, self.LAT, self.LON)
             return da.transpose("lat", "lon", ...).rename(variable)
-        da = core.mask_fill(ds[variable])
+        da = core.mask_fill(ds[self._get_variable(variable)])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
