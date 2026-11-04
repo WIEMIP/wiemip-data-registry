@@ -11,6 +11,9 @@ MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
 _RUN_SUFFIX = "_noCH4"
 _HIST_FILE_FORCING = "ukesm"  # hist is forced by CRUJRA but mislabeled hist
+# the 11-02 hist re-upload stamps its 1850-2023 axis "days since 2024-01-01" (10-27 said 1850-01-01)
+_HIST_MISSTAMPED_UNITS = "days since 2024-01-01"
+_HIST_YEAR_SHIFT = 2024 - 1850
 # transpft is labelled W m-2 but holds a water flux in kg m-2 s-1 (values ~1e-6);
 # latent heat of vaporization turns it into the requested W m-2
 _LATENT_HEAT_VAPORIZATION = 2.501e6  # J kg-1
@@ -58,8 +61,12 @@ class BiomeE(core.WIEAdapter):
         fname = f"BiomeE_{forcing}_{simulation}_{variable}_{cad}_05{_RUN_SUFFIX}.nc"
         return str(_OUTPUT / "overshoot" / "output" / "BiomeE" / fname)
 
-    def _time(self, ds: xr.Dataset):
-        return ds["time"].values  # already datetime64 (decode_times=True)
+    def _time(self, ds: xr.Dataset, experiment: str, simulation: str):
+        time = ds["time"].values  # decoded noleap dates (decode_times=True)
+        is_hist = (experiment, simulation) == ("overshoot", "hist")
+        if is_hist and ds["time"].encoding.get("units") == _HIST_MISSTAMPED_UNITS:
+            return [step.replace(year=step.year - _HIST_YEAR_SHIFT) for step in time]
+        return time
 
     def read(
         self, experiment, simulation, forcing, factorial, variable
@@ -73,7 +80,9 @@ class BiomeE(core.WIEAdapter):
             da = (da * _LATENT_HEAT_VAPORIZATION).assign_attrs(
                 {**da.attrs, "units": "W m-2"}
             )
-        return core.standardize(da, self.LAT, self.LON, self._time(ds))
+        return core.standardize(
+            da, self.LAT, self.LON, self._time(ds, experiment, simulation)
+        )
 
     @property
     def area_weight_path(self):

@@ -27,6 +27,45 @@ def test_overshoot_ch4_is_provisional():
         f.read()
 
 
+def _gpp_upload(tmp_path, monkeypatch, time_units):
+    path = tmp_path / "gpp.nc"
+    time = xr.DataArray(
+        np.array([15.5, 45.0, 63494.5]),
+        dims="time",
+        attrs={"units": time_units, "calendar": "noleap"},
+    )
+    xr.Dataset(
+        {
+            "gpp": (
+                ("lon", "lat", "time"),
+                np.ones((1, 1, 3), dtype="float32"),
+                {"units": "kg C m-2 s-1"},
+            )
+        },
+        coords={"time": time, "lat": [10.25], "lon": [20.25]},
+    ).to_netcdf(path)
+    monkeypatch.setattr(BiomeE, "path", lambda self, *args: str(path))
+
+
+def test_hist_misstamped_2024_epoch_is_read_from_1850(tmp_path, monkeypatch):
+    _gpp_upload(tmp_path, monkeypatch, "days since 2024-01-01")
+    time = BiomeE().read("overshoot", "hist", "ukesm", None, "gpp")["time"].values
+    assert str(time[0])[:10] == "1850-01-16"
+    assert str(time[-1])[:7] == "2023-12"
+
+
+def test_hist_1850_epoch_is_left_alone(tmp_path, monkeypatch):
+    _gpp_upload(tmp_path, monkeypatch, "days since 1850-01-01")
+    time = BiomeE().read("overshoot", "hist", "ukesm", None, "gpp")["time"].values
+    assert str(time[0])[:10] == "1850-01-16"
+
+
+def test_scenario_2024_epoch_is_left_alone(tmp_path, monkeypatch):
+    _gpp_upload(tmp_path, monkeypatch, "days since 2024-01-01")
+    time = BiomeE().read("overshoot", "hl", "ukesm", None, "gpp")["time"].values
+    assert str(time[0])[:10] == "2024-01-16"
+
+
 @pytest.mark.parametrize(
     "experiment, simulation, forcing, factorial",
     [("overshoot", "hist", "ukesm", None), ("1pctCO2", "bgc", "stable", "baseline")],
