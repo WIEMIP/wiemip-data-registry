@@ -33,6 +33,35 @@ _RUN_DIR_OVERRIDES = {
     ),
 }
 
+# The permafrost/wetland pair (uploaded 2026-11-02): factorial -> run dir token under pmf/
+_PERMAFROST_RUN_TOKENS = {
+    "dynVeg_Wetlands_Permafrost": "pmf",
+    "dynVeg_noWetlands_noPermafrost": "nowet",
+}
+
+# N pools and fluxes not spun up in the permafrost/wetland pair (QA 2026-11-03)
+_PERMAFROST_PROVISIONAL_NITROGEN = (
+    "nVeg",
+    "nLitter",
+    "nSoil",
+    "fNup",
+    "fNnetmin",
+    "fNLitterSoil",
+    "fNleach",
+    "fNloss",
+    "fN2O",
+    "nInorgSoil",
+    "nOrgSoil",
+    "fNdep",
+    "nVegpft",
+    "nLitterpft",
+    "nSoilpft",
+    "fN2Opft",
+)
+
+# uploaded with the sign flipped in the permafrost/wetland pair
+_PERMAFROST_NEGATED_METHANE = {"ch4", "wetCH4", "fCH4Fire"}
+
 # Layer middles [m] from the bucket README's 5-layer table, whose "depth" column is the
 # layer bottom (0.065, 0.319, 1.232, 4.134, 9.834). The files carry bare indices.
 _SOIL_LAYER_DEPTHS = (0.0325, 0.192, 0.7755, 2.683, 6.984)
@@ -56,14 +85,30 @@ class JSBACH(core.WIEAdapter):
         Factorial.noFire.name: ("_noFire", "", "_noFire"),
         "dynVeg_noNitrogen": ("_dynveg_noNitrogen", "dynveg_", ""),
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
+        "dynVeg_Wetlands_Permafrost": (
+            "",
+            "",
+            "_DynVeg_Nitrogen_Fire_Wetlands_Permafrost",
+        ),
+        "dynVeg_noWetlands_noPermafrost": (
+            "",
+            "",
+            "_DynVeg_Nitrogen_Fire_noWetlands_noPermafrost",
+        ),
     }
     OVERSHOOT_FACTORIALS = _OVERSHOOT_RUN_TOKENS
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
+    # wetfrac as monthly (permafrost/wetland pair only)
+    MONTHLY = {"wetfrac"}
     # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
     FIXED = {"sftlf"}
 
     # fN2OFire is total fire N emissions, not only N2O
-    PROVISIONAL_DATA = (("1pctCO2", "fN2OFire"), ("overshoot", "fN2OFire"))
+    PROVISIONAL_DATA = (("1pctCO2", "fN2OFire"), ("overshoot", "fN2OFire")) + tuple(
+        ("1pctCO2", variable, factorial)
+        for factorial in _PERMAFROST_RUN_TOKENS
+        for variable in _PERMAFROST_PROVISIONAL_NITROGEN
+    )
 
     def land_carbon_variables(self) -> list[str]:
         """
@@ -80,9 +125,15 @@ class JSBACH(core.WIEAdapter):
         run_dir = _RUN_DIR_OVERRIDES.get(
             (simulation, forcing, factorial), f"{_stem(simulation, forcing)}{dir_suf}"
         )
+        if factorial in _PERMAFROST_RUN_TOKENS:
+            run_dir = (
+                f"pmf/wiemip_1pctCO2_{simulation}_{_PERMAFROST_RUN_TOKENS[factorial]}"
+            )
         stable_token = _DYNVEG_FILE_FORCING if run_token else "stable"
         file_stem = _stem(simulation, forcing, run_token, stable_token)
-        cad = "yr" if core.is_annual(variable) else "mon"
+        cad = (
+            "yr" if core.is_annual(variable) and variable not in self.MONTHLY else "mon"
+        )
         return str(
             _OUTPUT
             / "1pctCO2"
@@ -128,6 +179,11 @@ class JSBACH(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if (
+            factorial in _PERMAFROST_RUN_TOKENS
+            and variable in _PERMAFROST_NEGATED_METHANE
+        ):
+            da = -da
         if variable in self.FIXED:
             # the raster spells latitude/longitude, unlike JSBACH's output
             with xr.open_dataset(
