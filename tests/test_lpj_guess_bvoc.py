@@ -54,6 +54,27 @@ def test_no_nitrogen_terp_uploaded_in_kg_is_not_scaled(
     assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(2e-11)
 
 
+def test_baseline_bgc_terp_uploaded_in_kg_is_not_scaled(tmp_path, monkeypatch):
+    adapter = _adapter_reading(tmp_path, monkeypatch, "terp", 2e-11)
+
+    da = adapter.read("1pctCO2", "bgc", "stable", "baseline", "terp")
+
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(2e-11)
+
+
+@pytest.mark.parametrize(
+    "simulation, variable", [("bgc", "isopr"), ("ctrl", "terp"), ("cou", "terp")]
+)
+def test_other_baseline_bvoc_is_still_scaled(
+    tmp_path, monkeypatch, simulation, variable
+):
+    adapter = _adapter_reading(tmp_path, monkeypatch, variable, 2e-5)
+
+    da = adapter.read("1pctCO2", simulation, "stable", "baseline", variable)
+
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(2e-11)
+
+
 def test_no_nitrogen_isopr_is_still_scaled(tmp_path, monkeypatch):
     adapter = _adapter_reading(tmp_path, monkeypatch, "isopr", 2e-5)
 
