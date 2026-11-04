@@ -11,6 +11,10 @@ MODEL = "BiomeE"
 _OUTPUT = DATA_ROOT
 _RUN_SUFFIX = "_noCH4"
 _HIST_FILE_FORCING = "ukesm"  # hist is forced by CRUJRA but mislabeled hist
+# transpft is labelled W m-2 but holds a water flux in kg m-2 s-1 (values ~1e-6);
+# latent heat of vaporization turns it into the requested W m-2
+_LATENT_HEAT_VAPORIZATION = 2.501e6  # J kg-1
+_WATER_FLUX_AS_LATENT_HEAT = {"transpft"}
 
 
 class BiomeE(core.WIEAdapter):
@@ -65,6 +69,10 @@ class BiomeE(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if variable in _WATER_FLUX_AS_LATENT_HEAT:
+            da = (da * _LATENT_HEAT_VAPORIZATION).assign_attrs(
+                {**da.attrs, "units": "W m-2"}
+            )
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     @property
