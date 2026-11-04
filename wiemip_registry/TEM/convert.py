@@ -24,15 +24,23 @@ class TEM(core.WIEAdapter):
     # Only the bare baseline runs were uploaded — no sensitivity factorials.
     FACTORIALS = {Factorial.baseline.name: ""}
 
+    # fixed fields, `_fx_` on disk with a single time step that read() drops
+    FIXED = {"landCoverFrac"}
+
     def land_carbon_variables(self) -> list[str]:
         """Confirmed with Shuo Chen on 10/08/2026. cVeg and cSoil."""
         return ["cVeg", "cSoil"]
+
+    def _cadence(self, variable: str) -> str:
+        if variable in self.FIXED:
+            return "fx"
+        return "yr" if core.is_annual(variable) else "mon"
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         # bgc/ctrl are not GCM-forced ("stable"); cou/rad carry the GCM name.
         gcm_forced = simulation.split("_")[0] in ("cou", "rad")
         second = forcing.lower() if gcm_forced else "stable"
-        cad = "yr" if core.is_annual(variable) else "mon"
+        cad = self._cadence(variable)
         run_dir = simulation.upper()  # BGC / COU / CTRL
         fname = f"TEM-MDM_{second}_{simulation}_{variable}_{cad}_05.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / "TEM" / run_dir / fname)
@@ -43,7 +51,7 @@ class TEM(core.WIEAdapter):
             if simulation in _CRUJRA_FORCED_SIMULATIONS
             else forcing.lower()
         )
-        cad = "yr" if core.is_annual(variable) else "mon"
+        cad = self._cadence(variable)
         fname = f"TEM-MDM_{second}_{simulation}_{variable}_{cad}_05.nc"
         return str(_OUTPUT / "overshoot" / "output" / "TEM" / simulation / fname)
 
@@ -63,6 +71,9 @@ class TEM(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if variable in self.FIXED:
+            da = core.rename_latlon(da.squeeze("time", drop=True), self.LAT, self.LON)
+            return da.transpose("lat", "lon", ...)
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
     def _compute_weights(self) -> xr.DataArray:
