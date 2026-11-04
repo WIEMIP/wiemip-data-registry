@@ -20,6 +20,9 @@ class DLEM(core.WIEAdapter):
     DECODE = False  # numeric "years/months since 1850"
     # no factorials uploaded as far as I know
     FACTORIALS = {Factorial.baseline.name: ""}
+    # fixed fields: one loose file (2026-11-04) serves every overshoot run, single
+    # time step = 2023, 9 land-cover classes on `land_cover` (names in flag_meanings)
+    FIXED = {"landCoverFrac"}
 
     wiemip_to_dlem_variable_mapping = {
         "fFireLitter": "fFireCLitter",
@@ -81,6 +84,14 @@ class DLEM(core.WIEAdapter):
         return z
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        if variable in self.FIXED:
+            return str(
+                _OUTPUT
+                / "overshoot"
+                / "output"
+                / "DLEM"
+                / "DLEM_Land_Cover_overshoot.nc"
+            )
         cad = "yr" if core.is_annual(variable) else "mon"
         if simulation in _OVERSHOOT_NO_FORCING_TOKEN:
             run, fpref = f"os_{simulation}", f"DLEM_{simulation}"
@@ -113,6 +124,10 @@ class DLEM(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
+        if variable in self.FIXED:
+            da = core.mask_fill(ds["fraction"]).squeeze("time", drop=True)
+            da = core.rename_latlon(da, self.LAT, self.LON)
+            return da.transpose("lat", "lon", ...).rename(variable)
         da = core.mask_fill(ds[variable])
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
 
