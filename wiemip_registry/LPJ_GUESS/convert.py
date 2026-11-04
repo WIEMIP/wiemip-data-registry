@@ -95,6 +95,8 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
 _SCALE = {"isopr": 1e-6, "terp": 1e-6}
 _UPLOADED_IN_KG = {"hl", "hl_cf"}
 _FACTORIAL_UPLOADED_IN_KG = {("noNitrogen", "terp")}
+# (experiment, simulation, factorial, variable): the 2026-11-01 baseline bgc terp
+_RUN_UPLOADED_IN_KG = {("1pctCO2", "bgc", "baseline", "terp")}
 _CH4_SCALE = 1e-3
 
 
@@ -112,9 +114,19 @@ class LPJ_GUESS(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = False
 
-    # Only the bgc run uses the dir-style prefix, and only on these two; the ctrl
-    # equivalents are spelled like every other file in their run.
-    _DIR_STYLE_PREFIX = {"cLitterpft", "landCoverFrac"}
+    # Only the bgc run uses the dir-style prefix, and only on these variables (the
+    # last six arrived 2026-11-01); the ctrl equivalents are spelled like every other
+    # file in their run.
+    _DIR_STYLE_PREFIX = {
+        "cLitterpft",
+        "landCoverFrac",
+        "ch4",
+        "gpppft",
+        "isopr",
+        "laipft",
+        "nLitter",
+        "terp",
+    }
     _DIR_STYLE_SIMULATIONS = {"bgc"}
 
     FACTORIALS = {
@@ -266,6 +278,7 @@ class LPJ_GUESS(core.WIEAdapter):
         uploaded_in_kg = (
             simulation in _UPLOADED_IN_KG
             or (factorial, variable) in _FACTORIAL_UPLOADED_IN_KG
+            or (experiment, simulation, factorial, variable) in _RUN_UPLOADED_IN_KG
         )
         if variable in _SCALE and not uploaded_in_kg:
             da = da * _SCALE[variable]
