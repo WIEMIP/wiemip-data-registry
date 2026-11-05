@@ -181,6 +181,7 @@ class Factorial(Enum):
     noFire_noNitrogen = 4
     noFire_noPermafrost = 5
     noBVOC = 6
+    noDynVeg = 7
 
 
 class Experiment(Enum):
@@ -195,7 +196,6 @@ extra_factorials: tuple[str, ...] = (
     "Fire0304",
     "Fire0336",
     "noBVOC",
-    "noDynVeg",
     "noPermafrostC",
     "noPermafrostCN",
     "noPermafrostCNNinorg",
