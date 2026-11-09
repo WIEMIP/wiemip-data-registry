@@ -6,7 +6,7 @@ RUN = "LPJ-GUESS_stable_1pctCO2-BGC"
 
 # baseline bgc files uploaded 2026-11-01, spelled with the run dir as their prefix
 DIR_STYLE_UPLOADS = [
-    ("ch4", "LPJ-GUESS_stable_1pctCO2-BGC_ch4_mon_05deg.nc"),
+    ("wetCH4", "LPJ-GUESS_stable_1pctCO2-BGC_ch4_mon_05deg.nc"),
     ("gpppft", "LPJ-GUESS_stable_1pctCO2-BGC_gpppft_mon_05deg.nc"),
     ("isopr", "LPJ-GUESS_stable_1pctCO2-BGC_isopr_mon_05deg.nc"),
     ("laipft", "LPJ-GUESS_stable_1pctCO2-BGC_laipft_mon_05deg.nc"),

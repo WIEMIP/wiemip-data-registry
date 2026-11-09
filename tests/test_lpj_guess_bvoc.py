@@ -110,7 +110,7 @@ def test_ch4_g_read_as_mg_is_scaled(
     adapter = LPJ_GUESS()
     monkeypatch.setattr(adapter, "path", lambda *args: str(nc))
 
-    da = adapter.read(experiment, simulation, "ukesm", factorial, "ch4")
+    da = adapter.read(experiment, simulation, "ukesm", factorial, "wetCH4")
 
     assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(3e-10 * 16.04 / 12.01)
     assert da.attrs["units"] == "kg m-2 s-1"
