@@ -100,6 +100,7 @@ class JSBACH(core.WIEAdapter):
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
     # wetfrac as monthly (permafrost/wetland pair only)
     MONTHLY = {"wetfrac"}
+    FRACTION_TO_PERCENT = {"burntArea"}
     # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
     FIXED = {"sftlf"}
 

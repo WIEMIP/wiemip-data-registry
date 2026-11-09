@@ -18,6 +18,7 @@ class CoLM(core.WIEAdapter):
     DECODE = True
     FACTORIALS = {Factorial.baseline.name: ""}
     LAYERED_VARIABLES = {"soilT", "soilIce", "mrsoLayer", "cSoilLayers"}
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     # annual on disk but not in const.ANNUAL
     ANNUAL = {"burntArea"}

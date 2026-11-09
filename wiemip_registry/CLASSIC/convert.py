@@ -124,6 +124,8 @@ class CLASSIC(core.WIEAdapter):
         "wetCH4": "wetch4",
         "fch4soil": "fCh4Soil",
         "sftlf": "land_fraction",
+        # "Fraction of grid cell burned due to all fires", the request's burntArea
+        "burntArea": "burntareaTotal",
     }
 
     _FIELD_NAMES = {"nOrgSoil": "nSoil", "sftlf": "sftlf"}

@@ -93,3 +93,47 @@ def test_transpft_water_flux_comes_back_as_latent_heat(
     da = BiomeE().read(experiment, simulation, forcing, factorial, "transpft")
     assert float(da.isel(time=0, lat=0, lon=0, pft=0)) == pytest.approx(25.01, rel=1e-4)
     assert da.attrs["units"] == "W m-2"
+
+
+def _burnt_area_upload(tmp_path, monkeypatch, annual_fraction):
+    path = tmp_path / "burntArea.nc"
+    time = xr.DataArray(
+        np.arange(12) * 30.0 + 15.0,
+        dims="time",
+        attrs={"units": "days since 1850-01-01", "calendar": "noleap"},
+    )
+    xr.Dataset(
+        {
+            "burntArea": (
+                ("lon", "lat", "time"),
+                np.full((1, 1, 12), annual_fraction, dtype="float32"),
+                {"units": "fraction"},
+            )
+        },
+        coords={"time": time, "lat": [10.25], "lon": [20.25]},
+    ).to_netcdf(path)
+    monkeypatch.setattr(BiomeE, "path", lambda self, *args: str(path))
+
+
+def test_overshoot_burnt_area_spreads_the_year_over_its_months(tmp_path, monkeypatch):
+    _burnt_area_upload(tmp_path, monkeypatch, 0.6)
+    da = core.WIEFile(
+        "BiomeE", "overshoot", "hist", "ukesm", "burntArea", _adapter=BiomeE()
+    ).read()
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(5.0)
+    assert float(da.sum("time").isel(lat=0, lon=0)) == pytest.approx(60.0)
+    assert da.attrs["units"] == "%"
+
+
+def test_one_pct_burnt_area_is_not_spread(tmp_path, monkeypatch):
+    _burnt_area_upload(tmp_path, monkeypatch, 0.6)
+    da = core.WIEFile(
+        "BiomeE",
+        "1pctCO2",
+        "bgc",
+        "stable",
+        "burntArea",
+        _adapter=BiomeE(),
+        factorial="baseline",
+    ).read()
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(60.0)

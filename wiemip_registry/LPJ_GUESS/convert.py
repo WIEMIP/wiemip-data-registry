@@ -113,6 +113,7 @@ class LPJ_GUESS(core.WIEAdapter):
     model = MODEL
     LAT, LON = "lat", "lon"
     DECODE = False
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     # Only the bgc run uses the dir-style prefix, and only on these variables (the
     # last six arrived 2026-11-01); the ctrl equivalents are spelled like every other
