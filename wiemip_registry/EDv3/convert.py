@@ -21,6 +21,7 @@ class EDv3(core.WIEAdapter):
     FACTORIALS = {Factorial.baseline.name: "", Factorial.noFire.name: "_nofire"}
 
     PROVISIONAL_DATA = (("1pctCO2", "cVegpft"), ("overshoot", "cVegpft"))
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     wiemip_to_edv3_variable_mapping = {
         "tveg": "tran",

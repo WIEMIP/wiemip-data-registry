@@ -19,6 +19,9 @@ _HIST_YEAR_SHIFT = 2024 - 1850
 _LATENT_HEAT_VAPORIZATION = 2.501e6  # J kg-1
 _WATER_FLUX_AS_LATENT_HEAT = {"transpft"}
 
+# the year's burned fraction, written into each of its 12 months
+_ANNUAL_REPEATED_MONTHLY = {("overshoot", "burntArea")}
+
 
 class BiomeE(core.WIEAdapter):
     model = MODEL
@@ -30,6 +33,7 @@ class BiomeE(core.WIEAdapter):
         Factorial.noNitrogen.name: "noNitrogen",
     }
     ANNUAL = {"cOther", "fvegHeightpft"}
+    FRACTION_TO_PERCENT = {"burntArea"}
 
     PROVISIONAL_DATA = (("1pctCO2", "ch4"), ("overshoot", "ch4"))
 
@@ -80,6 +84,8 @@ class BiomeE(core.WIEAdapter):
             da = (da * _LATENT_HEAT_VAPORIZATION).assign_attrs(
                 {**da.attrs, "units": "W m-2"}
             )
+        if (experiment, variable) in _ANNUAL_REPEATED_MONTHLY:
+            da = (da / 12).assign_attrs(da.attrs)
         return core.standardize(
             da, self.LAT, self.LON, self._time(ds, experiment, simulation)
         )

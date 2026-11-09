@@ -77,6 +77,7 @@ class JULES(core.WIEAdapter):
         "nOrgSoilLayer",
         "nInorgSoilLayer",
     }
+    FRACTION_TO_PERCENT = {"burntArea", "burntareaPft"}
 
     ANNUAL = {"fFireCveg", "fFireCsoil", "fFirepft"}
     MONTHLY = {"wetfrac"}

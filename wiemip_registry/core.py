@@ -177,6 +177,9 @@ class WIEAdapter(ABC):
 
     LAYERED_VARIABLES: set[str] = set()
 
+    # uploaded as a 0-1 fraction where the request asks for %
+    FRACTION_TO_PERCENT: set[str] = set()
+
     def disk_simulation(self, simulation: str) -> str:
         """The simulation token this model's files were written under. The CTAP runs
         were uploaded as `_cf` counterfactuals before the 2026-10-15 rename, so every
@@ -679,6 +682,7 @@ class WIEFile:
         Provisional data raises `ProvisionalDataError` — the file is there, but
         the group has not QA'd it. A variable in the adapter's `LAYERED_VARIABLES`
         comes back with its level dim renamed to `soil` (layer-middle depths in m).
+        A variable in its `FRACTION_TO_PERCENT` comes back x100 in `%`.
         """
 
         self._check_provisional()
@@ -703,6 +707,8 @@ class WIEFile:
         )
         if self.variable in self._adapter.LAYERED_VARIABLES:
             da = self._standardize_layers(da)
+        if self.variable in self._adapter.FRACTION_TO_PERCENT:
+            da = (da * 100).assign_attrs({**da.attrs, "units": "%"})
         return da
 
     def _standardize_layers(self, da: xr.DataArray) -> xr.DataArray:
