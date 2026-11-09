@@ -68,6 +68,20 @@ class JULES(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
     OVERSHOOT_FACTORIALS = _OVERSHOOT_CONFIGS
+    PROVISIONAL_DATA = tuple(
+        ("1pctCO2", variable, factorial)
+        for variable, factorial in (
+            ("acetonepft", "Fire0005"),
+            ("acetonepft", "addPermafrostCNNinorg"),
+            ("methanol", "addPermafrostC"),
+            ("methanolpft", "Fire0304"),
+            ("methanolpft", "baseline"),
+            ("mrsoLayer", "baseline"),
+            ("soilT", "baseline"),
+            ("terp", "Fire0336"),
+            ("terppft", "baseline"),
+        )
+    )
     LAYERED_VARIABLES = {
         "soilT",
         "soilIce",
