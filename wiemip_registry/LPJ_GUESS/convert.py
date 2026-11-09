@@ -171,7 +171,7 @@ class LPJ_GUESS(core.WIEAdapter):
         ),
     }
 
-    _FIELD_NAMES = {"ch4": "mch4"}
+    _FIELD_NAMES = {"ch4": "mch4", "wetCH4": "mch4"}
 
     _PFT_STEMS = {
         "cVegpft": "cmass",
@@ -221,6 +221,10 @@ class LPJ_GUESS(core.WIEAdapter):
             )
             prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
         cadence = "yr" if core.is_annual(variable) else "mon"
+        if variable == "wetCH4":
+            variable = "ch4"
+        elif variable == "ch4":
+            raise FileNotFoundError("no ch4 file for 1pctCO2")
         name = self._FILENAME_OVERRIDES.get(
             (simulation, factorial, variable), f"{variable}_{cadence}_05deg"
         )
@@ -236,6 +240,10 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         run = f"{MODEL}_{gcm}_{run_token}"
         cadence = "yr" if core.is_annual(variable) else "mon"
+        if variable == "wetCH4":
+            variable = "ch4"
+        elif variable == "ch4":
+            raise FileNotFoundError("no ch4 file for overshoot")
         fname = _OVERSHOOT_FILENAME_OVERRIDES.get(
             (run, variable), f"{_DIR}_{gcm}_{file_token}_{variable}_{cadence}_05deg.nc"
         )
@@ -283,7 +291,7 @@ class LPJ_GUESS(core.WIEAdapter):
         )
         if variable in _SCALE and not uploaded_in_kg:
             da = da * _SCALE[variable]
-        if variable == "ch4":
+        if variable in ("ch4", "wetCH4"):
             da = da * _CH4_SCALE
         da.attrs["units"] = file_units
         return core.standardize(da, self.LAT, self.LON, self._time(ds))
