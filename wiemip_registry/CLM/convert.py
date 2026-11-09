@@ -45,8 +45,14 @@ _POOL_SPLITS = {
 # The noNitrogen set spells its run dir with a `noN` token AFTER the pattern
 # (`flat_ukesm_noN_bgc/`) and stamps a year span on every filename inside it
 # (`…_cVeg.1850-2000.nc`). 1pctCO2 only — the overshoot arm is `hh` throughout.
-_FACTORIAL_RUN_TOKENS = {Factorial.noNitrogen.name: "noN"}
-_FACTORIAL_YEAR_SPANS = {Factorial.noNitrogen.name: ".1850-2000"}
+_FACTORIAL_RUN_TOKENS = {
+    Factorial.noNitrogen.name: "noN",
+    Factorial.noFire.name: "noFire",
+}
+_FACTORIAL_YEAR_SPANS = {
+    Factorial.noNitrogen.name: ".1850-2000",
+    Factorial.noFire.name: ".1850-2000",
+}
 _NO_NITROGEN_FLUXES = {"fNdep", "fNup", "fNnitri", "fNloss", "fNleach", "nInorgSoil"}
 
 # WIEMIP's wetCH4 is the net emission from ALL wetlands and fch4soil is soil uptake
@@ -72,6 +78,7 @@ class CLM(core.WIEAdapter):
         Factorial.baseline.name: "hh",
         "flat": "flat",
         Factorial.noNitrogen.name: "flat",
+        Factorial.noFire.name: "flat",
     }
 
     LAYERED_VARIABLES = {
