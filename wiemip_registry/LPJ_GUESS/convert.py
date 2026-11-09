@@ -98,6 +98,8 @@ _FACTORIAL_UPLOADED_IN_KG = {("noNitrogen", "terp")}
 # (experiment, simulation, factorial, variable): the 2026-11-01 baseline bgc terp
 _RUN_UPLOADED_IN_KG = {("1pctCO2", "bgc", "baseline", "terp")}
 _CH4_SCALE = 1e-3
+# LPJ-GUESS writes CH4 as carbon, g CH4-C m-2 summed per month; x 16.04/12.01 is CH4 mass.
+_CH4_PER_CARBON = 16.04 / 12.01
 
 
 def _sim_tokens(simulation: str) -> tuple[str, str]:
@@ -171,7 +173,7 @@ class LPJ_GUESS(core.WIEAdapter):
         ),
     }
 
-    _FIELD_NAMES = {"ch4": "mch4", "wetCH4": "mch4"}
+    _FIELD_NAMES = {"ch4": "mch4"}
 
     _PFT_STEMS = {
         "cVegpft": "cmass",
