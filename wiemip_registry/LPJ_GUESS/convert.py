@@ -193,7 +193,7 @@ class LPJ_GUESS(core.WIEAdapter):
         if variable == "wetCH4":
             variable = "ch4"
         elif variable == "ch4":
-            raise FileNotFoundError("no ch4 file for 1pctCO2")
+            raise core.MissingVariableError("no ch4 file for 1pctCO2")
         base, _, ndep = simulation.partition("_")
         run_sim, file_sim = _sim_tokens(simulation)
         run_factorial, file_factorial = self.FACTORIALS[factorial]
@@ -245,7 +245,7 @@ class LPJ_GUESS(core.WIEAdapter):
         if variable == "wetCH4":
             variable = "ch4"
         elif variable == "ch4":
-            raise FileNotFoundError("no ch4 file for overshoot")
+            raise core.MissingVariableError("no ch4 file for overshoot")
         fname = _OVERSHOOT_FILENAME_OVERRIDES.get(
             (run, variable), f"{_DIR}_{gcm}_{file_token}_{variable}_{cadence}_05deg.nc"
         )

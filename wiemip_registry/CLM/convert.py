@@ -108,6 +108,19 @@ class CLM(core.WIEAdapter):
         # % of the vegetated area (FAREA_BURNED / (PCT_NATVEG + PCT_CROP)), not of the grid cell
         ("overshoot", "burntareaTotal"),
         ("1pctCO2", "burntareaTotal"),
+    ) + tuple(
+        ("1pctCO2", variable, Factorial.noNitrogen.name)
+        for variable in (
+            "fN2",
+            "fN2O",
+            "fN2Odenit",
+            "fN2Onit",
+            "fNLitterSoil",
+            "fNdenitri",
+            "fNnetmin",
+            "nOrgSoil",
+            "nVeg",
+        )
     )
 
     def land_carbon_variables(self) -> list[str]:
