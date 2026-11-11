@@ -64,6 +64,9 @@ _NO_NITROGEN_FLUXES = {"fNdep", "fNup", "fNnitri", "fNloss", "fNleach", "nInorgS
 # 2026-09-21.
 _CH4_SPLIT = ("wetCH4", "fch4soil")
 
+# uploaded as a negative depth [m]
+_NEGATED = {"fdepth"}
+
 # burntareaTotal was uploaded as FAREA_BURNED (per second) / (PCT_NATVEG + PCT_CROP),
 # per its CLM_orig_var_name attribute; read() returns % of the vegetated area burned
 # in the month.
@@ -278,7 +281,10 @@ class CLM(core.WIEAdapter):
                 .rename(variable)
                 .assign_attrs({**da.attrs, "units": "%"})
             )
-        return self._read_one(experiment, simulation, forcing, factorial, variable)
+        da = self._read_one(experiment, simulation, forcing, factorial, variable)
+        if variable in _NEGATED:
+            da = -da
+        return da
 
     @property
     def area_weight_path(self):
