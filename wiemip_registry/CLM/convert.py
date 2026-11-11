@@ -111,6 +111,9 @@ class CLM(core.WIEAdapter):
         # % of the vegetated area (FAREA_BURNED / (PCT_NATVEG + PCT_CROP)), not of the grid cell
         ("overshoot", "burntareaTotal"),
         ("1pctCO2", "burntareaTotal"),
+        # QDRAI sums to about -443,000 Pg yr-1 in the hh runs and +16,000 in the flat ones
+        ("overshoot", "qsb"),
+        ("1pctCO2", "qsb"),
     ) + tuple(
         ("1pctCO2", variable, Factorial.noNitrogen.name)
         for variable in (
