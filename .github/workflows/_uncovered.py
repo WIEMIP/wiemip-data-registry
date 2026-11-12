@@ -21,7 +21,7 @@ from pathlib import Path
 
 import wiemip_registry as wr
 import wiemip_registry.const as const
-from wiemip_registry.core import MissingFactorialError
+from wiemip_registry.core import MissingFactorialError, MissingVariableError
 
 warnings.simplefilter("ignore")  # JULES's Fire#### factorials warn on every request
 
@@ -58,8 +58,10 @@ if __name__ == "__main__":
         for f in legal_requests(model, adapter):
             try:
                 spelled.update(str(p) for p in f.paths)
-            except (MissingFactorialError, NotImplementedError):
-                continue  # factorial not declared for this arm, or overshoot not mapped
+            except (MissingFactorialError, MissingVariableError, NotImplementedError):
+                # factorial not declared for this arm, variable the adapter does not
+                # serve (LPJ-GUESS ch4), or overshoot not mapped
+                continue
 
     # `aws s3 ls --recursive` lines are `<date> <time> <size> <key>`
     on_bucket = set()
