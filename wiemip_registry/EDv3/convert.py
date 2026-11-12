@@ -12,6 +12,7 @@ _CRUJRA_FORCED_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")
 _CRUJRA_TOKEN = "crujra"
 
 _ONE_PCT_YEARS = slice("1850", "2000")
+_OVERSHOOT_YEARS = slice("1850", None)  # hist and ctrl are uploaded from 1830
 
 
 class EDv3(core.WIEAdapter):
@@ -76,6 +77,8 @@ class EDv3(core.WIEAdapter):
         da = core.standardize(da, self.LAT, self.LON, ds["time"].values)
         if experiment == ONE_PERCENT_CO2_KEY:
             da = da.sel(time=_ONE_PCT_YEARS)
+        else:
+            da = da.sel(time=_OVERSHOOT_YEARS)
         return da
 
     @property
