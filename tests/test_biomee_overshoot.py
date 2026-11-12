@@ -115,10 +115,21 @@ def _burnt_area_upload(tmp_path, monkeypatch, annual_fraction):
     monkeypatch.setattr(BiomeE, "path", lambda self, *args: str(path))
 
 
-def test_overshoot_burnt_area_spreads_the_year_over_its_months(tmp_path, monkeypatch):
+def test_hist_burnt_area_spreads_the_year_over_its_months(tmp_path, monkeypatch):
     _burnt_area_upload(tmp_path, monkeypatch, 0.6)
     da = core.WIEFile(
         "BiomeE", "overshoot", "hist", "ukesm", "burntArea", _adapter=BiomeE()
+    ).read()
+    assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(5.0)
+    assert float(da.sum("time").isel(lat=0, lon=0)) == pytest.approx(60.0)
+    assert da.attrs["units"] == "%"
+
+
+def test_scenario_burnt_area_is_already_spread(tmp_path, monkeypatch):
+    # the L upload holds a twelfth of the year's fraction in each month
+    _burnt_area_upload(tmp_path, monkeypatch, 0.05)
+    da = core.WIEFile(
+        "BiomeE", "overshoot", "l", "ukesm", "burntArea", _adapter=BiomeE()
     ).read()
     assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(5.0)
     assert float(da.sum("time").isel(lat=0, lon=0)) == pytest.approx(60.0)
@@ -137,3 +148,44 @@ def test_one_pct_burnt_area_is_not_spread(tmp_path, monkeypatch):
         factorial="baseline",
     ).read()
     assert float(da.isel(time=0, lat=0, lon=0)) == pytest.approx(60.0)
+
+
+def _vegetation_carbon_per_pft_upload(tmp_path, monkeypatch, carbon_per_pft):
+    path = tmp_path / "cVegpft.nc"
+    time = xr.DataArray(
+        [182.5],
+        dims="time",
+        attrs={"units": "days since 1850-01-01", "calendar": "noleap"},
+    )
+    xr.Dataset(
+        {
+            "cVegpft": (
+                ("lon", "lat", "pft", "time"),
+                np.full((1, 1, 2, 1), carbon_per_pft, dtype="float32"),
+                {"units": "kg C m-2"},
+            )
+        },
+        coords={"time": time, "lat": [10.25], "lon": [20.25]},
+    ).to_netcdf(path)
+    monkeypatch.setattr(BiomeE, "path", lambda self, *args: str(path))
+
+
+def test_hist_vegetation_carbon_per_pft_is_read_twelve_times_larger(
+    tmp_path, monkeypatch
+):
+    _vegetation_carbon_per_pft_upload(tmp_path, monkeypatch, 0.5)
+    da = BiomeE().read("overshoot", "hist", "ukesm", None, "cVegpft")
+    assert float(da.isel(time=0, lat=0, lon=0, pft=0)) == pytest.approx(6.0)
+    assert da.attrs["units"] == "kg C m-2"
+
+
+@pytest.mark.parametrize(
+    "experiment, simulation, forcing, factorial",
+    [("overshoot", "l", "ukesm", None), ("1pctCO2", "bgc", "stable", "baseline")],
+)
+def test_vegetation_carbon_per_pft_outside_hist_is_left_alone(
+    tmp_path, monkeypatch, experiment, simulation, forcing, factorial
+):
+    _vegetation_carbon_per_pft_upload(tmp_path, monkeypatch, 0.5)
+    da = BiomeE().read(experiment, simulation, forcing, factorial, "cVegpft")
+    assert float(da.isel(time=0, lat=0, lon=0, pft=0)) == pytest.approx(0.5)

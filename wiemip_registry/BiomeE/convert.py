@@ -19,8 +19,11 @@ _HIST_YEAR_SHIFT = 2024 - 1850
 _LATENT_HEAT_VAPORIZATION = 2.501e6  # J kg-1
 _WATER_FLUX_AS_LATENT_HEAT = {"transpft"}
 
-# the year's burned fraction, written into each of its 12 months
-_ANNUAL_REPEATED_MONTHLY = {("overshoot", "burntArea")}
+# overshoot hist only, the scenario runs hold both as requested (README notes 6 and 7):
+# burntArea has the year's burned fraction in each of its 12 months, not a twelfth of it,
+# and cVegpft is a twelfth of its value. Drop both when hist is re-uploaded without them.
+_HIST_TWELVE_TIMES_TOO_HIGH = {"burntArea"}
+_HIST_TWELVE_TIMES_TOO_LOW = {"cVegpft"}
 
 
 class BiomeE(core.WIEAdapter):
@@ -84,8 +87,11 @@ class BiomeE(core.WIEAdapter):
             da = (da * _LATENT_HEAT_VAPORIZATION).assign_attrs(
                 {**da.attrs, "units": "W m-2"}
             )
-        if (experiment, variable) in _ANNUAL_REPEATED_MONTHLY:
+        is_hist = (experiment, simulation) == ("overshoot", "hist")
+        if is_hist and variable in _HIST_TWELVE_TIMES_TOO_HIGH:
             da = (da / 12).assign_attrs(da.attrs)
+        if is_hist and variable in _HIST_TWELVE_TIMES_TOO_LOW:
+            da = (da * 12).assign_attrs(da.attrs)
         return core.standardize(
             da, self.LAT, self.LON, self._time(ds, experiment, simulation)
         )
