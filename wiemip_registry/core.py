@@ -12,6 +12,7 @@ aggregation), all seeded from the proven `extract.py`.
 from __future__ import annotations
 
 import abc
+import dataclasses
 import functools
 import os
 from abc import ABC
@@ -180,6 +181,10 @@ class WIEAdapter(ABC):
     # uploaded as a 0-1 fraction where the request asks for %
     FRACTION_TO_PERCENT: set[str] = set()
 
+    # per-PFT variables uploaded per m2 of the PFT's own area, not per m2 of land:
+    # they are weighted by this run's landCoverFrac before any sum or mean
+    PER_PFT_AREA: set[str] = set()
+
     def disk_simulation(self, simulation: str) -> str:
         """The simulation token this model's files were written under. The CTAP runs
         were uploaded as `_cf` counterfactuals before the 2026-10-15 rename, so every
@@ -307,6 +312,12 @@ class WIEAdapter(ABC):
         """Wrap `da` in this model's documented weights via xarray `.weighted()`,
         so `.sum()`/`.mean()` over (lat, lon) are one call."""
         return da.weighted(self.weights())
+
+    def pft_area(self, fraction: xr.DataArray) -> xr.DataArray:
+        """Area [m2] each PFT covers, from a run's landCoverFrac. The default takes
+        landCoverFrac as a fraction of the land in the cell. Override when a model
+        uploads it as a fraction of the whole grid cell."""
+        return fraction * self.weights()
 
     def to_pgc(self, total: xr.DataArray, variable: str) -> pd.Series:
         """Convert a per-timestep weighted (lat, lon) sum to a Pg series,
@@ -742,10 +753,52 @@ class WIEFile:
         self, da: xr.DataArray | None = None
     ) -> xr.core.weighted.DataArrayWeighted:
         """Wrap the data in this model's documented area weights, so a sum over
-        (lat, lon) integrates the per-m2 quantity. Delegated to the adapter."""
+        (lat, lon) integrates the per-m2 quantity. Delegated to the adapter.
+
+        A variable in the adapter's `PER_PFT_AREA` is weighted by the area of each
+        PFT instead (cell weights x this run's landCoverFrac): a sum gives each PFT's
+        contribution to the total, a mean is taken over the PFT's own area."""
         if da is None:
             da = self.read()
+        if self.variable in self._adapter.PER_PFT_AREA:
+            return da.weighted(self._pft_area_weights(da))
         return self._adapter.weight_dataarray(da)
+
+    def _pft_area_weights(self, da: xr.DataArray) -> xr.DataArray:
+        """Area [m2] of each PFT of `da` at each of its timesteps, from the same run's landCoverFrac."""
+        fraction = dataclasses.replace(self, variable="landCoverFrac").read()
+
+        # match the PFTs by their number: landCoverFrac can carry extra classes (bare ground, lake, ice)
+        data_levels = [d for d in da.dims if d not in ("time", "lat", "lon")]
+        fraction_levels = [d for d in fraction.dims if d not in ("time", "lat", "lon")]
+        if len(data_levels) != 1 or len(fraction_levels) != 1:
+            raise ValueError(
+                f"{self!r}: need one PFT dim on the variable and on landCoverFrac, "
+                f"found {data_levels} and {fraction_levels}"
+            )
+        pft_dim, fraction_dim = data_levels[0], fraction_levels[0]
+        fraction = fraction.sel({fraction_dim: da[pft_dim].values}).rename(
+            {fraction_dim: pft_dim}
+        )
+        fraction = fraction.sel(lat=da["lat"].values, lon=da["lon"].values)
+
+        # landCoverFrac is annual: every timestep takes the fractions of its own year
+        if "time" in fraction.dims:
+            fraction_years = pd.Index(fraction["time"].dt.year.values)
+            if not fraction_years.is_unique:
+                raise ValueError(
+                    f"{self!r}: landCoverFrac has more than one timestep per year"
+                )
+            data_years = da["time"].dt.year.values
+            positions = fraction_years.get_indexer(data_years)
+            if (positions < 0).any():
+                missing_years = sorted(set(data_years[positions < 0].tolist()))
+                raise ValueError(
+                    f"{self!r}: landCoverFrac has no fractions for {missing_years}"
+                )
+            fraction = fraction.isel(time=positions).assign_coords(time=da["time"])
+
+        return self._adapter.pft_area(fraction).fillna(0.0)
 
     def _check_provisional(self) -> None:
         """Raise if this model has flagged this variable as provisional.

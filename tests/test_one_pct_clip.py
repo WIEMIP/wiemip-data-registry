@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from wiemip_registry.CARDAMOM_JPL.convert import CARDAMOM_JPL
 from wiemip_registry.EDv3.convert import EDv3
 from wiemip_registry.LPJmL6.convert import LPJmL6
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
@@ -10,6 +11,16 @@ from wiemip_registry.VISIT_UT.convert import VISIT_UT
 YEARS = np.arange(1849, 2002)
 
 CASES = {
+    "CARDAMOM_JPL": (
+        CARDAMOM_JPL,
+        "latitude",
+        "longitude",
+        xr.DataArray(
+            365.0 * (YEARS - 1849) + 181,
+            dims="time",
+            attrs={"units": "days since 1849-01-01"},
+        ),
+    ),
     "EDv3": (
         EDv3,
         "latitude",
