@@ -101,6 +101,20 @@ class JSBACH(core.WIEAdapter):
     # wetfrac as monthly (permafrost/wetland pair only)
     MONTHLY = {"wetfrac"}
     FRACTION_TO_PERCENT = {"burntArea"}
+    # per m2 of PFT (README, "PFT flux vs. PFT stock"): multiply by landCoverFrac before
+    # summing. The per-PFT stocks (cVegpft, cSoilpft, cLitterpft, nVegpft, nLitterpft)
+    # are not listed: they are gridcell contributions already. The flux sums land ~4%
+    # under the gridcell totals because the files were regridded from T63 one by one.
+    PER_PFT_AREA = {
+        "albedopft",
+        "burntareaPft",
+        "fN2Opft",
+        "gpppft",
+        "laipft",
+        "nbppft",
+        "npppft",
+        "rhpft",
+    }
     # fixed fields: one raster at the 1pctCO2 dir top serves every run in both arms
     FIXED = {"sftlf"}
 

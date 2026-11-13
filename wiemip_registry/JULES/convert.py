@@ -92,6 +92,19 @@ class JULES(core.WIEAdapter):
         "nInorgSoilLayer",
     }
     FRACTION_TO_PERCENT = {"burntArea", "burntareaPft"}
+    # per m2 of PFT: the PFT sum matches the gridcell total only after x pftfrac
+    # (Thomas Gasser, 2026-11-13)
+    PER_PFT_AREA = {
+        "acetonepft",
+        "burntareaPft",
+        "cVegpft",
+        "fFirepft",
+        "gpppft",
+        "isoprpft",
+        "laipft",
+        "methanolpft",
+        "terppft",
+    }
 
     ANNUAL = {"fFireCveg", "fFireCsoil", "fFirepft"}
     MONTHLY = {"wetfrac"}

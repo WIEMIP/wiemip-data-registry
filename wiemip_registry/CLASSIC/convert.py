@@ -111,6 +111,25 @@ class CLASSIC(core.WIEAdapter):
     DECODE = True
     FACTORIALS = _FACTORIALS
     LAYERED_VARIABLES = {"soilT", "mrsoLayer"}
+    # per m2 of PFT: the PFT sum matches the gridcell total only after x landCoverFrac.
+    # fFireCOpft has no gridcell total to check against, listed with its fire siblings.
+    PER_PFT_AREA = {
+        "burntareaPft",
+        "cLitterpft",
+        "cSoilpft",
+        "cVegpft",
+        "fFireCH4pft",
+        "fFireCOpft",
+        "fFirepft",
+        "gpppft",
+        "laipft",
+        "nLitterpft",
+        "nOrgSoilpft",
+        "nVegpft",
+        "nbppft",
+        "npppft",
+        "rhpft",
+    }
 
     # Per-PFT carbon that CLASSIC writes monthly even though the bulk-grid pools
     # are annual (model-specific cadence override of const.ANNUAL).
@@ -215,21 +234,32 @@ class CLASSIC(core.WIEAdapter):
             / "CLASSIC_1pctCO2-BGC_land_fraction_ann_1deg.nc"
         )
 
+    _cell_area_cache: xr.DataArray | None = None
+
+    def _cell_area(self) -> xr.DataArray:
+        """Spherical cell area [m2] of every cell, land or not, on ('lat', 'lon')."""
+        if self._cell_area_cache is None:
+            ref = xr.open_dataset(
+                self.path(
+                    "1pctCO2",
+                    "bgc",
+                    "ukesm",
+                    "baseline",
+                    "cVeg",
+                ),
+                decode_times=self.DECODE,
+            )
+            cell = core.spherical_area(ref, self.LAT, self.LON)
+            ref.close()
+            self._cell_area_cache = core.rename_latlon(cell, self.LAT, self.LON)
+        return self._cell_area_cache
+
     def _compute_weights(self) -> xr.DataArray:
         """Spherical cell area × static land fraction (sftlf)."""
-        ref = xr.open_dataset(
-            self.path(
-                "1pctCO2",
-                "bgc",
-                "ukesm",
-                "baseline",
-                "cVeg",
-            ),
-            decode_times=self.DECODE,
-        )
-        cell = core.spherical_area(ref, self.LAT, self.LON)
-        ref.close()
         sftlf = xr.open_dataset(self.area_weight_path)["sftlf"]
-        return core.rename_latlon(
-            (cell * sftlf.values).astype("float32"), self.LAT, self.LON
-        )
+        return (self._cell_area() * sftlf.values).astype("float32")
+
+    def pft_area(self, fraction: xr.DataArray) -> xr.DataArray:
+        """CLASSIC's landCoverFrac is a fraction of the whole grid cell (its classes
+        sum to the land fraction), so the land fraction is not applied a second time."""
+        return fraction * self._cell_area()

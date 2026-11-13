@@ -20,11 +20,21 @@ def test_hist_monthly_cadence():
     assert f.path.endswith(ROOT + "BiomeE_ukesm_hist_gpp_mon_05_noCH4.nc")
 
 
-def test_overshoot_ch4_is_provisional():
-    f = wr.retrieve_overshoot_variable("BiomeE", "ukesm", "hist", "ch4")
+@pytest.mark.parametrize(
+    "variable", ["ch4", "fWoodLitter", "fRootLitter", "fVegLitter", "fLeafLitter"]
+)
+def test_overshoot_provisional_variables(variable):
+    f = wr.retrieve_overshoot_variable("BiomeE", "ukesm", "hist", variable)
     assert not f.exists()
     with pytest.raises(core.ProvisionalDataError):
         f.read()
+
+
+@pytest.mark.parametrize(
+    "variable", ["ch4", "fWoodLitter", "fRootLitter", "fVegLitter", "fLeafLitter"]
+)
+def test_one_pct_provisional_variables(variable):
+    assert BiomeE().is_provisional("1pctCO2", variable)
 
 
 def _gpp_upload(tmp_path, monkeypatch, time_units):
