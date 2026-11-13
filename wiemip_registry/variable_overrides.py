@@ -8,4 +8,5 @@ extra_variables = [
     "cRootpft",
     "cWoodpft",
     "fvegHeightpft",  # per-PFT canopy height (BiomeE)
+    "cSoilFrozen",  # frozen soil C, kept out of cSoil (JSBACH permafrost run)
 ]

@@ -133,6 +133,10 @@ class JSBACH(core.WIEAdapter):
         """
         return ["cLitter", "cVeg", "cSoil"]
 
+    # the permafrost run's cSoil leaves out frozen soil C (QA 2026-11-02), and only that
+    # run uploaded cSoilFrozen, so it joins the land carbon stock there alone
+    FACTORIAL_LAND_CARBON = {"dynVeg_Wetlands_Permafrost": ["cSoilFrozen"]}
+
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
             return str(self.area_weight_path)

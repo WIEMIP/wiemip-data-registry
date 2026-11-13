@@ -170,20 +170,24 @@ def _land_carbon_one_pct(
     return _land_stock
 
 
-def _check_land_carbon_variables(model: str) -> list:
+def _check_land_carbon_variables(
+    model: str, factorial: str | None = "baseline"
+) -> list:
 
     try:
-        _land_carbon_variables = wiemip_registry.adapters[model].land_carbon_variables()
+        adapter = wiemip_registry.adapters[model]
     except KeyError:
         raise core.MissingModelError(
             f"Model {model} is not in the list of registered models. "
             f"Supported models: {'|'.join(models)}"
         )
-    return _land_carbon_variables
+    return adapter.land_carbon_variables() + adapter.FACTORIAL_LAND_CARBON.get(
+        factorial, []
+    )
 
 
-def land_carbon_variables(model: str) -> list[str]:
-    return _check_land_carbon_variables(model)
+def land_carbon_variables(model: str, factorial: str | None = "baseline") -> list[str]:
+    return _check_land_carbon_variables(model, factorial)
 
 
 def land_carbon_stock(
@@ -199,7 +203,7 @@ def land_carbon_stock(
     the model (CLM, etc), the forcing (ukesm, stable, etc), the simulation (cou, bgc, ctrl),
     and finally the optional factorial argument, which is typically only used for 1pctCO2 simulations.
     """
-    _land_carbon_variables = _check_land_carbon_variables(model)
+    _land_carbon_variables = _check_land_carbon_variables(model, factorial)
 
     if experiment == "1pctCO2":
         land_carbon = _land_carbon_one_pct(

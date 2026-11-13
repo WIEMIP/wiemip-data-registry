@@ -35,6 +35,7 @@ STOCKS = {
     "cSoilPools",
     "cSoilLayers",
     "cSoilAbove1m",
+    "cSoilFrozen",
     "cSoilBelow1m",
     "cfuelTotal",
     # nitrogen pools [kg N m-2]
@@ -80,6 +81,7 @@ ANNUAL = {
     "cSoilPools",
     "cSoilLayers",
     "cSoilAbove1m",
+    "cSoilFrozen",
     "cSoilBelow1m",
     "nVeg",
     "nSoil",
