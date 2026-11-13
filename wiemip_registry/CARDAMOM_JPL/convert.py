@@ -50,6 +50,8 @@ class CARDAMOM_JPL(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if "Unit" in da.attrs:
+            da = da.assign_attrs(units=da.attrs["Unit"])
         da = core.standardize(da, self.LAT, self.LON, ds["time"].values)
         if experiment == ONE_PERCENT_CO2_KEY:
             da = da.sel(time=_ONE_PCT_YEARS)

@@ -38,7 +38,17 @@ class BiomeE(core.WIEAdapter):
     ANNUAL = {"cOther", "fvegHeightpft"}
     FRACTION_TO_PERCENT = {"burntArea"}
 
-    PROVISIONAL_DATA = (("1pctCO2", "ch4"), ("overshoot", "ch4"))
+    PROVISIONAL_DATA = tuple(
+        (experiment, variable)
+        for experiment in ("1pctCO2", "overshoot")
+        for variable in (
+            "ch4",
+            "fWoodLitter",
+            "fRootLitter",
+            "fVegLitter",
+            "fLeafLitter",
+        )
+    )
 
     def land_carbon_variables(self) -> list[str]:
         """
