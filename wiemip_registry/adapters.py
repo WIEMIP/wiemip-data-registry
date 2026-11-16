@@ -9,6 +9,7 @@ from wiemip_registry.DLEM.convert import DLEM
 from wiemip_registry.EDv3.convert import EDv3
 from wiemip_registry.ELM.convert import ELM
 from wiemip_registry.JSBACH.convert import JSBACH
+from wiemip_registry.JULES.convert import JULES
 from wiemip_registry.LPJ_EOSIM.convert import LPJ_EOSIM
 from wiemip_registry.LPJ_GUESS.convert import LPJ_GUESS
 from wiemip_registry.LPJmL6.convert import LPJmL6
@@ -28,7 +29,7 @@ adapters = {
     "EDv3": EDv3(),
     "ELM": ELM(),
     "JSBACH": JSBACH(),
-    # "JULES": JULES(),
+    "JULES": JULES(),
     "LPJ_EOSIM": LPJ_EOSIM(),
     "LPJ_GUESS": LPJ_GUESS(),
     "LPJmL6": LPJmL6(),
