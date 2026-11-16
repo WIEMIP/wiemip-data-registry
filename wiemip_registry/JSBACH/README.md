@@ -1,4 +1,9 @@
+# JSBACH land carbon
+The permafrost runs include a cSoilFrozen variable that must be used when computing the land carbon stock!
+
+
 # JSBACH soil layer depths
+
 
 `read()` returns `soilT` and `mrsoLayer` on a `soil` axis of layer-middle depths in m.
 
