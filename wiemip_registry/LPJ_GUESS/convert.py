@@ -118,8 +118,8 @@ class LPJ_GUESS(core.WIEAdapter):
     FRACTION_TO_PERCENT = {"burntArea"}
 
     # Only the bgc run uses the dir-style prefix, and only on these variables (the
-    # last six arrived 2026-11-01); the ctrl equivalents are spelled like every other
-    # file in their run.
+    # last six arrived 2026-11-01, the block after them 2026-11-16); the ctrl
+    # equivalents are spelled like every other file in their run.
     _DIR_STYLE_PREFIX = {
         "cLitterpft",
         "landCoverFrac",
@@ -129,8 +129,40 @@ class LPJ_GUESS(core.WIEAdapter):
         "laipft",
         "nLitter",
         "terp",
+        "evapo",
+        "fBNF",
+        "fFire",
+        "fN2",
+        "fN2O",
+        "fNleach",
+        "fNloss",
+        "fNnetmin",
+        "fNup",
+        "isoprpft",
+        "mrso",
+        "nbp",
+        "nInorgSoil",
+        "rhpft",
+        "soilT",
+        "terppft",
     }
     _DIR_STYLE_SIMULATIONS = {"bgc"}
+
+    # Uploaded yearly, though the data request has them monthly.
+    _ANNUAL = {
+        "fBNF",
+        "fFire",
+        "fN2",
+        "fN2O",
+        "fN2OFire",
+        "fNleach",
+        "fNloss",
+        "fNnetmin",
+        "fNup",
+        "isoprpft",
+        "nbp",
+        "terppft",
+    }
 
     FACTORIALS = {
         Factorial.baseline.name: ("", ""),
@@ -160,6 +192,13 @@ class LPJ_GUESS(core.WIEAdapter):
         ("bgc", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
         ("cou", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
         ("ctrl", "noDynVeg", "landCoverFrac"): "landCOverFrac_yr_05deg",
+        ("bgc", "baseline", "fN2O"): "fN20_yr_05deg",
+        ("cou", "baseline", "fN2O"): "fN20_yr_05deg",
+        ("cou", "baseline", "fN2OFire"): "fN20Fire_yr_05deg",
+        ("bgc", "baseline", "fNnetmin"): "fNetmin_yr_05deg",
+        ("cou", "baseline", "fNnetmin"): "fNetmin_yr_05deg",
+        ("bgc", "baseline", "soilT"): "SoilT_mon_05deg",
+        ("cou", "baseline", "soilT"): "SoilT_mon_05deg",
     }
 
     _RUN_OVERRIDES = {
@@ -173,7 +212,14 @@ class LPJ_GUESS(core.WIEAdapter):
         ),
     }
 
-    _FIELD_NAMES = {"ch4": "mch4", "wetCH4": "mch4"}
+    _FIELD_NAMES = {
+        "ch4": "mch4",
+        "wetCH4": "mch4",
+        "nInorgSoil": "nInorganicSoil",
+        "fNleach": "fNloss",
+        "fNup": "nuptake",
+        "soilT": "SoilT",
+    }
 
     _PFT_STEMS = {
         "cVegpft": "cmass",
@@ -184,6 +230,9 @@ class LPJ_GUESS(core.WIEAdapter):
         "gpppft": "mgpp",
         "laipft": "mlai",
         "evapotranspft": "maet",
+        "rhpft": "mrh",
+        "isoprpft": "isopr",
+        "terppft": "terp",
     }
 
     def land_carbon_variables(self) -> list[str]:
@@ -226,7 +275,8 @@ class LPJ_GUESS(core.WIEAdapter):
                 and variable in self._DIR_STYLE_PREFIX
             )
             prefix = run if dir_style else f"{_DIR}_{forcing}_1pctco2_{file_sim}"
-        cadence = "yr" if core.is_annual(variable) else "mon"
+        annual = core.is_annual(variable) or variable in self._ANNUAL
+        cadence = "yr" if annual else "mon"
         name = self._FILENAME_OVERRIDES.get(
             (simulation, factorial, variable), f"{variable}_{cadence}_05deg"
         )
