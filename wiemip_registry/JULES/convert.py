@@ -16,8 +16,9 @@ _SOIL_LAYER_DEPTHS = (0.05, 0.175, 0.36, 0.635, 1.05, 1.67, 2.59, 3.96, 6.005, 9
 
 # Factorial name -> the JULES config string baked into the run dir AND filename.
 _FACTORIALS = {
-    Factorial.baseline.name: "Nitrogen_DynVeg_Permafrost_noFire",
+    Factorial.baseline.name: "Nitrogen_DynVeg_Permafrost_Fire0304",
     Factorial.noFire_noNitrogen.name: "noNitrogen_DynVeg_Permafrost_noFire",
+    "DynVeg": "Nitrogen_DynVeg_Permafrost_noFire",
     "noDynVeg": "Nitrogen_noDynVeg_Permafrost_noFire",
     "noPermafrostC": "Nitrogen_DynVeg_noPermafrostC_noFire",
     "noPermafrostCN": "Nitrogen_DynVeg_noPermafrostCN_noFire",
