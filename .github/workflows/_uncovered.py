@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import sys
 import warnings
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import wiemip_registry as wr
@@ -30,6 +30,11 @@ OUTPUT_KEY = re.compile(
 )
 CONSTANT_CLIMATE = ("bgc", "bgc_ndep", "ctrl")  # core.ensure_valid allows only `stable`
 MAX_LINES_PER_DIR = 50  # keeps the issue body under GitHub's 65k-character limit
+
+
+def model_dir(path):
+    experiment, _, model, _ = path[len(f"{const.DATA_ROOT}/") :].split("/", 3)
+    return f"{experiment}/output/{model}"
 
 
 def legal_requests(model, adapter):
@@ -81,27 +86,74 @@ if __name__ == "__main__":
         sys.exit(0)
     previous = set(previous_path.read_text().split())
     new, resolved = uncovered - previous, previous - uncovered
-    print(f"{len(new)} new, {len(resolved)} resolved since the last run")
-    if not new:
+    unreached_by_model = Counter(model_dir(p) for p in uncovered)
+    new_by_model = Counter(model_dir(p) for p in new)
+    resolved_by_model = Counter(model_dir(p) for p in resolved)
+    partly_resolved = sorted(m for m in resolved_by_model if unreached_by_model[m])
+    print(
+        f"{len(new)} new, {len(resolved)} resolved since the last run; "
+        f"{len(partly_resolved)} models partly resolved"
+    )
+    if not new and not partly_resolved:
         sys.exit(0)
-
-    by_dir = defaultdict(list)
-    for p in sorted(new):
-        experiment, _, model_dir, rest = p[len(f"{const.DATA_ROOT}/") :].split("/", 3)
-        by_dir[f"{experiment}/output/{model_dir}"].append(rest)
 
     lines = [
         f"**{len(new)} new** unreached files, **{len(resolved)} resolved** since the last run, "
         f"**{len(uncovered)} unreached** in total ({len(on_bucket)} model-output files on the bucket).",
         "",
     ]
+    if partly_resolved:
+        lines += [
+            "### Partly resolved: files reached this run, but some still unreached",
+            "",
+            "| model dir | resolved | still unreached |",
+            "|---|---:|---:|",
+        ]
+        lines += [
+            f"| `{m}` | {resolved_by_model[m]} | {unreached_by_model[m]} |"
+            for m in partly_resolved
+        ]
+        lines += [""]
+        for m in partly_resolved:
+            still = sorted(
+                p.split(f"/{m}/", 1)[1] for p in uncovered if model_dir(p) == m
+            )
+            lines += [f"#### `{m}/` still unreached ({len(still)})", "```"]
+            lines += still[:MAX_LINES_PER_DIR]
+            if len(still) > MAX_LINES_PER_DIR:
+                lines.append(
+                    f"... and {len(still) - MAX_LINES_PER_DIR} more (see uncovered.txt in the run artifact)"
+                )
+            lines += ["```", ""]
+
+    by_dir = defaultdict(list)
+    for p in sorted(new):
+        by_dir[model_dir(p)].append(p.split(f"/{model_dir(p)}/", 1)[1])
+    if by_dir:
+        lines += ["### New unreached files", ""]
     for directory, files in by_dir.items():
-        lines += [f"### `{directory}/` ({len(files)})", "```"]
+        lines += [f"#### `{directory}/` ({len(files)})", "```"]
         lines += files[:MAX_LINES_PER_DIR]
         if len(files) > MAX_LINES_PER_DIR:
             lines.append(
                 f"... and {len(files) - MAX_LINES_PER_DIR} more (see uncovered.txt in the run artifact)"
             )
         lines += ["```", ""]
+
+    lines += [
+        "<details><summary>Unreached per model dir</summary>",
+        "",
+        "| model dir | unreached | new | resolved |",
+        "|---|---:|---:|---:|",
+    ]
+    for m in sorted(unreached_by_model.keys() | resolved_by_model.keys()):
+        lines.append(
+            f"| `{m}` | {unreached_by_model[m]} | {new_by_model[m]} | {resolved_by_model[m]} |"
+        )
+    lines += ["", "</details>", ""]
     Path("issue.md").write_text("\n".join(lines))
-    Path("issue_title.txt").write_text(f"{len(new)} new unreached files")
+
+    title = f"{len(new)} new unreached files"
+    if partly_resolved:
+        title += f", {len(partly_resolved)} models partly resolved"
+    Path("issue_title.txt").write_text(title)

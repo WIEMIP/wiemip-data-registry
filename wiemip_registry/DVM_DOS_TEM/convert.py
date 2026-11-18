@@ -22,7 +22,8 @@ _FORCING_TOKENS = {"ipsl": "ipst"}
 _NO_NITROGEN = "noNItrogen"
 _NO_NITROGEN_CTRL = "noNitrogen"
 
-_CRUJRA_FORCED_SIMULATIONS = ("hist", "hist_ctrl", "ctrl")  # no forcing token
+_OVERSHOOT_RUN_TOKENS = {"hist": "historic", "hist_ctrl": "ctrl", "ctrl": "ctrl"}
+_OVERSHOOT_FORCING = "ukesm"
 
 _ONE_PCT_SPAN = (1850, 150)  # 1850-1999
 
@@ -84,10 +85,9 @@ class DVM_DOS_TEM(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        """`DVM-DOS-TEM_[<forcing>_]<sim>` (2026-10-15 re-upload) — names the run dir
-        AND prefixes every file inside it; the CRUJRA-forced runs carry no forcing
-        token."""
-        if simulation in _CRUJRA_FORCED_SIMULATIONS:
+        if simulation in _OVERSHOOT_RUN_TOKENS:
+            run = f"{MODEL}_{_OVERSHOOT_RUN_TOKENS[simulation]}"
+        elif forcing.lower() == _OVERSHOOT_FORCING:
             run = f"{MODEL}_{simulation}"
         else:
             run = f"{MODEL}_{forcing.lower()}_{simulation}"
