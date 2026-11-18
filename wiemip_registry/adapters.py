@@ -16,6 +16,7 @@ from wiemip_registry.LPJ_GUESS.convert import LPJ_GUESS
 from wiemip_registry.LPJmL6.convert import LPJmL6
 from wiemip_registry.LPX_Bern.convert import LPX_Bern
 from wiemip_registry.TEM.convert import TEM
+from wiemip_registry.VISIT_UT.convert import VISIT_UT
 
 adapters = {
     # "BEPS": BEPS() -> still re-running,
@@ -36,7 +37,7 @@ adapters = {
     "LPJmL6": LPJmL6(),
     "LPX_Bern": LPX_Bern(),
     # "ORCHIDEE_MICT_CALIPSO": ORCHIDEE_MICT_CALIPSO() -> removed 2026-11-04
-    # "VISIT_UT": VISIT_UT(),
+    "VISIT_UT": VISIT_UT(),
     "TEM": TEM(),
 }
 
