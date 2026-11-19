@@ -172,8 +172,9 @@ class WIEAdapter(ABC):
 
     OVERSHOOT_FACTORIALS: dict[str, str] = {}
 
-    # data this group still needs to QA or debug: (experiment, variable), or
-    # (experiment, variable, factorial) to flag one factorial only
+    # data this group still needs to QA or debug: (experiment, variable),
+    # (experiment, variable, factorial) to flag one factorial only, or
+    # (experiment, variable, factorial, simulation, forcing) to flag one run only
     PROVISIONAL_DATA: tuple[tuple[str, ...], ...] = ()
 
     LAYERED_VARIABLES: set[str] = set()
@@ -210,13 +211,19 @@ class WIEAdapter(ABC):
         return tuple(self.PROVISIONAL_DATA)
 
     def is_provisional(
-        self, experiment: str, variable: str, factorial: str | None = None
+        self,
+        experiment: str,
+        variable: str,
+        factorial: str | None = None,
+        simulation: str | None = None,
+        forcing: str | None = None,
     ) -> bool:
-        return (experiment, variable) in self.provisional_data or (
-            experiment,
-            variable,
-            factorial,
-        ) in self.provisional_data
+        flagged = self.provisional_data
+        return (
+            (experiment, variable) in flagged
+            or (experiment, variable, factorial) in flagged
+            or (experiment, variable, factorial, simulation, forcing) in flagged
+        )
 
     @abc.abstractmethod
     def one_pct_path(
@@ -806,9 +813,16 @@ class WIEFile:
         """Raise if this model has flagged this variable as provisional.
 
         The flag is per (experiment, variable) on the adapter's `PROVISIONAL_DATA`,
-        or per (experiment, variable, factorial), and applies to every
-        simulation/forcing it covers without touching the adapter's own code."""
-        if self._adapter.is_provisional(self.experiment, self.variable, self.factorial):
+        per (experiment, variable, factorial), or per run with simulation and forcing
+        added, and applies to every request it covers without touching the adapter's
+        own code."""
+        if self._adapter.is_provisional(
+            self.experiment,
+            self.variable,
+            self.factorial,
+            self.simulation,
+            self.forcing,
+        ):
             raise ProvisionalDataError(
                 f"{self.model} {self.variable} ({self.experiment}, "
                 f"{self.factorial or 'baseline'}) is PROVISIONAL: "
@@ -821,7 +835,13 @@ class WIEFile:
         """Does the file exist? Also returns false if a model hasn't been implemented
         yet in the registry, or if the variable is flagged provisional — unQA'd data
         counts as absent, and exists() stays the non-raising probe."""
-        if self._adapter.is_provisional(self.experiment, self.variable, self.factorial):
+        if self._adapter.is_provisional(
+            self.experiment,
+            self.variable,
+            self.factorial,
+            self.simulation,
+            self.forcing,
+        ):
             return False
         try:
             pths = self.paths

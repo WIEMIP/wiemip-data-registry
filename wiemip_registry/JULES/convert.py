@@ -82,6 +82,19 @@ class JULES(core.WIEAdapter):
             ("terp", "Fire0336"),
             ("terppft", "baseline"),
         )
+    ) + tuple(
+        ("overshoot", variable, "noFire", "vl", "gfdl")
+        for variable in (
+            "acetonepft",
+            "burntareaPft",
+            "cVegpft",
+            "fFirepft",
+            "gpppft",
+            "isoprpft",
+            "laipft",
+            "methanolpft",
+            "terppft",
+        )
     )
     LAYERED_VARIABLES = {
         "soilT",
