@@ -185,8 +185,6 @@ class WIEAdapter(ABC):
     # they are weighted by this run's landCoverFrac before any sum or mean
     PER_PFT_AREA: set[str] = set()
 
-    # factorial -> extra pools added to land_carbon_variables() for that run only, for
-    # pools a single factorial uploaded (JSBACH's permafrost run splits out cSoilFrozen)
     FACTORIAL_LAND_CARBON: dict[str, list[str]] = {}
 
     def disk_simulation(self, simulation: str) -> str:

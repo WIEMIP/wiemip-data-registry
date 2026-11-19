@@ -171,7 +171,9 @@ def _land_carbon_one_pct(
 
 
 def _check_land_carbon_variables(
-    model: str, factorial: str | None = "baseline"
+    model: str,
+    factorial: str | None = "baseline",
+    experiment: str = const.ONE_PERCENT_CO2_KEY,
 ) -> list:
 
     try:
@@ -181,13 +183,19 @@ def _check_land_carbon_variables(
             f"Model {model} is not in the list of registered models. "
             f"Supported models: {'|'.join(models)}"
         )
+    if experiment != const.ONE_PERCENT_CO2_KEY:
+        return adapter.land_carbon_variables()
     return adapter.land_carbon_variables() + adapter.FACTORIAL_LAND_CARBON.get(
         factorial, []
     )
 
 
-def land_carbon_variables(model: str, factorial: str | None = "baseline") -> list[str]:
-    return _check_land_carbon_variables(model, factorial)
+def land_carbon_variables(
+    model: str,
+    factorial: str | None = "baseline",
+    experiment: str = const.ONE_PERCENT_CO2_KEY,
+) -> list[str]:
+    return _check_land_carbon_variables(model, factorial, experiment)
 
 
 def land_carbon_stock(
@@ -203,7 +211,7 @@ def land_carbon_stock(
     the model (CLM, etc), the forcing (ukesm, stable, etc), the simulation (cou, bgc, ctrl),
     and finally the optional factorial argument, which is typically only used for 1pctCO2 simulations.
     """
-    _land_carbon_variables = _check_land_carbon_variables(model, factorial)
+    _land_carbon_variables = _check_land_carbon_variables(model, factorial, experiment)
 
     if experiment == "1pctCO2":
         land_carbon = _land_carbon_one_pct(

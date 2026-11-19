@@ -1,11 +1,6 @@
 """JSBACH adapter.
 
-Naming (verified on the bucket): nested run dirs holding same-named files.
-bgc/ctrl carry a `stable_` tag (`JSBACH_stable_<sim>`), cou carries the GCM
-(`JSBACH_<forcing>_cou`); the factorial is a trailing suffix, except the dynamic
-vegetation runs (2026-09-23), which put a `dynveg` token before the sim in the
-filename and a suffix on the dir only. path() is a pure transform — what exists is
-decided by read() opening the file.
+See README for details.
 """
 
 from __future__ import annotations
@@ -14,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import DATA_ROOT, ONE_PERCENT_CO2_KEY, Factorial
 
 MODEL = "JSBACH"
 _OUTPUT = DATA_ROOT
@@ -23,7 +18,6 @@ _OUTPUT = DATA_ROOT
 _CRUJRA_FORCED_SIMULATIONS = ("hist", "ctrl")
 _CRUJRA_TOKEN = "crujra3"
 
-_OVERSHOOT_RUN_TOKENS = {"baseline": "", "dynVeg": "dynveg"}
 
 _DYNVEG_FILE_FORCING = "ukesm"
 
@@ -35,8 +29,21 @@ _RUN_DIR_OVERRIDES = {
 
 # The permafrost/wetland pair (uploaded 2026-11-02): factorial -> run dir token under pmf/
 _PERMAFROST_RUN_TOKENS = {
+    Factorial.baseline.name: "pmf",
     "dynVeg_Wetlands_Permafrost": "pmf",
     "dynVeg_noWetlands_noPermafrost": "nowet",
+}
+
+_PERMAFROST_FILE_SUFFIX = "_DynVeg_Nitrogen_Fire_Wetlands_Permafrost"
+
+# The 1pctCO2 baseline until 2026-11-19: fixed vegetation, no wetlands, no permafrost
+_FIXED_VEGETATION = "noDynVeg_noWetlands_noPermafrost"
+
+# Overshoot factorial -> run token; `dynVeg` is the same run as baseline
+_OVERSHOOT_RUN_TOKENS = {
+    Factorial.baseline.name: "dynveg",
+    "dynVeg": "dynveg",
+    _FIXED_VEGETATION: "",
 }
 
 # N pools and fluxes not spun up in the permafrost/wetland pair (QA 2026-11-03)
@@ -80,16 +87,14 @@ class JSBACH(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = True
     FACTORIALS = {
-        Factorial.baseline.name: ("", "", ""),
+        Factorial.baseline.name: ("", "", _PERMAFROST_FILE_SUFFIX),
+        _FIXED_VEGETATION: ("", "", ""),
         Factorial.noNitrogen.name: ("_noNitrogen", "", "_noNitrogen"),
         Factorial.noFire.name: ("_noFire", "", "_noFire"),
         "dynVeg_noNitrogen": ("_dynveg_noNitrogen", "dynveg_", ""),
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
-        "dynVeg_Wetlands_Permafrost": (
-            "",
-            "",
-            "_DynVeg_Nitrogen_Fire_Wetlands_Permafrost",
-        ),
+        # same run as baseline
+        "dynVeg_Wetlands_Permafrost": ("", "", _PERMAFROST_FILE_SUFFIX),
         "dynVeg_noWetlands_noPermafrost": (
             "",
             "",
@@ -135,7 +140,10 @@ class JSBACH(core.WIEAdapter):
 
     # the permafrost run's cSoil leaves out frozen soil C (QA 2026-11-02), and only that
     # run uploaded cSoilFrozen, so it joins the land carbon stock there alone
-    FACTORIAL_LAND_CARBON = {"dynVeg_Wetlands_Permafrost": ["cSoilFrozen"]}
+    FACTORIAL_LAND_CARBON = {
+        Factorial.baseline.name: ["cSoilFrozen"],
+        "dynVeg_Wetlands_Permafrost": ["cSoilFrozen"],
+    }
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
@@ -163,7 +171,8 @@ class JSBACH(core.WIEAdapter):
         )
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        # Run dir is the bare simulation token, `_dynveg`-suffixed for that factorial.
+        # Run dir is the bare simulation token, `_dynveg`-suffixed for the dynamic
+        # vegetation run.
         run_token = self.OVERSHOOT_FACTORIALS.get(factorial or Factorial.baseline.name)
         if run_token is None:
             raise core.MissingFactorialError(
@@ -199,14 +208,15 @@ class JSBACH(core.WIEAdapter):
         )
         da = core.mask_fill(ds[variable])
         if (
-            factorial in _PERMAFROST_RUN_TOKENS
+            experiment == ONE_PERCENT_CO2_KEY
+            and factorial in _PERMAFROST_RUN_TOKENS
             and variable in _PERMAFROST_NEGATED_METHANE
         ):
             da = -da
         if variable in self.FIXED:
             # the raster spells latitude/longitude, unlike JSBACH's output
             with xr.open_dataset(
-                self.path("1pctCO2", "bgc", "ukesm", "baseline", "cVeg"),
+                self.path("1pctCO2", "bgc", "ukesm", _FIXED_VEGETATION, "cVeg"),
                 decode_times=self.DECODE,
             ) as ref:
                 grid = {"lat": ref[self.LAT].values, "lon": ref[self.LON].values}
@@ -230,7 +240,7 @@ class JSBACH(core.WIEAdapter):
                 "1pctCO2",
                 "bgc",
                 "ukesm",
-                "baseline",
+                _FIXED_VEGETATION,
                 "cVeg",
             ),
             decode_times=self.DECODE,

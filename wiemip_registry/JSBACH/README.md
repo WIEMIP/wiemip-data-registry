@@ -1,5 +1,22 @@
 # JSBACH land carbon
-The permafrost runs include a cSoilFrozen variable that must be used when computing the land carbon stock!
+
+The 1pctCO2 `baseline` is the permafrost run (`dynVeg_Wetlands_Permafrost`). Its
+land carbon stock is cLitter + cVeg + cSoil + cSoilFrozen. 
+
+The overshoot `baseline` is the dynamic vegetation run (`dynVeg` is the same
+run). The fixed-vegetation run is `noDynVeg_noWetlands_noPermafrost` there too.
+
+# JSBACH 1pctCO2 factorial pairs
+
+`baseline` has every process on (nitrogen, dynamic vegetation, wetlands, permafrost, fire). No single run
+switches one process off against it, so each process has its own pair:
+
+| Process | With | Without |
+| --- | --- | --- |
+| Wetlands + permafrost | `baseline` | `dynVeg_noWetlands_noPermafrost` |
+| Nitrogen | `noDynVeg_noWetlands_noPermafrost` | `noNitrogen` |
+| Fire | `noDynVeg_noWetlands_noPermafrost` | `noFire` |
+| Dynamic vegetation | `dynVeg_noNitrogen` | `noNitrogen` |
 
 
 # JSBACH soil layer depths
