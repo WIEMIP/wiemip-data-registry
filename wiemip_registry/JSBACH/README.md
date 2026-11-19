@@ -1,10 +1,10 @@
 # JSBACH land carbon
 
-The 1pctCO2 `baseline` is the permafrost run (`dynVeg_Wetlands_Permafrost`). Its
+The 1pctCO2 `baseline` is the permafrost run (`dynVeg_Wetlands_Permafrost` until 2026-11-19). Its
 land carbon stock is cLitter + cVeg + cSoil + cSoilFrozen. 
 
-The overshoot `baseline` is the dynamic vegetation run (`dynVeg` is the same
-run). The fixed-vegetation run is `noDynVeg_noWetlands_noPermafrost` there too.
+The overshoot `baseline` is the dynamic vegetation run (`dynVeg` until
+2026-11-19). The fixed-vegetation run is `noDynVeg_noWetlands_noPermafrost` there too.
 
 # JSBACH 1pctCO2 factorial pairs
 

@@ -30,7 +30,6 @@ _RUN_DIR_OVERRIDES = {
 # The permafrost/wetland pair (uploaded 2026-11-02): factorial -> run dir token under pmf/
 _PERMAFROST_RUN_TOKENS = {
     Factorial.baseline.name: "pmf",
-    "dynVeg_Wetlands_Permafrost": "pmf",
     "dynVeg_noWetlands_noPermafrost": "nowet",
 }
 
@@ -39,10 +38,9 @@ _PERMAFROST_FILE_SUFFIX = "_DynVeg_Nitrogen_Fire_Wetlands_Permafrost"
 # The 1pctCO2 baseline until 2026-11-19: fixed vegetation, no wetlands, no permafrost
 _FIXED_VEGETATION = "noDynVeg_noWetlands_noPermafrost"
 
-# Overshoot factorial -> run token; `dynVeg` is the same run as baseline
+# Overshoot factorial -> run token
 _OVERSHOOT_RUN_TOKENS = {
     Factorial.baseline.name: "dynveg",
-    "dynVeg": "dynveg",
     _FIXED_VEGETATION: "",
 }
 
@@ -93,8 +91,6 @@ class JSBACH(core.WIEAdapter):
         Factorial.noFire.name: ("_noFire", "", "_noFire"),
         "dynVeg_noNitrogen": ("_dynveg_noNitrogen", "dynveg_", ""),
         "dynVeg_noFire_noNitrogen": ("_dynveg_noNitrogen_noFire", "dynveg_nofire_", ""),
-        # same run as baseline
-        "dynVeg_Wetlands_Permafrost": ("", "", _PERMAFROST_FILE_SUFFIX),
         "dynVeg_noWetlands_noPermafrost": (
             "",
             "",
@@ -140,10 +136,7 @@ class JSBACH(core.WIEAdapter):
 
     # the permafrost run's cSoil leaves out frozen soil C (QA 2026-11-02), and only that
     # run uploaded cSoilFrozen, so it joins the land carbon stock there alone
-    FACTORIAL_LAND_CARBON = {
-        Factorial.baseline.name: ["cSoilFrozen"],
-        "dynVeg_Wetlands_Permafrost": ["cSoilFrozen"],
-    }
+    FACTORIAL_LAND_CARBON = {Factorial.baseline.name: ["cSoilFrozen"]}
 
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         if variable in self.FIXED:
