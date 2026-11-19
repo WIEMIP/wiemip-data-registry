@@ -67,6 +67,9 @@ _PERMAFROST_PROVISIONAL_NITROGEN = (
 # uploaded with the sign flipped in the permafrost/wetland pair
 _PERMAFROST_NEGATED_METHANE = {"ch4", "wetCH4", "fCH4Fire"}
 
+# water table depth uploaded as negative metres
+_NEGATED = {"wtd"}
+
 # Layer middles [m] from the bucket README's 5-layer table, whose "depth" column is the
 # layer bottom (0.065, 0.319, 1.232, 4.134, 9.834). The files carry bare indices.
 _SOIL_LAYER_DEPTHS = (0.0325, 0.192, 0.7755, 2.683, 6.984)
@@ -205,6 +208,8 @@ class JSBACH(core.WIEAdapter):
             and factorial in _PERMAFROST_RUN_TOKENS
             and variable in _PERMAFROST_NEGATED_METHANE
         ):
+            da = -da
+        if variable in _NEGATED:
             da = -da
         if variable in self.FIXED:
             # the raster spells latitude/longitude, unlike JSBACH's output
