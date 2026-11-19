@@ -27,6 +27,8 @@ class TEM(core.WIEAdapter):
     # fixed fields, `_fx_` on disk with a single time step that read() drops
     FIXED = {"landCoverFrac"}
 
+    LAYERED_VARIABLES = {"soilT"}
+
     def land_carbon_variables(self) -> list[str]:
         """Confirmed with Shuo Chen on 10/08/2026. cVeg and cSoil."""
         return ["cVeg", "cSoil"]
