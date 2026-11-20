@@ -186,6 +186,9 @@ class WIEAdapter(ABC):
     # they are weighted by this run's landCoverFrac before any sum or mean
     PER_PFT_AREA: set[str] = set()
 
+    # BVOC fluxes uploaded as kg of the species where the other models upload kg C
+    SPECIES_TO_CARBON: set[str] = set()
+
     FACTORIAL_LAND_CARBON: dict[str, list[str]] = {}
 
     def disk_simulation(self, simulation: str) -> str:
@@ -703,6 +706,7 @@ class WIEFile:
         the group has not QA'd it. A variable in the adapter's `LAYERED_VARIABLES`
         comes back with its level dim renamed to `soil` (layer-middle depths in m).
         A variable in its `FRACTION_TO_PERCENT` comes back x100 in `%`.
+        A variable in its `SPECIES_TO_CARBON` comes back in kg C.
         """
 
         self._check_provisional()
@@ -729,6 +733,9 @@ class WIEFile:
             da = self._standardize_layers(da)
         if self.variable in self._adapter.FRACTION_TO_PERCENT:
             da = (da * 100).assign_attrs({**da.attrs, "units": "%"})
+        if self.variable in self._adapter.SPECIES_TO_CARBON:
+            species = self.variable.removesuffix("pft")
+            da = (da * const.CARBON_FRACTION_OF_SPECIES[species]).assign_attrs(da.attrs)
         return da
 
     def _standardize_layers(self, da: xr.DataArray) -> xr.DataArray:

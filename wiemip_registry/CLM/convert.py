@@ -94,6 +94,7 @@ class CLM(core.WIEAdapter):
     }
 
     FRACTION_TO_PERCENT = {"burntArea"}
+    SPECIES_TO_CARBON = {"isopr", "terp", "acetone", "methanol"}
 
     # fixed fields: every file carries `landfrac`, served from the weights' cVeg file
     FIXED = {"sftlf"}
