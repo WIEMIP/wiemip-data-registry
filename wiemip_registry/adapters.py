@@ -1,3 +1,4 @@
+from wiemip_registry.BEPS.convert import BEPS
 from wiemip_registry.BiomeE.convert import BiomeE
 from wiemip_registry.CARDAMOM_JPL.convert import CARDAMOM_JPL
 from wiemip_registry.CLASSIC.convert import CLASSIC
@@ -19,7 +20,7 @@ from wiemip_registry.TEM.convert import TEM
 from wiemip_registry.VISIT_UT.convert import VISIT_UT
 
 adapters = {
-    # "BEPS": BEPS() -> still re-running,
+    "BEPS": BEPS(),
     "BiomeE": BiomeE(),
     "CARDAMOM_JPL": CARDAMOM_JPL(),
     "CLASSIC": CLASSIC(),
