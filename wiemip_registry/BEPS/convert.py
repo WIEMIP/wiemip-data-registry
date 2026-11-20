@@ -9,13 +9,17 @@ MODEL = "BEPS"
 _OUTPUT = DATA_ROOT
 
 MONTHLY = {"wetfrac"}
+ANNUAL = {"cOther", "canopyheightTotal", "highcoverTotal"}
 
 
 class BEPS(core.WIEAdapter):
     model = MODEL
     LAT, LON = "latitude", "longitude"
     DECODE = True
-    FACTORIALS = {Factorial.baseline.name: "_noDynVeg_noFire"}
+    FACTORIALS = {
+        Factorial.baseline.name: "_noDynVeg",
+        Factorial.noPermafrost.name: "_noDynVeg_noPermafrost",
+    }
 
     def land_carbon_variables(self) -> list[str]:
         return ["cVeg", "cLitter", "cSoil"]
@@ -23,14 +27,16 @@ class BEPS(core.WIEAdapter):
     def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
         suffix = self.FACTORIALS[factorial]
         cadence = (
-            "yr" if core.is_annual(variable) and variable not in MONTHLY else "mon"
+            "yr"
+            if (core.is_annual(variable) or variable in ANNUAL)
+            and variable not in MONTHLY
+            else "mon"
         )
         return str(
             _OUTPUT
             / "1pctCO2"
             / "output"
             / MODEL
-            / simulation
             / f"BEPS_{forcing}_{simulation}_{variable}_{cadence}{suffix}_1.nc"
         )
 
