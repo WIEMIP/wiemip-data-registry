@@ -11,6 +11,14 @@ CSV_ROOT = Path(os.environ.get("WIEMIP_CSV_PATH", "/srv/wiemip-csv"))
 
 SPY = 365 * 86400.0  # seconds per year: flux rate -> annual integral
 PG = 1e12  # 1 Pg = 1e12 kg
+
+# kg C per kg of the emitted species
+CARBON_FRACTION_OF_SPECIES = {
+    "isopr": 5 * 12.011 / 68.119,  # isoprene, C5H8
+    "terp": 10 * 12.011 / 136.238,  # monoterpenes, C10H16
+    "acetone": 3 * 12.011 / 58.080,  # C3H6O
+    "methanol": 12.011 / 32.042,  # CH4O
+}
 FILL_FLOOR = -1e3  # no physical stock/flux is below this; sentinel fills
 # (BiomeE -1e5, JULES -9999, stray -99999) -> NaN.
 

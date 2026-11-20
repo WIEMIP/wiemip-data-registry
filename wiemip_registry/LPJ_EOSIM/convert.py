@@ -32,6 +32,7 @@ class LPJ_EOSIM(core.WIEAdapter):
 
     LAYERED_VARIABLES = {"soilT", "soilIce", "soilMoist"}
     FRACTION_TO_PERCENT = {"burntArea"}
+    SPECIES_TO_CARBON = {"isopr", "isoprpft", "terp", "terppft"}
 
     MONTHLY = {"wetfrac", "nInorgSoil"}
     ANNUAL = {"docFlux", "fN2OFire"}
