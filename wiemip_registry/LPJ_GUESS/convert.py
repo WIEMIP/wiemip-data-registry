@@ -87,6 +87,45 @@ _OVERSHOOT_FILENAME_OVERRIDES = {
     ("LPJ_GUESS_UKESM_Overshoot_HL_CF", "nVegpft"): (
         "LPJ-GUESS_UKESM_Overshoot_HL_CF_nvegpft_yr_05deg.nc"
     ),
+    ("LPJ_GUESS_CRUJRA3_Overshoot_control", "fN2O"): (
+        "LPJ-GUESS_CRUJRA3_Control_fn2O_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_CRUJRA3_Overshoot_control", "fNnetmin"): (
+        "LPJ-GUESS_CRUJRA3_Control_fNNetmin_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL", "fNnetmin"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_fnNetmin_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_HL", "nbp"): (
+        "LPJ-GUESS_UKESM_Overshoot_HL_fBNP_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "evapo"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_evap_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "fN2O"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_fN2O_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "fNloss"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_Nloss_yr_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_Overshoot_med", "fNnetmin"): (
+        "LPJ-GUESS_UKESM_Overshoot_M_fnNetmin_yr_05deg.nc"
+    ),
+}
+
+_OVERSHOOT_VARIABLE_TOKENS = {
+    "fNleach": "Nleach",
+    "fN2OFire": "fN2Ofire",
+    "nbp": "fNBP",
+    "nInorgSoil": "nInorg",
+    "soilT": "SoilT",
+}
+
+_ONE_PCT_FILENAME_OVERRIDES = {
+    ("LPJ_GUESS_Stable_BGC-NoDynVeg", "gpp"): (
+        "LPJ-GUESS_Stable_1pctCO2_BGC_NoDynVeg_gpp_mon_05deg.nc"
+    ),
+    ("LPJ_GUESS_UKESM_1pctCO2-COU", "laipft"): "mlai_pft.nc",
 }
 
 # Hotfix, an exception to returning data unmodified (Tom, 2026-10-27): the BVOC fluxes
@@ -121,6 +160,7 @@ class LPJ_GUESS(core.WIEAdapter):
     # last six arrived 2026-11-01, the block after them 2026-11-16); the ctrl
     # equivalents are spelled like every other file in their run.
     _DIR_STYLE_PREFIX = {
+        "cLitter",
         "cLitterpft",
         "landCoverFrac",
         "ch4",
@@ -199,9 +239,16 @@ class LPJ_GUESS(core.WIEAdapter):
         ("cou", "baseline", "fNnetmin"): "fNetmin_yr_05deg",
         ("bgc", "baseline", "soilT"): "SoilT_mon_05deg",
         ("cou", "baseline", "soilT"): "SoilT_mon_05deg",
+        ("ctrl", "baseline", "fN2O"): "fN20_yr_05deg",
+        ("ctrl", "baseline", "fNnetmin"): "fNetmin_yr_05deg",
+        ("ctrl", "baseline", "soilT"): "SoilT_yr_05deg",
     }
 
     _RUN_OVERRIDES = {
+        ("ctrl", "baseline"): (
+            "LPJ_GUESS_stable_1pctCO2-CTRL",
+            "LPJ-GUESS_stable_1pctco2_control",
+        ),
         ("ctrl", "noFire"): (
             "LPJ_GUESS_Stable_1pctCO2_Control-Nofire",
             "LPJ-GUESS_Stable_1pctCO2_Control_Nofire",
@@ -280,7 +327,8 @@ class LPJ_GUESS(core.WIEAdapter):
         name = self._FILENAME_OVERRIDES.get(
             (simulation, factorial, variable), f"{variable}_{cadence}_05deg"
         )
-        return str(_OUTPUT / "1pctCO2" / "output" / _DIR / run / f"{prefix}_{name}.nc")
+        fname = _ONE_PCT_FILENAME_OVERRIDES.get((run, variable), f"{prefix}_{name}.nc")
+        return str(_OUTPUT / "1pctCO2" / "output" / _DIR / run / fname)
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
         if simulation in _CRUJRA_FORCED_SIMULATIONS:
@@ -291,13 +339,15 @@ class LPJ_GUESS(core.WIEAdapter):
             simulation, (f"Overshoot_{simulation}", f"Overshoot_{simulation.upper()}")
         )
         run = f"{MODEL}_{gcm}_{run_token}"
-        cadence = "yr" if core.is_annual(variable) else "mon"
+        annual = core.is_annual(variable) or variable in self._ANNUAL
+        cadence = "yr" if annual else "mon"
         if variable == "wetCH4":
             variable = "ch4"
         elif variable == "ch4":
             raise core.MissingVariableError("no ch4 file for overshoot")
+        token = _OVERSHOOT_VARIABLE_TOKENS.get(variable, variable)
         fname = _OVERSHOOT_FILENAME_OVERRIDES.get(
-            (run, variable), f"{_DIR}_{gcm}_{file_token}_{variable}_{cadence}_05deg.nc"
+            (run, variable), f"{_DIR}_{gcm}_{file_token}_{token}_{cadence}_05deg.nc"
         )
         return str(_OUTPUT / "overshoot" / "output" / _DIR / run / fname)
 
