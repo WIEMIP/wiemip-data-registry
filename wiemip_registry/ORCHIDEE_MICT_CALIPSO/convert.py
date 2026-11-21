@@ -6,7 +6,12 @@ import numpy as np
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial, GCMPattern
+from wiemip_registry.const import (
+    DATA_ROOT,
+    ONE_PERCENT_CO2_KEY,
+    Factorial,
+    GCMPattern,
+)
 
 MODEL = "ORCHIDEE-MICT-CALIPSO"
 _PREFIX = "ORCHIDEE"
@@ -14,9 +19,13 @@ _OUTPUT = DATA_ROOT
 
 _SIMULATION_TOKENS = {"bgc": "bgc", "cou": "cou", "ctrl": "stable_ctrl"}
 
+_OVERSHOOT_SIMULATION_TOKENS = {"l": "low"}
+
 _FIXED_RUN = "stable_ctrl_deepsoc"
 
 _SOIL_CARBON_TERMS = ("cSoilpft", "maxvegetfrac")
+
+_GLOBAL_LATITUDES = np.arange(89.5, -90, -1.0)
 
 _TO_KG_PER_SECOND = {
     "gC/m^2/s": 1e-3,
@@ -45,7 +54,16 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
         ("1pctCO2", "cSoilBelow1m"),
     )
 
-    wiemip_to_orchidee_variable_mapping = {"sftlf": "CONTFRAC"}
+    wiemip_to_orchidee_variable_mapping = {
+        "sftlf": "CONTFRAC",
+        "cOther": "cMisc",
+        "cLitterpft": "cLitter_pft",
+        "gpppft": "gpp_ORC",
+        "laipft": "lai_ORC",
+        "landCoverFrac": "VEGET_COV_MAX",
+        "qsb": "drainage",
+        "rainf": "rain",
+    }
 
     def __init__(self):
         self._units_seen: dict[str, str] = {}
@@ -72,8 +90,15 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
         fname = f"{_PREFIX}_{run}_{self._get_variable(variable)}_{cadence}.nc"
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / f"{_PREFIX}_{run}" / fname)
 
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        simulation_token = _OVERSHOOT_SIMULATION_TOKENS.get(simulation, simulation)
+        if forcing != GCMPattern.ukesm.name:
+            simulation_token = f"{forcing}_{simulation_token}"
+        fname = f"{variable}_{_PREFIX}_{simulation_token}_day_1deg.nc"
+        return str(_OUTPUT / "overshoot" / "output" / MODEL / fname)
+
     def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
-        if variable == "cSoil":
+        if variable == "cSoil" and experiment == ONE_PERCENT_CO2_KEY:
             return [
                 self.path(experiment, simulation, forcing, factorial, term)
                 for term in _SOIL_CARBON_TERMS
@@ -87,7 +112,7 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
-        if variable == "cSoil":
+        if variable == "cSoil" and experiment == ONE_PERCENT_CO2_KEY:
             soil_by_pft, vegetation_fraction = (
                 self.read(experiment, simulation, forcing, factorial, term)
                 for term in _SOIL_CARBON_TERMS
@@ -102,7 +127,12 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
             self.path(experiment, simulation, forcing, factorial, variable),
             decode_times=self.DECODE,
         )
-        da = core.mask_fill(ds[self._get_variable(variable)])
+        name = (
+            self._get_variable(variable)
+            if experiment == ONE_PERCENT_CO2_KEY
+            else variable
+        )
+        da = core.mask_fill(ds[name])
         self._units_seen[variable] = da.attrs.get("units", "")
         if variable in self.FIXED:
             return core.rename_latlon(da, self.LAT, self.LON).transpose("lat", "lon")
@@ -122,9 +152,15 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
         return self.path("1pctCO2", "ctrl", "stable", "baseline", "Areas")
 
     def _compute_weights(self) -> xr.DataArray:
-        """Provided cell area [m²] (NaN off land) × continental fraction."""
+        """Provided cell area [m²] × continental fraction, spherical cell area elsewhere."""
         cell_area = self.read("1pctCO2", "ctrl", "stable", "baseline", "Areas").load()
         land_fraction = self.read(
             "1pctCO2", "ctrl", "stable", "baseline", "CONTFRAC"
         ).load()
-        return cell_area * land_fraction
+        globe = xr.DataArray(
+            dims=("lat", "lon"),
+            coords={"lat": _GLOBAL_LATITUDES, "lon": cell_area["lon"]},
+        )
+        return (cell_area * land_fraction).combine_first(
+            core.spherical_area(globe, "lat", "lon")
+        )
