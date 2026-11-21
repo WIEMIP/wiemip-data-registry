@@ -13,8 +13,19 @@ _OUTPUT = DATA_ROOT
 
 _ONE_PCT_YEARS = slice("1850", "2000")
 
-_POOL_SPLITS = {
-    "rhPools": {"cwd": "rhPoolsCWD", "litter": "rhPoolsLitter", "som": "rhPoolsSom"},
+_SPLITS = {
+    "rhPools": (
+        "pool",
+        {"cwd": "rhPoolsCWD", "litter": "rhPoolsLitter", "som": "rhPoolsSom"},
+    ),
+    "mrsoLayer": (
+        "layer",
+        {1: "mrsoLayer1", 2: "mrsoLayer2", 3: "mrsoLayer3"},
+    ),
+    "soilT": (
+        "layer",
+        {1: "soilTLayer1", 2: "soilTLayer2", 3: "soilTLayer3"},
+    ),
 }
 
 
@@ -36,7 +47,8 @@ class CARDAMOM_JPL(core.WIEAdapter):
         return str(_OUTPUT / "1pctCO2" / "output" / MODEL / fname)
 
     def paths(self, experiment, simulation, forcing, factorial, variable) -> list[str]:
-        file_variables = _POOL_SPLITS.get(variable, {variable: variable}).values()
+        _, split = _SPLITS.get(variable, (None, {variable: variable}))
+        file_variables = split.values()
         return [
             self.path(experiment, simulation, forcing, factorial, file_variable)
             for file_variable in file_variables
@@ -60,13 +72,13 @@ class CARDAMOM_JPL(core.WIEAdapter):
     def read(
         self, experiment, simulation, forcing, factorial, variable
     ) -> xr.DataArray:
-        if variable in _POOL_SPLITS:
-            split = _POOL_SPLITS[variable]
+        if variable in _SPLITS:
+            dim, split = _SPLITS[variable]
             pools = [
                 self._read_one(experiment, simulation, forcing, factorial, file_var)
                 for file_var in split.values()
             ]
-            labels = xr.DataArray(list(split), dims="pool", name="pool")
+            labels = xr.DataArray(list(split), dims=dim, name=dim)
             return xr.concat(pools, dim=labels).rename(variable)
         return self._read_one(experiment, simulation, forcing, factorial, variable)
 
