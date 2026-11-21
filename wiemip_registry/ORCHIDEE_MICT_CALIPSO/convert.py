@@ -12,6 +12,7 @@ from wiemip_registry.const import (
     Factorial,
     GCMPattern,
 )
+from wiemip_registry.variables import VARIABLES
 
 MODEL = "ORCHIDEE-MICT-CALIPSO"
 _PREFIX = "ORCHIDEE"
@@ -52,6 +53,10 @@ class ORCHIDEE_MICT_CALIPSO(core.WIEAdapter):
         ("1pctCO2", "cSoilPools"),
         ("1pctCO2", "cSoilAbove1m"),
         ("1pctCO2", "cSoilBelow1m"),
+    ) + tuple(
+        ("overshoot", variable, None, simulation, GCMPattern.ukesm.name)
+        for simulation in ("hl", "hl_ctap", "m")
+        for variable in VARIABLES
     )
 
     wiemip_to_orchidee_variable_mapping = {
