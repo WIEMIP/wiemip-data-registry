@@ -81,6 +81,9 @@ class JULES(core.WIEAdapter):
             ("soilT", "baseline"),
             ("terp", "Fire0336"),
             ("terppft", "baseline"),
+            ("fNloss", "noFire_noNitrogen"),
+            ("fNloss", "noNitrogen_addPermafrostC"),
+            ("fNloss", "noNitrogen_noPermafrostC"),
         )
     ) + tuple(
         ("overshoot", variable, "noFire", "vl", "gfdl")
