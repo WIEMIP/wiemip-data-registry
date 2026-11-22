@@ -5,10 +5,11 @@ from __future__ import annotations
 import xarray as xr
 
 from wiemip_registry import core
-from wiemip_registry.const import DATA_ROOT, Factorial
+from wiemip_registry.const import DATA_ROOT, Factorial, GCMPattern
 
 MODEL = "BEPS"
 _OUTPUT = DATA_ROOT / "1pctCO2" / "output" / MODEL
+_OVERSHOOT_OUTPUT = DATA_ROOT / "overshoot" / "output" / MODEL
 
 _SOIL_CONFIGURATIONS = {20: "layered", 1: "bucket"}
 
@@ -41,17 +42,28 @@ class BEPS(core.WIEAdapter):
     def land_carbon_variables(self) -> list[str]:
         return ["cVeg", "cSoil"]
 
-    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+    def _cadence(self, variable) -> str:
         if variable in self.MONTHLY:
-            cadence = "mon"
-        elif variable in self.ANNUAL or core.is_annual(variable):
-            cadence = "yr"
-        else:
-            cadence = "mon"
+            return "mon"
+        if variable in self.ANNUAL or core.is_annual(variable):
+            return "yr"
+        return "mon"
+
+    def one_pct_path(self, simulation, forcing, factorial, variable) -> str:
+        cadence = self._cadence(variable)
         token = self.FACTORIALS[factorial]
         return str(
             _OUTPUT / f"BEPS_{forcing}_{simulation}_{variable}_{cadence}_{token}_1.nc"
         )
+
+    def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
+        run = (
+            f"BEPS_{simulation}"
+            if forcing == GCMPattern.ukesm.name
+            else f"BEPS_{forcing}_{simulation}"
+        )
+        fname = f"{run}_{variable}_{self._cadence(variable)}_1.nc"
+        return str(_OVERSHOOT_OUTPUT / run / fname)
 
     def _time(self, ds: xr.Dataset):
         return ds["time"].values
