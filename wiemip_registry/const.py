@@ -69,6 +69,13 @@ STOCKS = {
 }
 ONE_PERCENT_CO2_KEY = "1pctCO2"
 
+# fire gases derived from fFire with NEIVA emission ratios (fire_emissions.py), for every model
+NEIVA_VARIABLES = {
+    "fCH4Fire_neiva": "CH4",
+    "fN2OFire_neiva": "N2O",
+    "fCO2Fire_neiva": "CO2",
+}
+
 # Variables written at ANNUAL cadence (the `yr`/`ann` filename token); everything
 # else is monthly (`mon`). Cadence is INDEPENDENT of the STOCKS split above: a pool
 # is usually annual but `landCoverFrac`/`wetfrac` are annual without being amounts,

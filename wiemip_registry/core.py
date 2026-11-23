@@ -669,17 +669,27 @@ class WIEFile:
         return self._adapter.disk_simulation(self.simulation)
 
     @property
+    def file_variable(self) -> str:
+        """The variable whose file(s) back this one: fFire for the NEIVA fire gases."""
+        return "fFire" if self.variable in const.NEIVA_VARIABLES else self.variable
+
+    @property
     def path(self) -> str:
-        """Resolved bucket path, delegated to the model's adapter."""
-        return str(
+        """Resolved bucket path, delegated to the model's adapter. A NEIVA fire gas has
+        no file of its own: its path is fFire's with the variable appended, which only
+        names its CSV cache."""
+        path = str(
             self._adapter.path(
                 self.experiment,
                 self.disk_simulation,
                 self.forcing,
                 self.factorial,
-                self.variable,
+                self.file_variable,
             )
         )
+        if self.variable in const.NEIVA_VARIABLES:
+            path = str(Path(path).with_suffix("")) + f"_{self.variable}.nc"
+        return path
 
     @property
     def paths(self) -> list[str]:
@@ -691,7 +701,7 @@ class WIEFile:
                 self.disk_simulation,
                 self.forcing,
                 self.factorial,
-                self.variable,
+                self.file_variable,
             )
         ]
 
@@ -710,6 +720,11 @@ class WIEFile:
         """
 
         self._check_provisional()
+
+        if self.variable in const.NEIVA_VARIABLES:
+            from wiemip_registry import fire_emissions
+
+            return fire_emissions.read_neiva(self)
 
         if not self.exists():
             if self.invalid_combination:
