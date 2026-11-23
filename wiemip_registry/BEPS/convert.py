@@ -36,12 +36,7 @@ class BEPS(core.WIEAdapter):
         "fch4layer",
     }
 
-    # BVOC units not stated (kg species or kg C), and isoprene is below monoterpenes
-    PROVISIONAL_DATA = tuple(
-        (experiment, variable)
-        for experiment in ("1pctCO2", "overshoot")
-        for variable in ("isopr", "isoprpft", "terp", "terppft")
-    )
+    SPECIES_TO_CARBON = {"isopr", "isoprpft", "terp", "terppft"}
 
     MONTHLY = {"wetfrac"}
     ANNUAL = {"cOther", "canopyheightTotal", "highcoverTotal"}
