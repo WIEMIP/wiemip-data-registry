@@ -245,13 +245,14 @@ def neiva(
         )
         out = fFire * f.where(cveg_ref.notnull())
         method = "latitude"
-    return (
-        (out * M[gas])
-        .rename(f"f{gas}Fire")
-        .assign_attrs(
-            units=UNITS[gas], source=f"NEIVA {method}", ffire_basis=ffire_basis
-        )
+    emission = (out * M[gas]).rename(f"f{gas}Fire")
+    emission.attrs = dict(
+        long_name=f"{gas} emission from fire (fFire x NEIVA emission ratio)",
+        units=UNITS[gas],
+        source=f"NEIVA {method}",
+        ffire_basis=ffire_basis,
     )
+    return emission
 
 
 def _lat_factor(lat, gas, forest, Fb):
