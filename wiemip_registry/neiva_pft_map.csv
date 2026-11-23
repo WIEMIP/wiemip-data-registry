@@ -1,0 +1,196 @@
+model;pft;neiva;comment
+JULES;1;forest;Broadleaf deciduous tree - tropical or temperate - by latitude
+JULES;2;tropical_forest;Tropical broadleaf evergreen tree
+JULES;3;temperate_forest;Temperate broadleaf evergreen tree
+JULES;4;forest;Needleleaf deciduous tree - boreal or temperate - by latitude
+JULES;5;forest;Needleleaf evergreen tree - boreal or temperate - by latitude
+JULES;6;savanna;C3 natural grass
+JULES;7;crop_residue;C3 crop
+JULES;8;pasture_maintenance;C3 pasture - check: NEIVA pasture maintenance is tropical deforestation-type burning
+JULES;9;savanna;C4 natural grass
+JULES;10;crop_residue;C4 crop
+JULES;11;pasture_maintenance;C4 pasture - check: NEIVA pasture maintenance is tropical deforestation-type burning
+JULES;12;chaparral;Deciduous shrub
+JULES;13;chaparral;Evergreen shrub
+JSBACH;1;tropical_forest;Tropical_Evergreen_Trees
+JSBACH;2;tropical_forest;Tropical_Deciduous_Trees
+JSBACH;3;forest;ExtraTropical_Evergreen_Trees - temperate or boreal by latitude
+JSBACH;4;forest;ExtraTropical_Deciduous_Trees - temperate or boreal by latitude
+JSBACH;5;savanna;Raingreen_Shrubs - dry tropical shrubs
+JSBACH;6;nonforest;Deciduous_Shrubs - mainly tundra/boreal: boreal >=60 deg
+JSBACH;7;nonforest;C3_Grass - incl. arctic grass: boreal >=60 deg
+JSBACH;8;savanna;C4_Grass
+JSBACH;9;savanna;C3_Pasture - or pasture_maintenance (decide consistently for all models)
+JSBACH;10;savanna;C4_Pasture - or pasture_maintenance (decide consistently for all models)
+JSBACH;11;crop_residue;C3_Crop
+LPJ_EOSIM;1;tropical_forest;tropical broadleaved evergreen tree
+LPJ_EOSIM;2;tropical_forest;tropical broadleaved raingreen tree
+LPJ_EOSIM;3;temperate_forest;temperate needleleaved evergreen tree
+LPJ_EOSIM;4;temperate_forest;temperate broadleaved evergreen tree
+LPJ_EOSIM;5;temperate_forest;temperate broadleaved summergreen tree
+LPJ_EOSIM;6;boreal_forest;boreal needleleaved evergreen tree
+LPJ_EOSIM;7;boreal_forest;boreal broadleaved summergreen tree
+LPJ_EOSIM;8;boreal_forest;boreal needleleaved summergreen tree
+LPJ_EOSIM;9;nonforest;C3 perennial grass
+LPJ_EOSIM;10;savanna;C4 perennial grass
+LPX_Bern;1;tropical_forest;tropical broad evergreen TrBE
+LPX_Bern;2;tropical_forest;tropical broad raingreen TrBR
+LPX_Bern;3;temperate_forest;temperate needle evergreen TeNE
+LPX_Bern;4;temperate_forest;temperate broad evergreen TeBE
+LPX_Bern;5;temperate_forest;temperate broad summergreen TeBS
+LPX_Bern;6;boreal_forest;boreal needle evergreen BoNE
+LPX_Bern;7;boreal_forest;boreal needle summergreen BoNS
+LPX_Bern;8;boreal_forest;boreal broad summergreen BoBS
+LPX_Bern;9;nonforest;any herbaceous any (C) TeH
+LPX_Bern;10;savanna;any herbaceous any (C) TrH
+LPX_Bern;11;peat;any herbaceous any Gram
+LPX_Bern;12;peat;any moss any Spha
+LPX_Bern;13;tropical_forest;tropical broad evergreen,  f.t. TrBEF
+LPX_Bern;14;tropical_forest;tropical broad raingreen,  f.t. TrBRF
+LPX_Bern;15;savanna;any herbaceous any,  f.t. TrHFt
+LPX_Bern;16;tropical_forest;tropical broad evergreen TrBE-P.O.
+LPX_Bern;17;tropical_forest;tropical broad raingreen TrBR-P.O.
+LPX_Bern;18;temperate_forest;temperate needle evergreen TeNE-P.O.
+LPX_Bern;19;temperate_forest;temperate broad evergreen TeBE-P.O.
+LPX_Bern;20;temperate_forest;temperate broad summergreen TeBS-P.O.
+LPX_Bern;21;boreal_forest;boreal needle evergreen BoNE-P.O.
+LPX_Bern;22;boreal_forest;boreal needle summergreen BoNS-P.O.
+LPX_Bern;23;boreal_forest;boreal broad summergreen BoS-P.O.
+LPX_Bern;24;nonforest;any herbaceous any (C) TeH-P.O.
+LPX_Bern;25;savanna;any herbaceous any (C) TrH-P.O.
+LPX_Bern;26;crop_residue;temperate herbaceous any TeCr
+LPX_Bern;27;crop_residue;tropical herbaceous any TrCr
+LPX_Bern;28;savanna;temperate herbaceous any TePa
+LPX_Bern;29;savanna;tropical herbaceous any TrPa
+LPX_Bern;30;none;Built
+LPJ_GUESS;C3G_pas;nonforest;Cool (C3) pasture grass - C3 pasture - savanna <60 deg, boreal >=60 deg
+LPJ_GUESS;C4G_pas;savanna;Warm (C4) pasture grass - C4 pasture
+LPJ_GUESS;BNS;boreal_forest;Boreal needleleaved summergreen tree
+LPJ_GUESS;IBS;forest;Shade-intolerant broadleaved summergreen tree - temperate or boreal - by latitude
+LPJ_GUESS;TeBS;temperate_forest;Shade-tolerant temperate broadleaved summergreen tree
+LPJ_GUESS;BNE;boreal_forest;Boreal needleleaved evergreen tree (shade_tolerant)
+LPJ_GUESS;BINE;boreal_forest;Boreal needleleaved evergreen tree (shade_intolerant)
+LPJ_GUESS;HSE;nonforest;Tall shrub, evergreen - arctic shrub - boreal >=60 deg
+LPJ_GUESS;HSS;nonforest;Tall shrub, summergreen - arctic shrub - boreal >=60 deg
+LPJ_GUESS;LSE;nonforest;Low shrub, evergreen - arctic shrub - boreal >=60 deg
+LPJ_GUESS;LSS;nonforest;Low shrub, summergreen - arctic shrub - boreal >=60 deg
+LPJ_GUESS;GRT;nonforest;Graminoid and forb tundra - tundra - boreal >=60 deg
+LPJ_GUESS;EPDS;nonforest;Prostrate dwarf shrubs (Vaccinium, Cassiope, Dryas, Saxifraga) - tundra - boreal >=60 deg
+LPJ_GUESS;SPDS;nonforest;Prostrate dwarf shrubs (Salix arctica, Arctostaphylos, Salix reticulata) - tundra - boreal >=60 deg
+LPJ_GUESS;CLM;peat;Cushion forb, lichen and moss tundra (peatlands) - peatland PFT - same peat decision as for all models
+LPJ_GUESS;CC3ann;crop_residue;LUH2 c3ann: C3 annual crop
+LPJ_GUESS;CC3per;crop_residue;LUH2 c3per: C3 perennial crop
+LPJ_GUESS;CC3nfx;crop_residue;LUH2 c3nfx: C3 nitrogen fixers
+LPJ_GUESS;CC4ann;crop_residue;LUH2 c4ann: C4 annual crop
+LPJ_GUESS;CC4per;crop_residue;LUH2 c4per: C4 perennial crop
+LPJ_GUESS;CC3anni;crop_residue;LUH2 c3ann: C3 annual crop irrigated
+LPJ_GUESS;CC3peri;crop_residue;LUH2 c3per: C3 perennial crop (irrigated)
+LPJ_GUESS;CC3nfxi;crop_residue;LUH2 c3nfx: C3 nitrogen fixers irrigated
+LPJ_GUESS;CC4anni;crop_residue;LUH2 c4ann: C4 annual crop irrigated
+LPJ_GUESS;CC4peri;crop_residue;LUH2 c4per: C4 perennial crop (irrigated)
+LPJ_GUESS;CC3G_ic;crop_residue;C3 grass in cropland
+LPJ_GUESS;CC4G_ic;crop_residue;C4 grass in cropland
+LPJ_GUESS;Np_moss;nonforest;Moss (non-peatland) - tundra moss - boreal >=60 deg
+LPJ_GUESS;pLSE;peat;"Low shrub, evergreen (2nd entry - peatland tile?) - peatland PFT? - check; else nonforest"
+LPJ_GUESS;pLSS;peat;"Low shrub, summergreen (2nd entry - peatland tile?) - peatland PFT? - check; else nonforest"
+LPJ_GUESS;pCLM;peat;"Cushion forb, lichen and moss tundra (2nd entry - peatland tile?) - peatland PFT? - check; else nonforest"
+LPJ_GUESS;WetGRS;peat;Cool, flood-tolerant (C3) grass - wetland/peatland PFT - same peat decision as for all models
+LPJ_GUESS;pmoss;peat;Moss - peatland moss - same peat decision as for all models
+LPJ_GUESS;C3G_wet;peat;Cool (C3) peatland grass - peatland PFT - same peat decision as for all models
+LPJ_GUESS;C4G_wet;peat;Warm (C4) peatland grass - peatland PFT - same peat decision as for all models
+LPJ_GUESS;TeNE;temperate_forest;Temperate broadleaved evergreen tree
+LPJ_GUESS;TeBE;temperate_forest;Temperate needleleaved evergreen tree
+LPJ_GUESS;TrBE;tropical_forest;Tropical broadleaved evergreen tree (shade_tolerant)
+LPJ_GUESS;TrIBE;tropical_forest;Tropical broadleaved evergreen tree (shade_intolerant)
+LPJ_GUESS;TrBR;tropical_forest;Tropical broadleaved raingreen tree
+LPJ_GUESS;C3G;nonforest;Cool (C3) grass - savanna <60 deg, boreal >=60 deg
+LPJ_GUESS;C4G;savanna;Warm (C4) grass
+LPJmL6;1;tropical_forest;tropical broadleaved evergreen tree
+LPJmL6;2;tropical_forest;tropical broadleaved evergreen tree floodtolerant - peat if on peat swamp - check
+LPJmL6;3;tropical_forest;tropical broadleaved raingreen tree
+LPJmL6;4;temperate_forest;temperate needleleaved evergreen tree
+LPJmL6;5;temperate_forest;temperate broadleaved evergreen tree
+LPJmL6;6;temperate_forest;temperate broadleaved summergreen tree
+LPJmL6;7;boreal_forest;boreal needleleaved evergreen tree
+LPJmL6;8;boreal_forest;boreal broadleaved summergreen tree
+LPJmL6;9;boreal_forest;boreal needleleaved summergreen tree
+LPJmL6;10;savanna;Tropical C4 grass
+LPJmL6;11;savanna;Temperate C3 grass
+LPJmL6;12;boreal_forest;Polar C3 grass - polar grass/tundra - NEIVA boreal
+LPJmL6;13;peat;C3 graminoid flood tolerant - peatland PFT - same peat decision as for all models
+LPJmL6;14;peat;Sphagnum moss - peatland PFT - same peat decision as for all models
+LPJmL6;15;crop_residue;rainfed temperate cereals
+LPJmL6;16;crop_residue;rainfed rice
+LPJmL6;17;crop_residue;rainfed maize
+LPJmL6;18;crop_residue;rainfed tropical cereals
+LPJmL6;19;crop_residue;rainfed pulses
+LPJmL6;20;crop_residue;rainfed temperate roots
+LPJmL6;21;crop_residue;rainfed tropical roots
+LPJmL6;22;crop_residue;rainfed oil crops sunflower
+LPJmL6;23;crop_residue;rainfed oil crops soybean
+LPJmL6;24;crop_residue;rainfed oil crops groundnut
+LPJmL6;25;crop_residue;rainfed oil crops rapeseed
+LPJmL6;26;crop_residue;rainfed sugarcane
+LPJmL6;27;crop_residue;rainfed others
+LPJmL6;28;savanna;rainfed grassland - managed grassland/pasture - same pasture decision as for all models
+LPJmL6;29;crop_residue;rainfed biomass grass - bioenergy grass
+LPJmL6;30;forest;rainfed biomass tree - bioenergy tree plantation - by latitude
+LPJmL6;31;crop_residue;irrigated temperate cereals
+LPJmL6;32;crop_residue;irrigated rice
+LPJmL6;33;crop_residue;irrigated maize
+LPJmL6;34;crop_residue;irrigated tropical cereals
+LPJmL6;35;crop_residue;irrigated pulses
+LPJmL6;36;crop_residue;irrigated temperate roots
+LPJmL6;37;crop_residue;irrigated tropical roots
+LPJmL6;38;crop_residue;irrigated oil crops sunflower
+LPJmL6;39;crop_residue;irrigated oil crops soybean
+LPJmL6;40;crop_residue;irrigated oil crops groundnut
+LPJmL6;41;crop_residue;irrigated oil crops rapeseed
+LPJmL6;42;crop_residue;irrigated sugarcane
+LPJmL6;43;crop_residue;irrigated others
+LPJmL6;44;savanna;irrigated grassland - managed grassland/pasture - same pasture decision as for all models
+LPJmL6;45;crop_residue;irrigated biomass grass - bioenergy grass
+LPJmL6;46;forest;irrigated biomass tree - bioenergy tree plantation - by latitude
+BEPS;conifer evergreen;forest;
+BEPS;conifer deciduous;forest;
+BEPS;broadleaf deciduous;forest;
+BEPS;broadleaf evergreen;forest;
+BEPS;mixed;forest;
+BEPS;shrub;nonforest;
+BEPS;C3 grass;nonforest;
+BEPS;C3 crop;crop_residue;
+BEPS;C4 grass;savanna;
+BEPS;C4 crop;crop_residue;
+BiomeE;1;nonforest;C3G
+BiomeE;2;savanna;C4G
+BiomeE;3;forest;TmE
+BiomeE;4;forest;TrE
+BiomeE;5;forest;TmD
+BiomeE;6;forest;TrD
+BiomeE;7;nonforest;Nfx
+BiomeE;8;savanna;DeS
+CLASSIC;1;forest;needleleaf evergreen
+CLASSIC;2;forest;needleleaf deciduous
+CLASSIC;3;forest;broadleaf evergreen
+CLASSIC;4;forest;broadleaf cold deciduous
+CLASSIC;5;forest;broadleaf drought/dry deciduous
+CLASSIC;6;crop_residue;C3 crop
+CLASSIC;7;crop_residue;C4 crop
+CLASSIC;8;nonforest;C3 grass
+CLASSIC;9;savanna;C4 grass
+CLASSIC;10;none;bareground
+CLM_FATES;1;tropical_forest;broadleaf_evergreen_tropical_tree
+CLM_FATES;2;forest;needleleaf_evergreen_extratrop_tree
+CLM_FATES;3;forest;needleleaf_colddecid_extratrop_tree
+CLM_FATES;4;forest;broadleaf_evergreen_extratrop_tree
+CLM_FATES;5;tropical_forest;broadleaf_hydrodecid_tropical_tree
+CLM_FATES;6;forest;broadleaf_colddecid_extratrop_tree
+CLM_FATES;7;nonforest;broadleaf_evergreen_extratrop_shrub
+CLM_FATES;8;nonforest;broadleaf_hydrodecid_extratrop_shrub
+CLM_FATES;9;nonforest;broadleaf_colddecid_extratrop_shrub
+CLM_FATES;10;boreal_forest;broadleaf_evergreen_arctic_shrub
+CLM_FATES;11;boreal_forest;broadleaf_colddecid_arctic_shrub
+CLM_FATES;12;boreal_forest;arctic_c3_grass
+CLM_FATES;13;nonforest;cool_c3_grass
+CLM_FATES;14;savanna;c4_grass
+CLM_FATES;15;crop_residue;generic_crop

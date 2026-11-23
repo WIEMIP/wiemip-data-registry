@@ -62,6 +62,7 @@ import wiemip_registry.const as const
 from wiemip_registry import core
 from wiemip_registry.adapters import adapters, models
 from wiemip_registry.core import WIEFile
+from wiemip_registry.fire_emissions import fire_emission as fire_emission
 from wiemip_registry.variable_overrides import extra_variables
 from wiemip_registry.variables import VARIABLES as variables
 
