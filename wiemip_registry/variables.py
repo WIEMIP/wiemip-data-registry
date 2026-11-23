@@ -48,6 +48,7 @@ VARIABLES = [
     "fBNF",
     "fCH4Fire",
     "fCH4Fire_neiva",
+    "fCO2Fire_neiva",
     "fFire",
     "fFireCH4pft",
     "fFireCOpft",
