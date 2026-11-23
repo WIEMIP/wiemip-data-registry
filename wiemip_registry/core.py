@@ -521,7 +521,6 @@ def calculate_alt(da):
 
     # Search for the first downward temperature crossing of 0°C
     for k in range(len(da.soil) - 1):
-
         # Temperatures in two adjacent soil layers
         T1 = da.isel(soil=k)
         T2 = da.isel(soil=k + 1)
@@ -673,12 +672,17 @@ class WIEFile:
         """The variable whose file(s) back this one: fFire for the NEIVA fire gases."""
         return "fFire" if self.variable in const.NEIVA_VARIABLES else self.variable
 
+    def _as_neiva(self, path) -> str:
+        if self.variable not in const.NEIVA_VARIABLES:
+            return str(path)
+        return str(
+            Path(path).with_name(Path(path).name.replace("fFire", self.variable, 1))
+        )
+
     @property
     def path(self) -> str:
-        """Resolved bucket path, delegated to the model's adapter. A NEIVA fire gas has
-        no file of its own: its path is fFire's with the variable appended, which only
-        names its CSV cache."""
-        path = str(
+        """Resolved bucket path, delegated to the model's adapter."""
+        return self._as_neiva(
             self._adapter.path(
                 self.experiment,
                 self.disk_simulation,
@@ -687,15 +691,12 @@ class WIEFile:
                 self.file_variable,
             )
         )
-        if self.variable in const.NEIVA_VARIABLES:
-            path = str(Path(path).with_suffix("")) + f"_{self.variable}.nc"
-        return path
 
     @property
     def paths(self) -> list[str]:
         """Every file behind this variable's series (one, unless the model chunked it)."""
         return [
-            str(p)
+            self._as_neiva(p)
             for p in self._adapter.paths(
                 self.experiment,
                 self.disk_simulation,
@@ -722,6 +723,10 @@ class WIEFile:
         self._check_provisional()
 
         if self.variable in const.NEIVA_VARIABLES:
+            if all(os.path.isfile(p) for p in self.paths):
+                return xr.concat(
+                    [xr.open_dataset(p)[self.variable] for p in self.paths], "time"
+                )
             from wiemip_registry import fire_emissions
 
             return fire_emissions.read_neiva(self)
