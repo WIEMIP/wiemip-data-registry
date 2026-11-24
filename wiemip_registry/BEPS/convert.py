@@ -13,7 +13,6 @@ _OVERSHOOT_OUTPUT = DATA_ROOT / "overshoot" / "output" / MODEL
 
 _SOIL_CONFIGURATIONS = {20: "layered", 1: "bucket"}
 
-# hist and hist_ctrl are CRUJRA runs: one directory with no forcing token, filed as ukesm
 _CRUJRA_SIMULATIONS = ("hist", "hist_ctrl")
 
 
@@ -44,7 +43,6 @@ class BEPS(core.WIEAdapter):
     MONTHLY = {"wetfrac"}
     ANNUAL = {"cOther", "canopyheightTotal", "highcoverTotal"}
 
-    # overshoot fixed fields, `_fx_` on disk with a single time step that read() drops
     OVERSHOOT_FIXED = {"landCoverFrac"}
 
     def land_carbon_variables(self) -> list[str]:
@@ -65,7 +63,6 @@ class BEPS(core.WIEAdapter):
         )
 
     def disk_simulation(self, simulation: str) -> str:
-        # the 2026-11-23 futures were uploaded under the new CTAP name (BEPS_ukesm_hl_ctap)
         return simulation
 
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
