@@ -104,7 +104,9 @@ MODEL_SETTINGS = {
     # ensure a single method is used across hist and future
     "JULES": dict(neiva_method="latitude"),
     # per-PFT files hold 5 slots whose PFT differs by cell (pft_code): the PFT table cannot be applied
-    "BEPS": dict(neiva_method="latitude"),
+    # fFire is CO2-carbon only: fCH4Fire / fFire = 6.8 g CH4 / 452 g CO2-C per kg dry matter
+    # (fire_n2o_derivation_README.md: 0.5 kg C per kg DM, CO 100 g and CH4 6.8 g per kg DM)
+    "BEPS": dict(neiva_method="latitude", ffire_basis="CO2"),
     "LPX_Bern": dict(use_pft_flux=False),  # 30 PFTs, monthly: too large for long runs
     # 'MODEL': dict(ffire_basis='CO2'),        # if a model's fFire is CO2-carbon only
     # 'MODEL': dict(retrieve={'factorial': 'P0304'}),   # extra hub argument, if needed
