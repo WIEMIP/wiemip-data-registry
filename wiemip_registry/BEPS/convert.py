@@ -13,6 +13,9 @@ _OVERSHOOT_OUTPUT = DATA_ROOT / "overshoot" / "output" / MODEL
 
 _SOIL_CONFIGURATIONS = {20: "layered", 1: "bucket"}
 
+# hist and hist_ctrl are CRUJRA runs: one directory with no forcing token, filed as ukesm
+_CRUJRA_SIMULATIONS = ("hist", "hist_ctrl")
+
 
 class BEPS(core.WIEAdapter):
     model = MODEL
@@ -41,6 +44,9 @@ class BEPS(core.WIEAdapter):
     MONTHLY = {"wetfrac"}
     ANNUAL = {"cOther", "canopyheightTotal", "highcoverTotal"}
 
+    # overshoot fixed fields, `_fx_` on disk with a single time step that read() drops
+    OVERSHOOT_FIXED = {"landCoverFrac"}
+
     def land_carbon_variables(self) -> list[str]:
         return ["cVeg", "cSoil"]
 
@@ -58,13 +64,17 @@ class BEPS(core.WIEAdapter):
             _OUTPUT / f"BEPS_{forcing}_{simulation}_{variable}_{cadence}_{token}_1.nc"
         )
 
+    def disk_simulation(self, simulation: str) -> str:
+        # the 2026-11-23 futures were uploaded under the new CTAP name (BEPS_ukesm_hl_ctap)
+        return simulation
+
     def overshoot_path(self, simulation, forcing, variable, factorial=None) -> str:
-        run = (
-            f"BEPS_{simulation}"
-            if forcing == GCMPattern.ukesm.name
-            else f"BEPS_{forcing}_{simulation}"
-        )
-        fname = f"{run}_{variable}_{self._cadence(variable)}_1.nc"
+        if simulation in _CRUJRA_SIMULATIONS and forcing == GCMPattern.ukesm.name:
+            run = f"BEPS_{simulation}"
+        else:
+            run = f"BEPS_{forcing}_{simulation}"
+        cadence = "fx" if variable in self.OVERSHOOT_FIXED else self._cadence(variable)
+        fname = f"{run}_{variable}_{cadence}_1.nc"
         return str(_OVERSHOOT_OUTPUT / run / fname)
 
     def _time(self, ds: xr.Dataset):
@@ -86,6 +96,9 @@ class BEPS(core.WIEAdapter):
             decode_times=self.DECODE,
         )
         da = core.mask_fill(ds[variable])
+        if experiment == "overshoot" and variable in self.OVERSHOOT_FIXED:
+            da = core.rename_latlon(da.squeeze("time", drop=True), self.LAT, self.LON)
+            return da.transpose("lat", "lon", ...)
         if variable in self.LAYERED_VARIABLES:
             layer_dim = "layer" if "layer" in da.dims else "nsoil"
             depths = self._layer_depths(da.sizes[layer_dim])
