@@ -724,9 +724,10 @@ class WIEFile:
 
         if self.variable in const.NEIVA_VARIABLES:
             if all(os.path.isfile(p) for p in self.paths):
-                return xr.concat(
+                da = xr.concat(
                     [xr.open_dataset(p)[self.variable] for p in self.paths], "time"
                 )
+                return da.assign_coords(time=to_datetime64(da["time"].values))
             from wiemip_registry import fire_emissions
 
             return fire_emissions.read_neiva(self)
