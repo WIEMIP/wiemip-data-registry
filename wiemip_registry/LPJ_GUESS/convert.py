@@ -155,6 +155,7 @@ class LPJ_GUESS(core.WIEAdapter):
     LAT, LON = "lat", "lon"
     DECODE = False
     FRACTION_TO_PERCENT = {"burntArea"}
+    PROVISIONAL_DATA = (("overshoot", "nbp"),)
 
     # Only the bgc run uses the dir-style prefix, and only on these variables (the
     # last six arrived 2026-11-01, the block after them 2026-11-16); the ctrl
